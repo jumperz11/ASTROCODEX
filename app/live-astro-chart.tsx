@@ -23,6 +23,13 @@ type AstroLevel = {
   kind: "entry" | "trim" | "risk";
 };
 
+type ThesisLevel = {
+  label: string;
+  value: string;
+  kind: "watch" | "upside" | "downside";
+  reason: string;
+};
+
 type ParsedLevel = AstroLevel & {
   high: number;
   low: number;
@@ -104,6 +111,12 @@ function levelFill(kind: AstroLevel["kind"]) {
   return "rgba(255, 176, 0, 0.08)";
 }
 
+function thesisLevelColor(kind: ThesisLevel["kind"]) {
+  if (kind === "upside") return "#7aa2ff";
+  if (kind === "downside") return "#c47dff";
+  return "#7c8798";
+}
+
 function signalLabel(state: SignalState) {
   const labels: Record<SignalState, string> = {
     wait: "WAIT",
@@ -160,6 +173,8 @@ export default function LiveAstroChart({
   freshnessLabel,
   freshnessTone,
   levels,
+  thesisLevels,
+  thesisTrigger,
   forecastTime,
   signalState,
 }: {
@@ -167,6 +182,8 @@ export default function LiveAstroChart({
   freshnessLabel: string;
   freshnessTone: string;
   levels: AstroLevel[];
+  thesisLevels: ThesisLevel[];
+  thesisTrigger: string;
   forecastTime: string;
   signalState: SignalState;
 }) {
@@ -191,6 +208,27 @@ export default function LiveAstroChart({
         .map(parseLevel)
         .filter((level): level is ParsedLevel => level !== null),
     [levels],
+  );
+  const parsedThesisLevels = useMemo(
+    () =>
+      thesisLevels
+        .map((level) => {
+          const parsed = parseLevel({
+            label: level.label,
+            value: level.value,
+            kind: "risk",
+          });
+          return parsed ? { ...parsed, thesisKind: level.kind, reason: level.reason } : null;
+        })
+        .filter(
+          (
+            level,
+          ): level is ParsedLevel & {
+            thesisKind: ThesisLevel["kind"];
+            reason: string;
+          } => level !== null,
+        ),
+    [thesisLevels],
   );
   const eventMarkers = useMemo<SeriesMarker<UTCTimestamp>[]>(
     () =>
@@ -322,17 +360,29 @@ export default function LiveAstroChart({
       series.removePriceLine(line);
     }
 
-    priceLinesRef.current = parsedLevels.map((level) =>
-      series.createPriceLine({
-        price: level.price,
-        color: levelColor(level.kind),
-        lineWidth: 1,
-        lineStyle: LineStyle.Dashed,
-        axisLabelVisible: true,
-        title: level.shortLabel,
-      }),
-    );
-  }, [parsedLevels]);
+    priceLinesRef.current = [
+      ...parsedLevels.map((level) =>
+        series.createPriceLine({
+          price: level.price,
+          color: levelColor(level.kind),
+          lineWidth: 2,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: `ASTRO · ${level.shortLabel}`,
+        }),
+      ),
+      ...parsedThesisLevels.map((level) =>
+        series.createPriceLine({
+          price: level.price,
+          color: thesisLevelColor(level.thesisKind),
+          lineWidth: 1,
+          lineStyle: LineStyle.Dotted,
+          axisLabelVisible: true,
+          title: `MODEL · ${level.shortLabel}`,
+        }),
+      ),
+    ];
+  }, [parsedLevels, parsedThesisLevels]);
 
   useEffect(() => {
     markersRef.current?.setMarkers(eventMarkers);
@@ -394,6 +444,7 @@ export default function LiveAstroChart({
     const controller = new AbortController();
     let disposed = false;
     let socket: WebSocket | null = null;
+    let reconnectTimer = 0;
 
     async function connect() {
       setFeedState("loading");
@@ -495,7 +546,8 @@ export default function LiveAstroChart({
         socket.addEventListener("close", () => {
           if (disposed) return;
           setFeedState("delayed");
-          setFeedNote("Candles loaded · live feed paused");
+          setFeedNote("Candles loaded · reconnecting live price…");
+          reconnectTimer = window.setTimeout(() => void connect(), 3_000);
         });
       } catch (error) {
         if (controller.signal.aborted || disposed) return;
@@ -511,6 +563,7 @@ export default function LiveAstroChart({
     return () => {
       disposed = true;
       controller.abort();
+      window.clearTimeout(reconnectTimer);
       if (socket?.readyState === WebSocket.OPEN) {
         socket.send(
           JSON.stringify({
@@ -536,7 +589,7 @@ export default function LiveAstroChart({
         <div>
           <span className="eyebrow">LIVE ASTRO MAP</span>
           <h2>BTC / USD</h2>
-          <p>Market candles with levels extracted from Astro’s public posts and charts.</p>
+          <p>Live market structure, Astro-confirmed levels, and a separate forward model.</p>
         </div>
         <div className="live-quote" aria-live="polite">
           <span className={`feed-dot ${feedState}`} />
@@ -592,6 +645,11 @@ export default function LiveAstroChart({
             <span>{nextAstroLevel.distance.toFixed(1)}% away</span>
           </div>
         )}
+        <div className="model-trigger-pill">
+          <small>MODEL IS WATCHING</small>
+          <strong>{thesisTrigger}</strong>
+          <span>Inference · not an Astro quote</span>
+        </div>
         {feedState === "error" && (
           <div className="chart-feed-error">
             Live market data is temporarily unavailable. Astro’s validated map remains below.
@@ -607,11 +665,21 @@ export default function LiveAstroChart({
             <strong>{level.value}</strong>
           </div>
         ))}
+        {parsedThesisLevels.map((level) => (
+          <div className="model-level" key={`model-${level.label}-${level.value}`}>
+            <i style={{ background: thesisLevelColor(level.thesisKind) }} />
+            <span>MODEL · {level.shortLabel}</span>
+            <strong>{level.value}</strong>
+            <small>{level.reason}</small>
+          </div>
+        ))}
       </div>
 
       <div className="chart-source-note">
         <span>MARKET · Coinbase public BTC-USD feed</span>
-        <span>ASTRO OVERLAYS · {forecastLabel}</span>
+        <span>SOLID · ASTRO CONFIRMED</span>
+        <span>DOTTED · MODEL THESIS</span>
+        <span>READ · {forecastLabel}</span>
       </div>
     </section>
   );

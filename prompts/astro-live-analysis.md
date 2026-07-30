@@ -14,7 +14,10 @@ Research task
 5. Apply the historical framework below.
 6. Create a timestamped probabilistic reading of what he is most likely to do
    next. Never claim access to private intentions.
-7. Call `save_astro_forecast` with the complete forecast object. Do not claim
+7. Use the verified Coinbase snapshot supplied in the user question to build a
+   separate forward thesis: what the archived playbook suggests Astro would
+   watch next before he posts. This is model inference, never an Astro quote.
+8. Call `save_astro_forecast` with the complete forecast object. Do not claim
    success unless the connector accepts it.
 
 Historical Astro framework
@@ -80,6 +83,16 @@ Evidence discipline
 - Chart overlays must come from Astro's direct text or chart labels. Do not
   populate `levels` with model-created technical analysis. Preserve ranges
   when his chart shows a zone instead of a single price.
+- Populate `thesis` as the compact forward-looking research layer. It must
+  clearly separate `astroConfirmed` from `modelRead`, state the time horizon,
+  name the next observable trigger, and name what breaks the inference.
+- Populate `thesisLevels` only from the supplied verified Coinbase snapshot and
+  the archived framework. These are model-created watch areas, never entries or
+  trade instructions. Each needs a reason. Do not copy a thesis level into
+  `levels`, and never phrase a thesis level as something Astro posted.
+- The forward thesis may anticipate a likely reaction, but it may not claim to
+  predict Astro, create a fresh `long` or `short` signal, or override direct
+  contradictory evidence.
 
 The object passed to `save_astro_forecast` must satisfy its supplied schema.
 After the connector accepts it, return a concise human-readable summary.

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import liveForecast from "./forecast.json";
+import AstroHistory from "./astro-history";
 import LiveAstroChart from "./live-astro-chart";
 
 type Evidence = {
@@ -59,6 +60,20 @@ type Forecast = {
     takeProfit: ExecutionLevel;
     exit: ExecutionLevel;
   };
+  thesis: {
+    horizon: string;
+    regime: string;
+    astroConfirmed: string;
+    modelRead: string;
+    nextTrigger: string;
+    failure: string;
+  };
+  thesisLevels: Array<{
+    label: string;
+    value: string;
+    kind: "watch" | "upside" | "downside";
+    reason: string;
+  }>;
   bias: {
     cyclical: string;
     weekly: string;
@@ -132,6 +147,26 @@ const initialForecast: Forecast = {
       condition: "Runner closes or aggressive short IV returns.",
     },
   },
+  thesis: {
+    horizon: "Intraweek",
+    regime: "Recovery inside a larger unresolved bearish thesis",
+    astroConfirmed:
+      "Astro flipped into Long V, took staged profit, and kept structural Short III public.",
+    modelRead:
+      "The playbook favors protecting any runner while waiting for weekly-open acceptance or a renewed downside trigger.",
+    nextTrigger:
+      "Price reaction at the weekly open and a fresh direct Astro position update.",
+    failure:
+      "A direct full close, aggressive short re-add, or a new thesis that supersedes the dual-book read.",
+  },
+  thesisLevels: [
+    {
+      label: "Weekly-open decision",
+      value: "~65.5K",
+      kind: "watch",
+      reason: "Known objective and likely decision area, not a fresh entry.",
+    },
+  ],
   bias: {
     cyclical: "Range / repair",
     weekly: "Bottoming range",
@@ -286,6 +321,22 @@ function normalizeForecast(report: Forecast): Forecast {
             "A new direct thesis supersedes the current read.",
         },
       },
+    thesis:
+      report.thesis ?? {
+        horizon: "Next public update",
+        regime: report.framework?.phase ?? "Regime not yet classified",
+        astroConfirmed:
+          report.decision?.status ?? "No fresh direct Astro confirmation.",
+        modelRead:
+          report.nextMove ?? "Wait for the next evidence-backed change.",
+        nextTrigger:
+          report.decision?.lookingFor ?? report.waitFor ?? "Fresh direct evidence",
+        failure:
+          report.decision?.risk ??
+          report.invalidation ??
+          "A new direct thesis supersedes this read.",
+      },
+    thesisLevels: report.thesisLevels ?? [],
   };
 }
 
@@ -417,7 +468,8 @@ function PositionJourney({
 
 export default function Home() {
   const [forecast, setForecast] = useState<Forecast>(embeddedForecast);
-  const [activeView, setActiveView] = useState<"desk" | "evidence" | "playbook">("desk");
+  const [activeView, setActiveView] =
+    useState<"desk" | "history" | "evidence" | "playbook">("desk");
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
   const [lastUpdated, setLastUpdated] = useState("Validated Grok snapshot");
@@ -487,7 +539,7 @@ export default function Home() {
   );
   const signalFreshness = useMemo(() => {
     if (!signalCheckedAt) {
-      return { label: "30 MIN MONITOR", tone: "scheduled" };
+      return { label: "VPS CONNECTING", tone: "scheduled" };
     }
     const checked = new Date(signalCheckedAt).getTime();
     if (!Number.isFinite(checked)) {
@@ -528,7 +580,7 @@ export default function Home() {
     }
   }
 
-  function showView(view: "desk" | "evidence" | "playbook") {
+  function showView(view: "desk" | "history" | "evidence" | "playbook") {
     setActiveView(view);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -546,6 +598,7 @@ export default function Home() {
 
         <nav aria-label="Primary navigation">
           <button className={activeView === "desk" ? "active" : ""} onClick={() => showView("desk")}>Now</button>
+          <button className={activeView === "history" ? "active" : ""} onClick={() => showView("history")}>History</button>
           <button className={activeView === "evidence" ? "active" : ""} onClick={() => showView("evidence")}>Evidence</button>
           <button className={activeView === "playbook" ? "active" : ""} onClick={() => showView("playbook")}>Playbook</button>
         </nav>
@@ -631,9 +684,39 @@ export default function Home() {
             freshnessLabel={signalFreshness.label}
             freshnessTone={signalFreshness.tone}
             levels={forecast.levels}
+            thesisLevels={forecast.thesisLevels}
+            thesisTrigger={forecast.thesis.nextTrigger}
             forecastTime={forecast.generatedAt}
             signalState={forecast.signal.state}
           />
+
+          <section className="forward-thesis" aria-label="Forward Astro thesis">
+            <div className="simple-section-head">
+              <div>
+                <span className="eyebrow">ONE STEP AHEAD</span>
+                <h2>What Astro confirmed vs what the playbook suggests next.</h2>
+              </div>
+              <p>{forecast.thesis.horizon} · {forecast.thesis.regime}</p>
+            </div>
+            <div className="forward-thesis-grid">
+              <article className="confirmed">
+                <small>ASTRO CONFIRMED</small>
+                <p>{forecast.thesis.astroConfirmed}</p>
+              </article>
+              <article className="model">
+                <small>OUR MODEL READ</small>
+                <p>{forecast.thesis.modelRead}</p>
+              </article>
+              <article className="trigger">
+                <small>NEXT TRIGGER</small>
+                <p>{forecast.thesis.nextTrigger}</p>
+              </article>
+              <article className="failure">
+                <small>MODEL IS WRONG IF</small>
+                <p>{forecast.thesis.failure}</p>
+              </article>
+            </div>
+          </section>
 
           <section className="execution-map" id="map">
             <div className="simple-section-head">
@@ -747,6 +830,8 @@ export default function Home() {
           </section>
         </div>
       )}
+
+      {activeView === "history" && <AstroHistory />}
 
       {activeView === "evidence" && (
         <section className="evidence-view">

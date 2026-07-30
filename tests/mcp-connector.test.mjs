@@ -234,6 +234,22 @@ test("forecast gate requires direct sources and balanced scenarios", () => {
         condition: "Close only when the public thesis changes.",
       },
     },
+    thesis: {
+      horizon: "Next public update",
+      regime: "Range",
+      astroConfirmed: "Astro published a conditional thesis.",
+      modelRead: "Waiting remains more likely than adding.",
+      nextTrigger: "A direct structure update.",
+      failure: "A new thesis supersedes this read.",
+    },
+    thesisLevels: [
+      {
+        label: "Weekly open watch",
+        value: "65k",
+        kind: "watch",
+        reason: "Framework watch area, not an Astro entry.",
+      },
+    ],
     bias: {
       cyclical: "Range",
       weekly: "Range",

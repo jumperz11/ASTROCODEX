@@ -10,6 +10,7 @@ const forecastPath = join(projectRoot, "public", "forecast.json");
 const stateDirectory =
   process.env.ASTRO_STATE_DIR?.trim() || join(projectRoot, ".astro-runtime");
 const statePath = join(stateDirectory, "state.json");
+const historyPath = join(stateDirectory, "history.json");
 const signalToken = process.env.ASTRO_SIGNAL_TOKEN?.trim() ?? "";
 const host = process.env.ASTRO_SIGNAL_HOST?.trim() || "127.0.0.1";
 const port = Number.parseInt(process.env.ASTRO_SIGNAL_PORT || "8789", 10);
@@ -93,12 +94,32 @@ const server = createServer(async (request, response) => {
     return;
   }
 
-  if (url.pathname !== "/signal") {
+  if (url.pathname !== "/signal" && url.pathname !== "/history") {
     response.writeHead(404).end();
     return;
   }
   if (!authorized(request)) {
     response.writeHead(401).end();
+    return;
+  }
+
+  if (url.pathname === "/history") {
+    try {
+      const history = await readJson(historyPath);
+      response
+        .writeHead(200, {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store",
+        })
+        .end(JSON.stringify(history));
+    } catch {
+      response
+        .writeHead(200, {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store",
+        })
+        .end(JSON.stringify({ updatedAt: null, daily: [], plays: [] }));
+    }
     return;
   }
 

@@ -307,6 +307,25 @@ const forecastSchema = z.object({
       condition: z.string().min(1),
     }),
   }),
+  thesis: z.object({
+    horizon: z.string().min(1),
+    regime: z.string().min(1),
+    astroConfirmed: z.string().min(1),
+    modelRead: z.string().min(1),
+    nextTrigger: z.string().min(1),
+    failure: z.string().min(1),
+  }),
+  thesisLevels: z
+    .array(
+      z.object({
+        label: z.string().min(1),
+        value: z.string().min(1),
+        kind: z.enum(["watch", "upside", "downside"]),
+        reason: z.string().min(1),
+      }),
+    )
+    .min(1)
+    .max(5),
   bias: z.object({
     cyclical: z.string().min(1),
     weekly: z.string().min(1),

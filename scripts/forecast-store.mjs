@@ -84,6 +84,47 @@ export function validateForecast(report) {
     }
   }
 
+  const thesisFields = [
+    "horizon",
+    "regime",
+    "astroConfirmed",
+    "modelRead",
+    "nextTrigger",
+    "failure",
+  ];
+  if (
+    !report.thesis ||
+    typeof report.thesis !== "object" ||
+    Array.isArray(report.thesis)
+  ) {
+    throw new Error("Forecast is missing thesis.");
+  }
+  for (const field of thesisFields) {
+    if (
+      typeof report.thesis[field] !== "string" ||
+      !report.thesis[field].trim()
+    ) {
+      throw new Error(`Forecast thesis is missing ${field}.`);
+    }
+  }
+  if (
+    !Array.isArray(report.thesisLevels) ||
+    report.thesisLevels.length < 1 ||
+    report.thesisLevels.length > 5
+  ) {
+    throw new Error("Forecast must contain one to five thesis levels.");
+  }
+  for (const level of report.thesisLevels) {
+    if (
+      !["watch", "upside", "downside"].includes(level?.kind) ||
+      ["label", "value", "reason"].some(
+        (field) => typeof level?.[field] !== "string" || !level[field].trim(),
+      )
+    ) {
+      throw new Error("Every thesis level must be a labeled model watch area.");
+    }
+  }
+
   const executionFields = ["entry", "takeProfit", "exit"];
   const levelFields = ["state", "level", "condition"];
   if (
