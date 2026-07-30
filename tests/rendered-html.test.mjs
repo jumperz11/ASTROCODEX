@@ -36,39 +36,12 @@ test("server-renders the Astro Intelligence research terminal", async () => {
   assert.match(html, /ASTRO[\s\S]*INTELLIGENCE/);
   assert.match(html, /LIKELY NEXT MOVE/);
   assert.match(html, /ASTRO STACK/);
-  assert.match(html, /What is Astro thinking\?/);
+  assert.match(html, /Ask Astro Intelligence/);
+  assert.match(html, /Grok OAuth/);
+  assert.match(html, /Astro closed short IV/i);
+  assert.match(html, /67\.7K · posted \/ flagged/i);
   assert.match(html, /Human judgment remains the final gate/);
   assert.match(html, /property="og:image"/);
+  assert.doesNotMatch(html, /XAI_API_KEY/);
   assert.doesNotMatch(html, /Your site is taking shape|react-loading-skeleton/);
-});
-
-test("returns a safe timestamped fallback when no Grok key is configured", async () => {
-  const app = await worker();
-  const response = await app.fetch(
-    new Request("http://localhost/api/astro-sync", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        question: "What is Astro likely thinking right now?",
-      }),
-    }),
-    environment,
-    context,
-  );
-
-  assert.equal(response.status, 200);
-  assert.match(response.headers.get("content-type") ?? "", /^application\/json\b/i);
-
-  const report = await response.json();
-  assert.equal(report.mode, "demo");
-  assert.equal(report.stanceTone, "long");
-  assert.equal(report.confidence, 72);
-  assert.equal(
-    report.scenarios.reduce((sum, item) => sum + item.probability, 0),
-    100,
-  );
-  assert.match(report.caveat, /not Astro’s private intent/i);
-  assert.ok(report.evidence.some((item) => item.type === "astro"));
-  assert.ok(report.evidence.some((item) => item.type === "framework"));
-  assert.ok(report.evidence.some((item) => item.type === "inference"));
 });

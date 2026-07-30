@@ -1,0 +1,131 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "market",
+    "stance",
+    "stanceTone",
+    "confidence",
+    "headline",
+    "summary",
+    "nextMove",
+    "invalidation",
+    "waitFor",
+    "bias",
+    "framework",
+    "levels",
+    "evidence",
+    "scenarios",
+    "sources",
+    "caveat"
+  ],
+  "properties": {
+    "market": { "type": "string" },
+    "stance": { "type": "string" },
+    "stanceTone": {
+      "type": "string",
+      "enum": ["long", "short", "neutral"]
+    },
+    "confidence": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "headline": { "type": "string" },
+    "summary": { "type": "string" },
+    "nextMove": { "type": "string" },
+    "invalidation": { "type": "string" },
+    "waitFor": { "type": "string" },
+    "bias": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cyclical", "weekly", "swing"],
+      "properties": {
+        "cyclical": { "type": "string" },
+        "weekly": { "type": "string" },
+        "swing": { "type": "string" }
+      }
+    },
+    "framework": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["phase", "typeA", "sentiment", "score"],
+      "properties": {
+        "phase": { "type": "string" },
+        "typeA": { "type": "string" },
+        "sentiment": { "type": "string" },
+        "score": { "type": "string" }
+      }
+    },
+    "levels": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "value", "kind"],
+        "properties": {
+          "label": { "type": "string" },
+          "value": { "type": "string" },
+          "kind": {
+            "type": "string",
+            "enum": ["entry", "trim", "risk"]
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "label", "detail", "source", "time"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["astro", "framework", "inference"]
+          },
+          "label": { "type": "string" },
+          "detail": { "type": "string" },
+          "source": { "type": "string" },
+          "time": { "type": "string" }
+        }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "probability", "description", "trigger"],
+        "properties": {
+          "name": { "type": "string" },
+          "probability": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "description": { "type": "string" },
+          "trigger": { "type": "string" }
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "url"],
+        "properties": {
+          "label": { "type": "string" },
+          "url": { "type": "string" }
+        }
+      }
+    },
+    "caveat": { "type": "string" }
+  }
+}

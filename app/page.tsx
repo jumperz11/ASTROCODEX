@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import liveForecast from "../public/forecast.json";
 
 type Evidence = {
   type: "astro" | "framework" | "inference";
@@ -146,6 +147,11 @@ const initialForecast: Forecast = {
     "This is a timestamped inference from public posts and the archived framework—not Astro’s private intent, financial advice, or a guaranteed trade.",
 };
 
+const embeddedForecast =
+  (liveForecast as Forecast).mode === "live"
+    ? (liveForecast as Forecast)
+    : initialForecast;
+
 const candles = [
   [68, 48, 54, 62], [64, 38, 59, 43], [48, 29, 42, 35], [41, 20, 34, 26],
   [34, 14, 25, 30], [39, 21, 31, 24], [45, 19, 23, 40], [52, 35, 39, 47],
@@ -222,8 +228,8 @@ function MarketChart({ tone }: { tone: Forecast["stanceTone"] }) {
   return (
     <div className="market-chart" aria-label="Illustrative BTC price structure">
       <div className="chart-grid" />
-      <div className="chart-label label-a">67.7K · trim</div>
-      <div className="chart-label label-b">64.0K · public long</div>
+      <div className="chart-label label-a">67.7K · posted / flagged</div>
+      <div className="chart-label label-b">64.0K · first trim</div>
       <div className="price-line line-a" />
       <div className="price-line line-b" />
       <div className="candles">
@@ -261,64 +267,85 @@ function MarketChart({ tone }: { tone: Forecast["stanceTone"] }) {
 }
 
 export default function Home() {
-  const [forecast, setForecast] = useState<Forecast>(initialForecast);
+  const [forecast, setForecast] = useState<Forecast>(embeddedForecast);
   const [activeView, setActiveView] = useState<"desk" | "evidence" | "playbook">("desk");
   const [question, setQuestion] = useState("What is Astro likely thinking right now?");
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
-  const [lastUpdated, setLastUpdated] = useState("Demo snapshot");
+  const [lastUpdated, setLastUpdated] = useState("Validated Grok snapshot");
 
   useEffect(() => {
     const restore = window.setTimeout(() => {
-      const saved = window.localStorage.getItem("astro-intel-last-forecast");
-      if (saved) {
-        try {
-          setForecast(JSON.parse(saved) as Forecast);
-          setLastUpdated("Restored analysis");
-        } catch {
-          window.localStorage.removeItem("astro-intel-last-forecast");
-        }
-      }
+      void fetch(`/forecast.json?ts=${Date.now()}`, { cache: "no-store" })
+        .then(async (response) => {
+          if (!response.ok) throw new Error("Forecast snapshot unavailable.");
+          return (await response.json()) as Forecast;
+        })
+        .then((latest) => {
+          setForecast(latest);
+          setLastUpdated("Validated Grok snapshot");
+          window.localStorage.setItem(
+            "astro-intel-last-forecast",
+            JSON.stringify(latest),
+          );
+        })
+        .catch(() => {
+          const saved = window.localStorage.getItem("astro-intel-last-forecast");
+          if (!saved) return;
+          try {
+            setForecast(JSON.parse(saved) as Forecast);
+            setLastUpdated("Restored validated snapshot");
+          } catch {
+            window.localStorage.removeItem("astro-intel-last-forecast");
+          }
+        });
     }, 0);
 
     return () => window.clearTimeout(restore);
   }, []);
 
   const timeLabel = useMemo(() => {
-    try {
-      return new Intl.DateTimeFormat("en", {
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      }).format(new Date(forecast.generatedAt));
-    } catch {
-      return "Latest";
-    }
+    const date = new Date(forecast.generatedAt);
+    if (Number.isNaN(date.getTime())) return "Latest";
+    const months = [
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+    const hour = String(date.getUTCHours()).padStart(2, "0");
+    const minute = String(date.getUTCMinutes()).padStart(2, "0");
+    return `${months[date.getUTCMonth()]} ${date.getUTCDate()}, ${hour}:${minute} UTC`;
   }, [forecast.generatedAt]);
 
-  async function syncAstro(event?: FormEvent) {
-    event?.preventDefault();
+  async function refreshForecast() {
     setLoading(true);
     setNotice("");
     try {
-      const response = await fetch("/api/astro-sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question }),
+      const response = await fetch(`/forecast.json?ts=${Date.now()}`, {
+        cache: "no-store",
       });
       const data = (await response.json()) as Forecast & { error?: string };
-      if (!response.ok) throw new Error(data.error || "The live read failed.");
-      setForecast(data);
-      setLastUpdated(data.mode === "live" ? "Live Grok + X sync" : "Guided demo");
-      window.localStorage.setItem("astro-intel-last-forecast", JSON.stringify(data));
-      if (data.mode === "demo") {
-        setNotice("Live X sync is ready; add the server-side XAI_API_KEY to activate it.");
+      if (!response.ok) {
+        throw new Error(data.error || "The validated snapshot is unavailable.");
       }
+      setForecast(data);
+      setLastUpdated("Validated Grok snapshot");
+      window.localStorage.setItem("astro-intel-last-forecast", JSON.stringify(data));
+      setNotice("Loaded the newest forecast accepted by the evidence gate.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Unable to refresh right now.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function copyGrokTask(event: FormEvent) {
+    event.preventDefault();
+    const command = `npm run astro:run -- ${JSON.stringify(question)}`;
+    try {
+      await navigator.clipboard.writeText(command);
+      setNotice("Copied the authenticated Grok command. Run it from this project.");
+    } catch {
+      setNotice(command);
     }
   }
 
@@ -341,19 +368,19 @@ export default function Home() {
 
         <div className="status-cluster">
           <span className={`connection-dot ${forecast.mode}`} />
-          <span>{forecast.mode === "live" ? "Grok live" : "Demo mode"}</span>
-          <button className="sync-button" onClick={() => syncAstro()} disabled={loading}>
-            {loading ? "Reading X…" : "Sync Astro"}
+          <span>{forecast.mode === "live" ? "Grok OAuth · validated" : "Snapshot"}</span>
+          <button className="sync-button" onClick={refreshForecast} disabled={loading}>
+            {loading ? "Refreshing…" : "Refresh snapshot"}
           </button>
         </div>
       </header>
 
       <section className="ticker-strip" aria-label="System status">
-        <span><b>BTC</b> 67,702 <em>+4.8%</em></span>
+        <span><b>BTC SNAPSHOT</b> ≈64.66K <em>at capture</em></span>
         <span><b>FRAMEWORK</b> 4 / 10 chapters</span>
         <span><b>ARCHIVE</b> 5,049 posts · 448 images</span>
         <span><b>LAST READ</b> {timeLabel}</span>
-        <span><b>MODE</b> Human approval required</span>
+        <span><b>MODE</b> Grok OAuth · evidence gated</span>
       </section>
 
       {activeView === "desk" && (
@@ -473,11 +500,14 @@ export default function Home() {
 
           <section className="ask-panel">
             <div>
-              <span className="eyebrow">ASK THE INTELLIGENCE LAYER</span>
-              <h2>What is Astro thinking?</h2>
-              <p>Grok searches Astro’s latest posts. The archive supplies his recurring decision rules.</p>
+              <span className="eyebrow">RUN THE PRIVATE AGENT</span>
+              <h2>Ask Astro Intelligence.</h2>
+              <p>
+                Grok uses your existing OAuth session. The connector rejects forecasts
+                without exact Astro status URLs and a complete scenario map.
+              </p>
             </div>
-            <form onSubmit={syncAstro}>
+            <form onSubmit={copyGrokTask}>
               <label htmlFor="astro-question">Question</label>
               <div>
                 <input
@@ -486,7 +516,7 @@ export default function Home() {
                   onChange={(event) => setQuestion(event.target.value)}
                   placeholder="What is Astro likely to do next?"
                 />
-                <button disabled={loading}>{loading ? "Analyzing…" : "Run analysis ↗"}</button>
+                <button>Copy run command ↗</button>
               </div>
               {notice && <p className="notice">{notice}</p>}
             </form>
