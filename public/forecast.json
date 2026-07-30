@@ -15,6 +15,23 @@
     "playbookMove": "Manage the runner. Do not chase a fresh full-size long.",
     "risk": "Runner closes or aggressive short IV returns"
   },
+  "execution": {
+    "entry": {
+      "state": "WAIT",
+      "level": "Not public",
+      "condition": "No fresh full-size long entry is supported by the latest direct posts."
+    },
+    "takeProfit": {
+      "state": "PARTIALS TAKEN",
+      "level": "64K confirmed · 67.7K flagged",
+      "condition": "Further profit locks are more likely if price reaches unfinished weekly liquidity."
+    },
+    "exit": {
+      "state": "CONDITIONAL",
+      "level": "Not public",
+      "condition": "The read changes if the runner closes or aggressive short IV returns."
+    }
+  },
   "bias": {
     "cyclical": "Astro still frames FOMC reversal as in play and 7% minimum drawdown as unfinished, even while trading a countertrend long near perceived move completion.",
     "weekly": "Intraweek long thesis targets untouched weekly open and intrawweek liquidity left during the week (~2,000+ points stated as minimum scale of the bounce objective).",

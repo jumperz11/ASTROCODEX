@@ -12,6 +12,7 @@
     "invalidation",
     "waitFor",
     "decision",
+    "execution",
     "bias",
     "framework",
     "levels",
@@ -47,6 +48,16 @@
         "lookingFor": { "type": "string" },
         "playbookMove": { "type": "string" },
         "risk": { "type": "string" }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entry", "takeProfit", "exit"],
+      "properties": {
+        "entry": { "$ref": "#/$defs/executionLevel" },
+        "takeProfit": { "$ref": "#/$defs/executionLevel" },
+        "exit": { "$ref": "#/$defs/executionLevel" }
       }
     },
     "bias": {
@@ -140,5 +151,17 @@
       }
     },
     "caveat": { "type": "string" }
+  },
+  "$defs": {
+    "executionLevel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "level", "condition"],
+      "properties": {
+        "state": { "type": "string" },
+        "level": { "type": "string" },
+        "condition": { "type": "string" }
+      }
+    }
   }
 }

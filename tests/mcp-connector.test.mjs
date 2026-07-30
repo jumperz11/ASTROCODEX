@@ -210,6 +210,23 @@ test("forecast gate requires direct sources and balanced scenarios", () => {
       playbookMove: "Wait for confirmation",
       risk: "A new thesis supersedes this read",
     },
+    execution: {
+      entry: {
+        state: "WAIT",
+        level: "Not public",
+        condition: "Wait for a direct entry.",
+      },
+      takeProfit: {
+        state: "MANAGE",
+        level: "Not public",
+        condition: "Wait for a direct trim.",
+      },
+      exit: {
+        state: "CONDITIONAL",
+        level: "Not public",
+        condition: "Close only when the public thesis changes.",
+      },
+    },
     bias: {
       cyclical: "Range",
       weekly: "Range",

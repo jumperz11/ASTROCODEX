@@ -276,6 +276,23 @@ const forecastSchema = z.object({
     playbookMove: z.string().min(1),
     risk: z.string().min(1),
   }),
+  execution: z.object({
+    entry: z.object({
+      state: z.string().min(1),
+      level: z.string().min(1),
+      condition: z.string().min(1),
+    }),
+    takeProfit: z.object({
+      state: z.string().min(1),
+      level: z.string().min(1),
+      condition: z.string().min(1),
+    }),
+    exit: z.object({
+      state: z.string().min(1),
+      level: z.string().min(1),
+      condition: z.string().min(1),
+    }),
+  }),
   bias: z.object({
     cyclical: z.string().min(1),
     weekly: z.string().min(1),

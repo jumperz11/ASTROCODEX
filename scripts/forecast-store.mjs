@@ -51,6 +51,32 @@ export function validateForecast(report) {
     }
   }
 
+  const executionFields = ["entry", "takeProfit", "exit"];
+  const levelFields = ["state", "level", "condition"];
+  if (
+    !report.execution ||
+    typeof report.execution !== "object" ||
+    Array.isArray(report.execution)
+  ) {
+    throw new Error("Forecast is missing execution.");
+  }
+  for (const field of executionFields) {
+    const level = report.execution[field];
+    if (!level || typeof level !== "object" || Array.isArray(level)) {
+      throw new Error(`Forecast execution is missing ${field}.`);
+    }
+    for (const levelField of levelFields) {
+      if (
+        typeof level[levelField] !== "string" ||
+        !level[levelField].trim()
+      ) {
+        throw new Error(
+          `Forecast execution ${field} is missing ${levelField}.`,
+        );
+      }
+    }
+  }
+
   if (!["long", "short", "neutral"].includes(report.stanceTone)) {
     throw new Error("Forecast stance tone is invalid.");
   }

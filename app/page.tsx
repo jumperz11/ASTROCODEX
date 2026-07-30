@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import liveForecast from "./forecast.json";
 
 type Evidence = {
@@ -9,6 +9,12 @@ type Evidence = {
   detail: string;
   source?: string;
   time?: string;
+};
+
+type ExecutionLevel = {
+  state: string;
+  level: string;
+  condition: string;
 };
 
 type Forecast = {
@@ -29,6 +35,11 @@ type Forecast = {
     lookingFor: string;
     playbookMove: string;
     risk: string;
+  };
+  execution: {
+    entry: ExecutionLevel;
+    takeProfit: ExecutionLevel;
+    exit: ExecutionLevel;
   };
   bias: {
     cyclical: string;
@@ -75,6 +86,23 @@ const initialForecast: Forecast = {
     lookingFor: "Weekly liquidity and a clear safe-house level",
     playbookMove: "Manage the runner; do not chase a fresh full-size entry.",
     risk: "Runner closes or aggressive shorts return.",
+  },
+  execution: {
+    entry: {
+      state: "WAIT",
+      level: "Not public",
+      condition: "No fresh full-size entry is supported by the latest posts.",
+    },
+    takeProfit: {
+      state: "PARTIALS TAKEN",
+      level: "64K confirmed · 67.7K flagged",
+      condition: "Further locks are more likely if weekly liquidity is reached.",
+    },
+    exit: {
+      state: "CONDITIONAL",
+      level: "Not public",
+      condition: "Runner closes or aggressive short IV returns.",
+    },
   },
   bias: {
     cyclical: "Range / repair",
@@ -162,33 +190,48 @@ const initialForecast: Forecast = {
 };
 
 function normalizeForecast(report: Forecast): Forecast {
-  if (report.decision) return report;
-
   return {
     ...report,
-    decision: {
-      position: report.stance || "Position not public",
-      status: "Legacy snapshot · refresh for the compact read",
-      lookingFor: report.waitFor || "A fresh direct Astro update",
-      playbookMove: report.nextMove || "Wait for confirmation",
-      risk: report.invalidation || "A new thesis supersedes this read",
-    },
+    decision:
+      report.decision ?? {
+        position: report.stance || "Position not public",
+        status: "Legacy snapshot · refresh for the compact read",
+        lookingFor: report.waitFor || "A fresh direct Astro update",
+        playbookMove: report.nextMove || "Wait for confirmation",
+        risk: report.invalidation || "A new thesis supersedes this read",
+      },
+    execution:
+      report.execution ?? {
+        entry: {
+          state: "WAIT",
+          level: "Not public",
+          condition: "No verified fresh entry level in this snapshot.",
+        },
+        takeProfit: {
+          state: "MANAGE",
+          level:
+            report.levels.find((level) => level.kind === "trim")?.value ??
+            "Not public",
+          condition: report.nextMove || "Wait for a direct management update.",
+        },
+        exit: {
+          state: "CONDITIONAL",
+          level:
+            report.levels.find((level) => level.kind === "risk")?.value ??
+            "Not public",
+          condition:
+            report.decision?.risk ??
+            report.invalidation ??
+            "A new direct thesis supersedes the current read.",
+        },
+      },
   };
 }
 
 const embeddedForecast =
   (liveForecast as Forecast).mode === "live"
-    ? (liveForecast as Forecast)
+    ? normalizeForecast(liveForecast as Forecast)
     : initialForecast;
-
-const candles = [
-  [68, 48, 54, 62], [64, 38, 59, 43], [48, 29, 42, 35], [41, 20, 34, 26],
-  [34, 14, 25, 30], [39, 21, 31, 24], [45, 19, 23, 40], [52, 35, 39, 47],
-  [58, 40, 46, 53], [62, 44, 52, 48], [66, 47, 49, 61], [72, 55, 60, 68],
-  [78, 59, 67, 64], [74, 52, 65, 57], [68, 48, 56, 63], [76, 57, 62, 70],
-  [83, 66, 69, 78], [88, 70, 77, 74], [84, 65, 73, 68], [79, 61, 67, 75],
-  [86, 69, 74, 82], [92, 74, 81, 78], [88, 71, 77, 84], [95, 79, 83, 90],
-];
 
 const rules = [
   {
@@ -238,43 +281,36 @@ function Tag({ type }: { type: Evidence["type"] }) {
   return <span className={`source-tag ${type}`}>{copy[type]}</span>;
 }
 
-function MarketChart({ tone }: { tone: Forecast["stanceTone"] }) {
+function PositionJourney({
+  evidence,
+  position,
+}: {
+  evidence: Evidence[];
+  position: string;
+}) {
+  const publicSteps = evidence
+    .filter((item) => item.type === "astro")
+    .slice(0, 4);
+
   return (
-    <div className="market-chart" aria-label="Illustrative BTC price structure">
-      <div className="chart-grid" />
-      <div className="chart-label label-a">67.7K · posted / flagged</div>
-      <div className="chart-label label-b">64.0K · first trim</div>
-      <div className="price-line line-a" />
-      <div className="price-line line-b" />
-      <div className="candles">
-        {candles.map(([high, low, open, close], index) => {
-          const up = close >= open;
-          return (
-            <div className="candle-slot" key={index}>
-              <span
-                className={`wick ${up ? "up" : "down"}`}
-                style={{ bottom: `${low}%`, height: `${high - low}%` }}
-              />
-              <span
-                className={`body ${up ? "up" : "down"}`}
-                style={{
-                  bottom: `${Math.min(open, close)}%`,
-                  height: `${Math.max(3, Math.abs(close - open))}%`,
-                }}
-              />
-            </div>
-          );
-        })}
-      </div>
-      <div className={`active-marker ${tone}`}>
-        <span />
-        LIVE THESIS
-      </div>
-      <div className="chart-axis">
-        <span>JUL 23</span>
-        <span>JUL 25</span>
-        <span>JUL 27</span>
-        <span>JUL 30</span>
+    <div className="position-journey" aria-label="Verified Astro position timeline">
+      {publicSteps.map((item, index) => (
+        <a
+          className="journey-step complete"
+          href={item.source}
+          key={`${item.label}-${index}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <span className="journey-dot">{index + 1}</span>
+          <small>{item.time}</small>
+          <strong>{item.label}</strong>
+        </a>
+      ))}
+      <div className="journey-step current">
+        <span className="journey-dot">●</span>
+        <small>NOW · INFERRED</small>
+        <strong>{position}</strong>
       </div>
     </div>
   );
@@ -283,7 +319,6 @@ function MarketChart({ tone }: { tone: Forecast["stanceTone"] }) {
 export default function Home() {
   const [forecast, setForecast] = useState<Forecast>(embeddedForecast);
   const [activeView, setActiveView] = useState<"desk" | "evidence" | "playbook">("desk");
-  const [question, setQuestion] = useState("What is Astro likely thinking right now?");
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
   const [lastUpdated, setLastUpdated] = useState("Validated Grok snapshot");
@@ -357,15 +392,9 @@ export default function Home() {
     }
   }
 
-  async function copyGrokTask(event: FormEvent) {
-    event.preventDefault();
-    const command = `npm run astro:run -- ${JSON.stringify(question)}`;
-    try {
-      await navigator.clipboard.writeText(command);
-      setNotice("Copied the authenticated Grok command. Run it from this project.");
-    } catch {
-      setNotice(command);
-    }
+  function showView(view: "desk" | "evidence" | "playbook") {
+    setActiveView(view);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   return (
@@ -380,208 +409,171 @@ export default function Home() {
         </a>
 
         <nav aria-label="Primary navigation">
-          <button className={activeView === "desk" ? "active" : ""} onClick={() => setActiveView("desk")}>Signal desk</button>
-          <button className={activeView === "evidence" ? "active" : ""} onClick={() => setActiveView("evidence")}>Evidence</button>
-          <button className={activeView === "playbook" ? "active" : ""} onClick={() => setActiveView("playbook")}>Playbook</button>
+          <button className={activeView === "desk" ? "active" : ""} onClick={() => showView("desk")}>Now</button>
+          <button className={activeView === "evidence" ? "active" : ""} onClick={() => showView("evidence")}>Evidence</button>
+          <button className={activeView === "playbook" ? "active" : ""} onClick={() => showView("playbook")}>Playbook</button>
         </nav>
 
         <div className="status-cluster">
           <span className={`connection-dot ${forecast.mode}`} />
-          <span>{forecast.mode === "live" ? "Grok OAuth · validated" : "Snapshot"}</span>
+          <span>{forecast.mode === "live" ? "Live read" : "Snapshot"}</span>
           <button className="sync-button" onClick={refreshForecast} disabled={loading}>
-            {loading ? "Refreshing…" : "Refresh snapshot"}
+            {loading ? "Syncing…" : "Sync"}
           </button>
         </div>
       </header>
 
-      <section className="ticker-strip" aria-label="System status">
-        <span><b>BTC SNAPSHOT</b> ≈64.66K <em>at capture</em></span>
-        <span><b>FRAMEWORK</b> 4 / 10 chapters</span>
-        <span><b>ARCHIVE</b> 5,049 posts · 448 images</span>
-        <span><b>LAST READ</b> {timeLabel}</span>
-        <span><b>MODE</b> Grok OAuth · evidence gated</span>
-      </section>
-
       {activeView === "desk" && (
         <div className="desk" id="top">
-          <section className="signal-hero">
-            <div className="section-kicker">
-              <span>ASTRO RIGHT NOW / {forecast.market}</span>
+          <section className="quick-view">
+            <div className="live-meta">
+              <span><i className={`connection-dot ${forecast.mode}`} />Grok connected · evidence gated</span>
               <span>{lastUpdated} · {timeLabel}</span>
             </div>
 
-            <div className="position-board">
-              <div className="position-primary">
+            <div className="position-summary">
+              <div>
                 <span className={`position-direction ${forecast.stanceTone}`}>
                   <i />
-                  POSITION NOW · {forecast.stanceTone}
+                  ASTRO POSITION · {forecast.stanceTone}
                 </span>
                 <h1>{forecast.decision.position}</h1>
                 <p>{forecast.decision.status}</p>
-                <div className="position-actions">
-                  <a href={forecast.sources[0]?.url || "https://x.com/astronomer_zero"} target="_blank" rel="noreferrer">
-                    Latest Astro post ↗
-                  </a>
-                  <button onClick={() => setActiveView("evidence")}>Check evidence</button>
-                </div>
               </div>
 
-              <div className="position-confidence">
-                <span>READ CONFIDENCE</span>
-                <strong>{forecast.confidence}<small>/100</small></strong>
-                <p>Evidence strength, not profit probability.</p>
+              <div className="confidence-chip">
+                <small>READ CONFIDENCE</small>
+                <strong>{forecast.confidence}%</strong>
+                <span>evidence strength</span>
               </div>
             </div>
 
-            <div className="decision-grid">
-              <article className="decision-card watch-card">
-                <span className="decision-number">01</span>
-                <div>
-                  <small>WHAT HE IS WATCHING</small>
-                  <h2>{forecast.decision.lookingFor}</h2>
+            <div className="next-action">
+              <div>
+                <small>MOST LIKELY NEXT</small>
+                <strong>{forecast.decision.playbookMove}</strong>
+              </div>
+              <span>{forecast.scenarios[0]?.probability}%<small>BASE</small></span>
+            </div>
+
+            <div className="position-actions">
+              <a href={forecast.sources[0]?.url || "https://x.com/astronomer_zero"} target="_blank" rel="noreferrer">
+                Open latest Astro post ↗
+              </a>
+              <button onClick={() => showView("evidence")}>Why this read</button>
+            </div>
+            {notice && <p className="notice">{notice}</p>}
+          </section>
+
+          <section className="execution-map" id="map">
+            <div className="simple-section-head">
+              <div>
+                <span className="eyebrow">OPEN & CLOSE MAP</span>
+                <h2>What the public playbook supports.</h2>
+              </div>
+              <p>Astro’s map—not a personal trade instruction.</p>
+            </div>
+
+            <div className="execution-cards">
+              <article className="execution-card entry-card">
+                <div className="execution-card-top">
+                  <span>01</span>
+                  <small>OPEN / ADD</small>
+                  <em>{forecast.execution.entry.state}</em>
                 </div>
+                <strong>{forecast.execution.entry.level}</strong>
+                <p>{forecast.execution.entry.condition}</p>
               </article>
 
-              <article className="decision-card playbook-card">
-                <span className="decision-number">02</span>
-                <div>
-                  <small>PLAYBOOK SAYS HE WILL</small>
-                  <h2>{forecast.decision.playbookMove}</h2>
+              <article className="execution-card profit-card">
+                <div className="execution-card-top">
+                  <span>02</span>
+                  <small>REDUCE / TAKE PROFIT</small>
+                  <em>{forecast.execution.takeProfit.state}</em>
                 </div>
+                <strong>{forecast.execution.takeProfit.level}</strong>
+                <p>{forecast.execution.takeProfit.condition}</p>
               </article>
 
-              <article className="decision-card invalidation-card">
-                <span className="decision-number">03</span>
-                <div>
-                  <small>THIS READ CHANGES IF</small>
-                  <h2>{forecast.decision.risk}</h2>
+              <article className="execution-card exit-card">
+                <div className="execution-card-top">
+                  <span>03</span>
+                  <small>CLOSE / INVALIDATE</small>
+                  <em>{forecast.execution.exit.state}</em>
                 </div>
+                <strong>{forecast.execution.exit.level}</strong>
+                <p>{forecast.execution.exit.condition}</p>
+              </article>
+            </div>
+          </section>
+
+          <section className="journey-panel">
+            <div className="simple-section-head">
+              <div>
+                <span className="eyebrow">POSITION TIMELINE</span>
+                <h2>What actually happened.</h2>
+              </div>
+              <p>Green steps link to Astro’s original posts.</p>
+            </div>
+            <PositionJourney
+              evidence={forecast.evidence}
+              position={forecast.decision.position}
+            />
+          </section>
+
+          <section className="insight-panel">
+            <div className="insight-grid">
+              <article className="insight-card watch">
+                <small>WATCHING NOW</small>
+                <h2>{forecast.decision.lookingFor}</h2>
+              </article>
+              <article className="insight-card risk">
+                <small>READ CHANGES IF</small>
+                <h2>{forecast.decision.risk}</h2>
               </article>
             </div>
 
-            <div className="scenario-strip" aria-label="Next move scenarios">
-              {forecast.scenarios.map((scenario, index) => (
-                <div className={index === 0 ? "base" : ""} key={scenario.name}>
-                  <span>{scenario.probability}%</span>
-                  <strong>{scenario.name}</strong>
-                  {index === 0 && <small>BASE CASE</small>}
+            <div className="scenario-simple">
+              <div className="scenario-lead">
+                <div>
+                  <small>MOST LIKELY PATH</small>
+                  <h2>{forecast.scenarios[0]?.name}</h2>
                 </div>
-              ))}
-            </div>
+                <strong>{forecast.scenarios[0]?.probability}%</strong>
+              </div>
+              <div className="probability-bar">
+                <i style={{ width: `${forecast.scenarios[0]?.probability}%` }} />
+              </div>
+              <p>{forecast.scenarios[0]?.description}</p>
+              <small>TRIGGER · {forecast.scenarios[0]?.trigger}</small>
 
+              <details className="other-paths">
+                <summary>See the other two paths <span>+</span></summary>
+                <div>
+                  {forecast.scenarios.slice(1).map((scenario) => (
+                    <article key={scenario.name}>
+                      <span>{scenario.probability}%</span>
+                      <div>
+                        <strong>{scenario.name}</strong>
+                        <p>{scenario.description}</p>
+                        <small>TRIGGER · {scenario.trigger}</small>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </details>
+            </div>
+          </section>
+
+          <section className="details-panel">
             <details className="read-details">
-              <summary>Why this read <span>+</span></summary>
+              <summary>Full reasoning <span>+</span></summary>
               <div>
                 <span className="eyebrow">{forecast.headline}</span>
                 <p>{forecast.summary}</p>
-                <p><strong>Full next-move reasoning:</strong> {forecast.nextMove}</p>
+                <p><strong>Next-move reasoning:</strong> {forecast.nextMove}</p>
               </div>
             </details>
-          </section>
-
-          <section className="chart-panel">
-            <div className="panel-head">
-              <div>
-                <span className="eyebrow">MARKET STRUCTURE</span>
-                <h2>{forecast.market}</h2>
-              </div>
-              <div className="timeframes">
-                <button>M</button><button>W</button><button className="active">2D</button><button>H6</button>
-              </div>
-            </div>
-            <MarketChart tone={forecast.stanceTone} />
-            <div className="level-row">
-              {forecast.levels.map((level) => (
-                <div key={level.label}>
-                  <span className={level.kind} />
-                  <small>{level.label}</small>
-                  <strong>{level.value}</strong>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="analysis-grid">
-            <article className="stack-card">
-              <div className="panel-head compact">
-                <div>
-                  <span className="eyebrow">ASTRO STACK</span>
-                  <h2>Framework alignment</h2>
-                </div>
-                <span className="version">v0.1</span>
-              </div>
-              <div className="stack-list">
-                <div><span>01</span><small>Cyclical bias</small><strong>{forecast.bias.cyclical}</strong></div>
-                <div><span>02</span><small>Weekly bias</small><strong>{forecast.bias.weekly}</strong></div>
-                <div><span>03</span><small>Swing bias</small><strong>{forecast.bias.swing}</strong></div>
-                <div><span>04</span><small>Market phase</small><strong>{forecast.framework.phase}</strong></div>
-                <div><span>05</span><small>Type A</small><strong>{forecast.framework.typeA}</strong></div>
-                <div><span>06</span><small>Sentiment</small><strong>{forecast.framework.sentiment}</strong></div>
-              </div>
-            </article>
-
-            <article className="scenario-card">
-              <div className="panel-head compact">
-                <div>
-                  <span className="eyebrow">SCENARIO MAP</span>
-                  <h2>What changes the read</h2>
-                </div>
-              </div>
-              <div className="scenarios">
-                {forecast.scenarios.map((scenario, index) => (
-                  <div className="scenario" key={scenario.name}>
-                    <div className="scenario-rank">0{index + 1}</div>
-                    <div>
-                      <div className="scenario-title">
-                        <strong>{scenario.name}</strong>
-                        <span>{scenario.probability}%</span>
-                      </div>
-                      <div className="probability-bar"><i style={{ width: `${scenario.probability}%` }} /></div>
-                      <p>{scenario.description}</p>
-                      <small>TRIGGER · {scenario.trigger}</small>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </article>
-          </section>
-
-          <section className="ask-panel">
-            <div>
-              <span className="eyebrow">RUN THE PRIVATE AGENT</span>
-              <h2>Ask Astro Intelligence.</h2>
-              <p>
-                Grok uses your existing OAuth session. The connector rejects forecasts
-                without exact Astro status URLs and a complete scenario map.
-              </p>
-            </div>
-            <form onSubmit={copyGrokTask}>
-              <label htmlFor="astro-question">Question</label>
-              <div>
-                <input
-                  id="astro-question"
-                  value={question}
-                  onChange={(event) => setQuestion(event.target.value)}
-                  placeholder="What is Astro likely to do next?"
-                />
-                <button>Copy run command ↗</button>
-              </div>
-              {notice && <p className="notice">{notice}</p>}
-            </form>
-          </section>
-
-          <section className="risk-strip">
-            <div>
-              <span className="risk-icon">!</span>
-              <div>
-                <small>KNOWN UNKNOWN</small>
-                <p>{forecast.waitFor}</p>
-              </div>
-            </div>
-            <div>
-              <small>INVALIDATION</small>
-              <p>{forecast.invalidation}</p>
-            </div>
           </section>
         </div>
       )}
@@ -651,6 +643,18 @@ export default function Home() {
           </div>
         </section>
       )}
+
+      <nav className="mobile-nav" aria-label="Mobile navigation">
+        <button className={activeView === "desk" ? "active" : ""} onClick={() => showView("desk")}>
+          <span>●</span>Now
+        </button>
+        <button className={activeView === "evidence" ? "active" : ""} onClick={() => showView("evidence")}>
+          <span>≡</span>Evidence
+        </button>
+        <button className={activeView === "playbook" ? "active" : ""} onClick={() => showView("playbook")}>
+          <span>◇</span>Playbook
+        </button>
+      </nav>
 
       <footer>
         <div className="brand footer-brand">
