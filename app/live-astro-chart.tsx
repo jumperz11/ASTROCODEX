@@ -274,19 +274,8 @@ export default function LiveAstroChart({
             Math.abs(left.price - (price ?? left.price)) -
             Math.abs(right.price - (price ?? right.price)),
         )
-        .slice(0, 3),
+        .slice(0, 2),
     [parsedLevels, price],
-  );
-  const focusThesisLevels = useMemo(
-    () =>
-      [...parsedThesisLevels]
-        .sort(
-          (left, right) =>
-            Math.abs(left.price - (price ?? left.price)) -
-            Math.abs(right.price - (price ?? right.price)),
-        )
-        .slice(0, 1),
-    [parsedThesisLevels, price],
   );
   const visibleAstroLevels = useMemo(
     () =>
@@ -299,15 +288,18 @@ export default function LiveAstroChart({
   );
   const visibleThesisLevels = useMemo(
     () =>
-      overlayMode === "focus"
-        ? focusThesisLevels
-        : overlayMode === "model"
-          ? parsedThesisLevels
-          : [],
-    [focusThesisLevels, overlayMode, parsedThesisLevels],
+      overlayMode === "model"
+        ? parsedThesisLevels
+        : [],
+    [overlayMode, parsedThesisLevels],
   );
   const visibleEventMarkers = useMemo(
-    () => (overlayMode === "model" ? [] : eventMarkers.slice(-4)),
+    () =>
+      overlayMode === "model"
+        ? []
+        : overlayMode === "focus"
+          ? eventMarkers.slice(-1)
+          : eventMarkers.slice(-4),
     [eventMarkers, overlayMode],
   );
 
@@ -635,7 +627,7 @@ export default function LiveAstroChart({
         <div>
           <span className="eyebrow">LIVE ASTRO MAP</span>
           <h2>BTC / USD</h2>
-          <p>Live market structure, Astro-confirmed levels, and a separate forward model.</p>
+          <p>Only the levels that matter to the current read. Open Astro or Model for detail.</p>
         </div>
         <div className="live-quote" aria-live="polite">
           <span className={`feed-dot ${feedState}`} />

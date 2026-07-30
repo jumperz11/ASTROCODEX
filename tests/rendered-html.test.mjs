@@ -38,7 +38,11 @@ test("server-renders the Astro Intelligence research terminal", async () => {
   assert.match(html, /SIMPLE NEXT MOVE/);
   assert.match(html, /WHAT YOU DO/);
   assert.match(html, />WAIT</);
-  assert.match(html, /There is no confirmed new trade to follow/);
+  assert.match(html, /No fresh opportunity is confirmed yet/);
+  assert.match(html, /LATEST ASTRO UPDATE/);
+  assert.match(html, /OUR OPPORTUNITY/);
+  assert.match(html, /ACTIVATES WHEN/);
+  assert.match(html, /Previous moves/);
   assert.match(html, /OPEN &amp; CLOSE MAP/);
   assert.match(html, /LIVE ASTRO MAP/);
   assert.match(html, /ASTRO SIGNAL/);

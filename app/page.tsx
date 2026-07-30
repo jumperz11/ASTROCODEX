@@ -358,6 +358,45 @@ function getSimpleNextMove(forecast: Forecast) {
   };
 }
 
+function getOpportunityStatus(forecast: Forecast) {
+  const copy: Record<
+    SignalState,
+    { label: string; tone: string; summary: string }
+  > = {
+    wait: {
+      label: "WAIT",
+      tone: "wait",
+      summary: "No fresh opportunity is confirmed yet.",
+    },
+    long: {
+      label: "LONG SETUP",
+      tone: "long",
+      summary: "A fresh long setup is supported by a direct Astro update.",
+    },
+    short: {
+      label: "SHORT SETUP",
+      tone: "short",
+      summary: "A fresh short setup is supported by a direct Astro update.",
+    },
+    take_profit: {
+      label: "LOCK PROFIT",
+      tone: "take_profit",
+      summary: "Astro posted a fresh trim or profit-lock update.",
+    },
+    exit: {
+      label: "EXIT UPDATE",
+      tone: "exit",
+      summary: "Astro posted a full close or explicit invalidation.",
+    },
+    conflict: {
+      label: "NO TRADE",
+      tone: "conflict",
+      summary: "Astro’s words and chart disagree. Wait for clarity.",
+    },
+  };
+  return copy[forecast.signal.state];
+}
+
 const embeddedForecast =
   (liveForecast as Forecast).mode === "live"
     ? normalizeForecast(liveForecast as Forecast)
@@ -485,6 +524,7 @@ export default function Home() {
     runId: null as string | null,
   });
   const [clockNow, setClockNow] = useState(() => Date.now());
+  const [hasUnseenUpdate, setHasUnseenUpdate] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -494,7 +534,23 @@ export default function Home() {
         const envelope = await fetchLiveSignal();
         if (!active) return;
         const normalized = normalizeForecast(envelope.forecast);
-        setForecast(normalized);
+        setForecast((current) => {
+          const seenForecast = window.localStorage.getItem(
+            "astro-intel-seen-forecast",
+          );
+          const changed = current.generatedAt !== normalized.generatedAt;
+          const generatedAt = new Date(normalized.generatedAt).getTime();
+          const recentlyGenerated =
+            Number.isFinite(generatedAt) &&
+            Date.now() - generatedAt <= 60 * 60_000;
+          if (
+            (changed && seenForecast !== normalized.generatedAt) ||
+            (!seenForecast && recentlyGenerated)
+          ) {
+            setHasUnseenUpdate(true);
+          }
+          return normalized;
+        });
         setSignalCheckedAt(envelope.checkedAt);
         setSystemStatus({
           degraded: Boolean(envelope.degraded) || envelope.source !== "vps",
@@ -553,6 +609,23 @@ export default function Home() {
     () => getSimpleNextMove(forecast),
     [forecast],
   );
+  const opportunity = useMemo(
+    () => getOpportunityStatus(forecast),
+    [forecast],
+  );
+  const latestAstroEvidence = useMemo(() => {
+    const direct = forecast.evidence.filter(
+      (item) => item.type === "astro" && item.source,
+    );
+    return (
+      [...direct].sort((left, right) => {
+        const leftTime = new Date(left.time || "").getTime();
+        const rightTime = new Date(right.time || "").getTime();
+        if (!Number.isFinite(leftTime) || !Number.isFinite(rightTime)) return 0;
+        return rightTime - leftTime;
+      })[0] ?? null
+    );
+  }, [forecast.evidence]);
   const signalFreshness = useMemo(() => {
     if (!signalCheckedAt) {
       return { label: "VPS CONNECTING", tone: "scheduled" };
@@ -577,7 +650,12 @@ export default function Home() {
     try {
       const envelope = await fetchLiveSignal();
       const normalized = normalizeForecast(envelope.forecast);
-      setForecast(normalized);
+      setForecast((current) => {
+        if (current.generatedAt !== normalized.generatedAt) {
+          setHasUnseenUpdate(true);
+        }
+        return normalized;
+      });
       setSignalCheckedAt(envelope.checkedAt);
       setSystemStatus({
         degraded: Boolean(envelope.degraded) || envelope.source !== "vps",
@@ -605,6 +683,14 @@ export default function Home() {
   function showView(view: "desk" | "history" | "evidence" | "playbook") {
     setActiveView(view);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function markCurrentUpdateSeen() {
+    window.localStorage.setItem(
+      "astro-intel-seen-forecast",
+      forecast.generatedAt,
+    );
+    setHasUnseenUpdate(false);
   }
 
   return (
@@ -675,59 +761,116 @@ export default function Home() {
               </span>
             </div>
 
-            <div className="position-summary">
-              <div>
-                <span className={`position-direction ${forecast.stanceTone}`}>
+            <aside
+              className={`latest-update-flash ${
+                hasUnseenUpdate ? "new" : ""
+              }`}
+              aria-live="polite"
+            >
+              <div className="latest-update-copy">
+                <small>
                   <i />
-                  ASTRO POSITION · {forecast.stanceTone}
-                </span>
-                <h1>{forecast.decision.position}</h1>
-                <p>{forecast.decision.status}</p>
+                  {hasUnseenUpdate ? "NEW ASTRO UPDATE" : "LATEST ASTRO UPDATE"}
+                  <span>{timeLabel}</span>
+                </small>
+                <strong>
+                  {latestAstroEvidence?.label || forecast.headline}
+                </strong>
+                <p>
+                  {latestAstroEvidence?.detail ||
+                    "No newer direct Astro evidence has been accepted."}
+                </p>
               </div>
-
-              <div className="confidence-chip">
-                <small>READ CONFIDENCE</small>
-                <strong>{forecast.confidence}%</strong>
-                <span>evidence strength</span>
+              <div className="latest-update-actions">
+                <a
+                  href={
+                    latestAstroEvidence?.source ||
+                    forecast.sources[0]?.url ||
+                    "https://x.com/astronomer_zero"
+                  }
+                  onClick={markCurrentUpdateSeen}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open post ↗
+                </a>
+                {hasUnseenUpdate && (
+                  <button onClick={markCurrentUpdateSeen} type="button">
+                    Mark seen
+                  </button>
+                )}
               </div>
-            </div>
+            </aside>
 
-            <section className="simple-move-box" aria-label="Simple next move">
-              <div className="simple-move-head">
+            <section
+              className={`opportunity-command ${opportunity.tone}`}
+              aria-label="Simple next move and opportunity status"
+            >
+              <header>
                 <span><i />SIMPLE NEXT MOVE</span>
                 <small className={signalFreshness.tone}>
                   {signalFreshness.label}
                 </small>
+              </header>
+
+              <div className="opportunity-command-grid">
+                <article className="opportunity-primary">
+                  <small>OUR OPPORTUNITY</small>
+                  <strong>{opportunity.label}</strong>
+                  <p>{opportunity.summary}</p>
+                  <span>WHAT YOU DO</span>
+                  <em>{simpleNextMove.you}</em>
+                </article>
+                <article className="opportunity-position">
+                  <small>ASTRO POSITION</small>
+                  <strong>{forecast.decision.position}</strong>
+                  <p>{forecast.decision.status}</p>
+                  <div>
+                    <span>READ CONFIDENCE</span>
+                    <b>{forecast.confidence}%</b>
+                  </div>
+                </article>
               </div>
 
-              <div className="simple-move-now">
-                <small>RIGHT NOW</small>
-                <strong>{simpleNextMove.action}</strong>
-                <p>{simpleNextMove.summary}</p>
-              </div>
-
-              <div className="simple-move-explain">
+              <div className="opportunity-levels">
                 <article>
-                  <small>WHAT ASTRO MAY DO</small>
-                  <p>{simpleNextMove.astro}</p>
+                  <small>AREA</small>
+                  <strong>{forecast.execution.entry.level}</strong>
+                  <p>{forecast.execution.entry.state}</p>
                 </article>
                 <article>
-                  <small>WHAT YOU DO</small>
-                  <p>{simpleNextMove.you}</p>
+                  <small>ACTIVATES WHEN</small>
+                  <strong>{forecast.decision.lookingFor}</strong>
+                  <p>{forecast.execution.entry.condition}</p>
+                </article>
+                <article>
+                  <small>READ IS WRONG IF</small>
+                  <strong>{forecast.decision.risk}</strong>
+                  <p>{simpleNextMove.change}</p>
                 </article>
               </div>
 
-              <div className="simple-move-change">
-                <small>THIS CHANGES WHEN</small>
-                <span>{simpleNextMove.change}</span>
-              </div>
+              <footer>
+                <small>WHAT ASTRO MAY DO NEXT</small>
+                <p>{simpleNextMove.astro}</p>
+              </footer>
             </section>
 
             <div className="position-actions">
-              <a href={forecast.sources[0]?.url || "https://x.com/astronomer_zero"} target="_blank" rel="noreferrer">
+              <a
+                href={
+                  latestAstroEvidence?.source ||
+                  forecast.sources[0]?.url ||
+                  "https://x.com/astronomer_zero"
+                }
+                onClick={markCurrentUpdateSeen}
+                target="_blank"
+                rel="noreferrer"
+              >
                 Open latest Astro post ↗
               </a>
               <button onClick={() => showView("evidence")}>Why this read</button>
+              <button onClick={() => showView("history")}>Previous moves</button>
             </div>
             {notice && <p className="notice">{notice}</p>}
           </section>
@@ -745,6 +888,12 @@ export default function Home() {
             signalState={forecast.signal.state}
           />
 
+          <details className="current-analysis-details">
+            <summary>
+              <span>Deeper current analysis</span>
+              <small>Thesis · levels · scenarios · reasoning</small>
+            </summary>
+            <div>
           <section className="forward-thesis" aria-label="Forward Astro thesis">
             <div className="simple-section-head">
               <div>
@@ -883,6 +1032,8 @@ export default function Home() {
               </div>
             </details>
           </section>
+            </div>
+          </details>
         </div>
       )}
 
@@ -961,8 +1112,8 @@ export default function Home() {
         <button className={activeView === "evidence" ? "active" : ""} onClick={() => showView("evidence")}>
           <span>≡</span>Evidence
         </button>
-        <button className={activeView === "playbook" ? "active" : ""} onClick={() => showView("playbook")}>
-          <span>◇</span>Playbook
+        <button className={activeView === "history" ? "active" : ""} onClick={() => showView("history")}>
+          <span>↺</span>History
         </button>
       </nav>
 
