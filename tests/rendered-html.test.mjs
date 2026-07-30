@@ -34,7 +34,10 @@ test("server-renders the Astro Intelligence research terminal", async () => {
   const html = await response.text();
   assert.match(html, /<title>Astro Intelligence<\/title>/i);
   assert.match(html, /ASTRO[\s\S]*INTELLIGENCE/);
-  assert.match(html, /LIKELY NEXT MOVE/);
+  assert.match(html, /POSITION NOW/);
+  assert.match(html, /WHAT HE IS WATCHING/);
+  assert.match(html, /PLAYBOOK SAYS HE WILL/);
+  assert.match(html, /Reduced long \/ runner/i);
   assert.match(html, /ASTRO STACK/);
   assert.match(html, /Ask Astro Intelligence/);
   assert.match(html, /Grok OAuth/);

@@ -269,6 +269,13 @@ const forecastSchema = z.object({
   nextMove: z.string().min(1),
   invalidation: z.string().min(1),
   waitFor: z.string().min(1),
+  decision: z.object({
+    position: z.string().min(1),
+    status: z.string().min(1),
+    lookingFor: z.string().min(1),
+    playbookMove: z.string().min(1),
+    risk: z.string().min(1),
+  }),
   bias: z.object({
     cyclical: z.string().min(1),
     weekly: z.string().min(1),

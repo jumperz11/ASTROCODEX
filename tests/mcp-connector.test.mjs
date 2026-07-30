@@ -203,6 +203,13 @@ test("forecast gate requires direct sources and balanced scenarios", () => {
     nextMove: "Most likely he waits for the stated trigger.",
     invalidation: "A confirmed structure failure.",
     waitFor: "A new chart update.",
+    decision: {
+      position: "Flat / waiting",
+      status: "No confirmed live position",
+      lookingFor: "A direct structure update",
+      playbookMove: "Wait for confirmation",
+      risk: "A new thesis supersedes this read",
+    },
     bias: {
       cyclical: "Range",
       weekly: "Range",

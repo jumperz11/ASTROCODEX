@@ -11,6 +11,7 @@
     "nextMove",
     "invalidation",
     "waitFor",
+    "decision",
     "bias",
     "framework",
     "levels",
@@ -36,6 +37,18 @@
     "nextMove": { "type": "string" },
     "invalidation": { "type": "string" },
     "waitFor": { "type": "string" },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["position", "status", "lookingFor", "playbookMove", "risk"],
+      "properties": {
+        "position": { "type": "string" },
+        "status": { "type": "string" },
+        "lookingFor": { "type": "string" },
+        "playbookMove": { "type": "string" },
+        "risk": { "type": "string" }
+      }
+    },
     "bias": {
       "type": "object",
       "additionalProperties": false,

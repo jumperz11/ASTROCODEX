@@ -23,6 +23,13 @@ type Forecast = {
   nextMove: string;
   invalidation: string;
   waitFor: string;
+  decision: {
+    position: string;
+    status: string;
+    lookingFor: string;
+    playbookMove: string;
+    risk: string;
+  };
   bias: {
     cyclical: string;
     weekly: string;
@@ -62,6 +69,13 @@ const initialForecast: Forecast = {
     "A decisive failure back through the post-bounce structure would weaken the long thesis. Exact invalidation is not public in the visible thread.",
   waitFor:
     "A fresh Astro post, a clearly stated target, or a structure change that explains what “safe house” means on his chart.",
+  decision: {
+    position: "Reduced long / runner",
+    status: "Profit locked · waiting for confirmation",
+    lookingFor: "Weekly liquidity and a clear safe-house level",
+    playbookMove: "Manage the runner; do not chase a fresh full-size entry.",
+    risk: "Runner closes or aggressive shorts return.",
+  },
   bias: {
     cyclical: "Range / repair",
     weekly: "Bottoming range",
@@ -207,21 +221,6 @@ function Tag({ type }: { type: Evidence["type"] }) {
     inference: "INFERENCE",
   };
   return <span className={`source-tag ${type}`}>{copy[type]}</span>;
-}
-
-function ConfidenceRing({ value }: { value: number }) {
-  return (
-    <div
-      className="confidence-ring"
-      style={{ "--confidence": `${value * 3.6}deg` } as React.CSSProperties}
-      aria-label={`${value}% confidence`}
-    >
-      <div>
-        <strong>{value}</strong>
-        <span>/ 100</span>
-      </div>
-    </div>
-  );
 }
 
 function MarketChart({ tone }: { tone: Forecast["stanceTone"] }) {
@@ -387,48 +386,77 @@ export default function Home() {
         <div className="desk" id="top">
           <section className="signal-hero">
             <div className="section-kicker">
-              <span>LIVE THESIS / BTC</span>
-              <span>{lastUpdated}</span>
+              <span>ASTRO RIGHT NOW / {forecast.market}</span>
+              <span>{lastUpdated} · {timeLabel}</span>
             </div>
 
-            <div className="hero-grid">
-              <div className="thesis-copy">
-                <div className="stance-line">
-                  <span className={`stance-pill ${forecast.stanceTone}`}>{forecast.stance}</span>
-                  <span>Updated {timeLabel}</span>
-                </div>
-                <h1>{forecast.headline}</h1>
-                <p className="summary">{forecast.summary}</p>
-
-                <div className="next-move">
-                  <span className="next-index">01</span>
-                  <div>
-                    <small>LIKELY NEXT MOVE</small>
-                    <p>{forecast.nextMove}</p>
-                  </div>
-                </div>
-
-                <div className="thesis-actions">
+            <div className="position-board">
+              <div className="position-primary">
+                <span className={`position-direction ${forecast.stanceTone}`}>
+                  <i />
+                  POSITION NOW · {forecast.stanceTone}
+                </span>
+                <h1>{forecast.decision.position}</h1>
+                <p>{forecast.decision.status}</p>
+                <div className="position-actions">
                   <a href={forecast.sources[0]?.url || "https://x.com/astronomer_zero"} target="_blank" rel="noreferrer">
-                    Open latest source ↗
+                    Latest Astro post ↗
                   </a>
-                  <button onClick={() => setActiveView("evidence")}>Audit reasoning</button>
+                  <button onClick={() => setActiveView("evidence")}>Check evidence</button>
                 </div>
               </div>
 
-              <div className="confidence-card">
-                <span className="micro-label">INFERENCE CONFIDENCE</span>
-                <ConfidenceRing value={forecast.confidence} />
-                <p>
-                  Confidence measures source agreement—not the probability of profit.
-                </p>
-                <div className="confidence-legend">
-                  <span><i className="astro-dot" /> Direct posts</span>
-                  <span><i className="framework-dot" /> Codex rules</span>
-                  <span><i className="inference-dot" /> Synthesis</span>
-                </div>
+              <div className="position-confidence">
+                <span>READ CONFIDENCE</span>
+                <strong>{forecast.confidence}<small>/100</small></strong>
+                <p>Evidence strength, not profit probability.</p>
               </div>
             </div>
+
+            <div className="decision-grid">
+              <article className="decision-card watch-card">
+                <span className="decision-number">01</span>
+                <div>
+                  <small>WHAT HE IS WATCHING</small>
+                  <h2>{forecast.decision.lookingFor}</h2>
+                </div>
+              </article>
+
+              <article className="decision-card playbook-card">
+                <span className="decision-number">02</span>
+                <div>
+                  <small>PLAYBOOK SAYS HE WILL</small>
+                  <h2>{forecast.decision.playbookMove}</h2>
+                </div>
+              </article>
+
+              <article className="decision-card invalidation-card">
+                <span className="decision-number">03</span>
+                <div>
+                  <small>THIS READ CHANGES IF</small>
+                  <h2>{forecast.decision.risk}</h2>
+                </div>
+              </article>
+            </div>
+
+            <div className="scenario-strip" aria-label="Next move scenarios">
+              {forecast.scenarios.map((scenario, index) => (
+                <div className={index === 0 ? "base" : ""} key={scenario.name}>
+                  <span>{scenario.probability}%</span>
+                  <strong>{scenario.name}</strong>
+                  {index === 0 && <small>BASE CASE</small>}
+                </div>
+              ))}
+            </div>
+
+            <details className="read-details">
+              <summary>Why this read <span>+</span></summary>
+              <div>
+                <span className="eyebrow">{forecast.headline}</span>
+                <p>{forecast.summary}</p>
+                <p><strong>Full next-move reasoning:</strong> {forecast.nextMove}</p>
+              </div>
+            </details>
           </section>
 
           <section className="chart-panel">

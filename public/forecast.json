@@ -8,6 +8,13 @@
   "nextMove": "Most defensible next behavior is continued reduced-risk management: leave or manage a protected runner toward unfinished weekly open / intrawweek liquidity if still held, take further opportunistic locks if price extends, and keep top short III until most confluences confirm the FOMC reversal is over. Do not treat a fresh full-size long as Astro’s next move unless a new direct post says so.",
   "invalidation": "A new direct @astronomer_zero post that (1) fully closes any remaining long runner, (2) re-adds aggressive short IV, (3) declares the FOMC reversal complete / finished, or (4) defines a new numeric level or thesis that supersedes the current long-management frame.",
   "waitFor": "A fresh direct post clarifying residual long size (if any), a numeric safe-house level, whether top short III is still held, and any correction or clarification of the 67.7k print versus the earlier 64k trim.",
+  "decision": {
+    "position": "Reduced long / runner",
+    "status": "Profit locked · top short III remains",
+    "lookingFor": "Weekly liquidity and proof the FOMC reversal is over",
+    "playbookMove": "Manage the runner. Do not chase a fresh full-size long.",
+    "risk": "Runner closes or aggressive short IV returns"
+  },
   "bias": {
     "cyclical": "Astro still frames FOMC reversal as in play and 7% minimum drawdown as unfinished, even while trading a countertrend long near perceived move completion.",
     "weekly": "Intraweek long thesis targets untouched weekly open and intrawweek liquidity left during the week (~2,000+ points stated as minimum scale of the bounce objective).",

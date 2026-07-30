@@ -28,6 +28,29 @@ export function validateForecast(report) {
     }
   }
 
+  const decisionFields = [
+    "position",
+    "status",
+    "lookingFor",
+    "playbookMove",
+    "risk",
+  ];
+  if (
+    !report.decision ||
+    typeof report.decision !== "object" ||
+    Array.isArray(report.decision)
+  ) {
+    throw new Error("Forecast is missing decision.");
+  }
+  for (const field of decisionFields) {
+    if (
+      typeof report.decision[field] !== "string" ||
+      !report.decision[field].trim()
+    ) {
+      throw new Error(`Forecast decision is missing ${field}.`);
+    }
+  }
+
   if (!["long", "short", "neutral"].includes(report.stanceTone)) {
     throw new Error("Forecast stance tone is invalid.");
   }
