@@ -2,22 +2,21 @@ import { timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { dirname, join } from "node:path";
-import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const scriptsDirectory = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(scriptsDirectory, "..");
 const forecastPath = join(projectRoot, "public", "forecast.json");
+const stateDirectory =
+  process.env.ASTRO_STATE_DIR?.trim() || join(projectRoot, ".astro-runtime");
+const statePath = join(stateDirectory, "state.json");
 const signalToken = process.env.ASTRO_SIGNAL_TOKEN?.trim() ?? "";
 const host = process.env.ASTRO_SIGNAL_HOST?.trim() || "127.0.0.1";
 const port = Number.parseInt(process.env.ASTRO_SIGNAL_PORT || "8789", 10);
-const requestedInterval = Number.parseInt(
-  process.env.ASTRO_CHECK_INTERVAL_MS || "120000",
-  10,
+const staleAfterMs = Math.max(
+  300_000,
+  Number.parseInt(process.env.ASTRO_STALE_AFTER_MS || "600000", 10),
 );
-const intervalMs = Math.max(120_000, requestedInterval);
-const researchPrompt =
-  "Check @astronomer_zero's newest relevant public X posts and connected threads. Compare them with the latest accepted Astro Intelligence forecast. Apply the archived playbook and save a forecast only if new direct evidence or a material change alters his best-supported position, what he is watching, likely playbook action, invalidation, scenarios, confidence, execution map, Astro-derived chart levels, or plain-language signal state. Use exact direct status URLs and keep the compact decision fields terse. If nothing material changed, do not save.";
 
 if (signalToken.length < 32) {
   throw new Error(
@@ -27,11 +26,6 @@ if (signalToken.length < 32) {
 if (!Number.isInteger(port) || port < 1 || port > 65_535) {
   throw new Error("ASTRO_SIGNAL_PORT must be a valid TCP port.");
 }
-
-let checkedAt = null;
-let checkStatus = "starting";
-let lastError = null;
-let timer = null;
 
 function authorized(request) {
   const supplied = request.headers.authorization?.replace(/^Bearer\s+/i, "") ?? "";
@@ -43,60 +37,40 @@ function authorized(request) {
   );
 }
 
-async function readForecast() {
-  return JSON.parse(await readFile(forecastPath, "utf8"));
+async function readJson(path) {
+  return JSON.parse(await readFile(path, "utf8"));
 }
 
-function runAstroCheck() {
-  return new Promise((resolve, reject) => {
-    const { XAI_API_KEY: ignoredApiKey, ...oauthEnvironment } = process.env;
-    void ignoredApiKey;
-    const child = spawn(
-      process.execPath,
-      [join(scriptsDirectory, "run-astro-agent.mjs"), researchPrompt],
-      {
-        cwd: projectRoot,
-        env: oauthEnvironment,
-        stdio: ["ignore", "pipe", "pipe"],
-      },
-    );
-    let output = "";
-    child.stdout.on("data", (chunk) => {
-      output += String(chunk);
-    });
-    child.stderr.on("data", (chunk) => {
-      output += String(chunk);
-    });
-    child.on("error", reject);
-    child.on("close", (code) => {
-      const noChange =
-        output.includes("no new forecast saved") ||
-        output.includes("without saving a newly validated forecast");
-      if (code === 0 || noChange) {
-        resolve();
-        return;
-      }
-      if (/oauth|login|unauthorized|authentication/i.test(output)) {
-        reject(new Error("Grok OAuth needs login again."));
-        return;
-      }
-      reject(new Error("Astro check failed; the last valid signal is still served."));
-    });
-  });
-}
-
-async function checkLoop() {
-  checkStatus = "checking";
+async function currentHealth() {
   try {
-    await runAstroCheck();
-    checkedAt = new Date().toISOString();
-    checkStatus = "healthy";
-    lastError = null;
-  } catch (error) {
-    checkStatus = "error";
-    lastError = error instanceof Error ? error.message : "Astro check failed.";
-  } finally {
-    timer = setTimeout(() => void checkLoop(), intervalMs);
+    const state = await readJson(statePath);
+    const lastSuccessfulMs = new Date(state.lastSuccessfulAt || 0).getTime();
+    const stale =
+      !Number.isFinite(lastSuccessfulMs) ||
+      Date.now() - lastSuccessfulMs > staleAfterMs;
+    return {
+      ok: !stale && state.status !== "error",
+      status: stale ? "stale" : state.status,
+      checkedAt: state.checkedAt ?? null,
+      lastSuccessfulAt: state.lastSuccessfulAt ?? null,
+      forecastGeneratedAt: state.forecastGeneratedAt ?? null,
+      marketCandleAt: state.marketCandleAt ?? null,
+      changed: Boolean(state.changed),
+      consecutiveFailures: Number(state.consecutiveFailures || 0),
+      error: state.error ?? null,
+    };
+  } catch {
+    return {
+      ok: false,
+      status: "starting",
+      checkedAt: null,
+      lastSuccessfulAt: null,
+      forecastGeneratedAt: null,
+      marketCandleAt: null,
+      changed: false,
+      consecutiveFailures: 0,
+      error: "No completed VPS scan is available yet.",
+    };
   }
 }
 
@@ -109,12 +83,13 @@ const server = createServer(async (request, response) => {
   }
 
   if (url.pathname === "/health") {
+    const health = await currentHealth();
     response
-      .writeHead(checkStatus === "error" ? 503 : 200, {
+      .writeHead(health.ok ? 200 : 503, {
         "Content-Type": "application/json",
         "Cache-Control": "no-store",
       })
-      .end(JSON.stringify({ status: checkStatus, checkedAt }));
+      .end(JSON.stringify(health));
     return;
   }
 
@@ -128,7 +103,10 @@ const server = createServer(async (request, response) => {
   }
 
   try {
-    const forecast = await readForecast();
+    const [forecast, health] = await Promise.all([
+      readJson(forecastPath),
+      currentHealth(),
+    ]);
     response
       .writeHead(200, {
         "Content-Type": "application/json",
@@ -137,9 +115,9 @@ const server = createServer(async (request, response) => {
       .end(
         JSON.stringify({
           forecast,
-          checkedAt,
-          status: checkStatus,
-          error: lastError,
+          checkedAt: health.checkedAt,
+          status: health.status,
+          error: health.error,
         }),
       );
   } catch {
@@ -148,12 +126,10 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(port, host, () => {
-  console.log(`Astro signal service listening on http://${host}:${port}`);
-  void checkLoop();
+  console.log(`Astro signal API listening on http://${host}:${port}`);
 });
 
 function shutdown() {
-  if (timer) clearTimeout(timer);
   server.close(() => process.exit(0));
 }
 

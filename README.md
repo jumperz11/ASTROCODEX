@@ -1,5 +1,21 @@
 # Astro Intelligence
 
+## Always-on architecture
+
+The production loop runs entirely on the VPS:
+
+- `astro-scan.timer` starts a bounded Grok OAuth evidence scan every two minutes.
+- `astro-scan.service` checks the Coinbase BTC feed, researches Astro's current
+  public evidence, validates any changed forecast, and atomically records health.
+- `astro-signal.service` serves the last validated forecast through a
+  token-protected HTTPS endpoint.
+- `astro-watchdog.timer` checks freshness every five minutes and invokes
+  `astro-recovery.service` if the API or scan loop becomes unhealthy.
+
+The private dashboard only reads the protected endpoint. It does not perform
+research, trade execution, or background agent work. If research fails, the
+last validated forecast remains available and health reports the failure.
+
 Astro Intelligence is a private research terminal that models the public
 decision process of X trader
 [@astronomer_zero](https://x.com/astronomer_zero).

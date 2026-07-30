@@ -1,0 +1,31 @@
+[Unit]
+Description=Astro protected signal API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=astro
+Group=astro
+WorkingDirectory=/opt/astro
+EnvironmentFile=/etc/astro-signal.env
+Environment=PATH=/home/astro/.grok/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=ASTRO_STATE_DIR=/var/lib/astro-signal
+ExecStart=/usr/bin/npm run astro:vps
+Restart=always
+RestartSec=5
+StateDirectory=astro-signal
+StateDirectoryMode=0700
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+RestrictSUIDSGID=true
+LockPersonality=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,12 @@
+[Unit]
+Description=Verify the Astro signal system is fresh
+After=astro-signal.service
+OnFailure=astro-recovery.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8789/health
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true

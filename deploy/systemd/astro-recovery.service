@@ -1,0 +1,7 @@
+[Unit]
+Description=Recover Astro services after a failed health check
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl try-restart astro-signal.service
+ExecStart=-/usr/bin/systemctl start astro-scan.service

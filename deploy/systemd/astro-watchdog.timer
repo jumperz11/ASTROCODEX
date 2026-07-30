@@ -1,0 +1,12 @@
+[Unit]
+Description=Check Astro signal health every five minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitInactiveSec=5min
+AccuracySec=15s
+Persistent=true
+Unit=astro-watchdog.service
+
+[Install]
+WantedBy=timers.target

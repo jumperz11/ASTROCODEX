@@ -1,0 +1,28 @@
+[Unit]
+Description=Astro Grok evidence scan
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=astro
+Group=astro
+WorkingDirectory=/opt/astro
+EnvironmentFile=/etc/astro-signal.env
+Environment=PATH=/home/astro/.grok/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=ASTRO_STATE_DIR=/var/lib/astro-signal
+ExecStart=/usr/bin/npm run astro:vps:scan
+TimeoutStartSec=120
+StateDirectory=astro-signal
+StateDirectoryMode=0700
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home/astro/.grok /opt/astro/.astro /opt/astro/public /opt/astro/app
+ProtectKernelTunables=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+RestrictSUIDSGID=true
+LockPersonality=true
+UMask=0077

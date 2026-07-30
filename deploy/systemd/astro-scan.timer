@@ -1,0 +1,12 @@
+[Unit]
+Description=Run the Astro evidence agent every two minutes
+
+[Timer]
+OnBootSec=20
+OnUnitInactiveSec=2min
+AccuracySec=5s
+Persistent=true
+Unit=astro-scan.service
+
+[Install]
+WantedBy=timers.target
