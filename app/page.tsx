@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import liveForecast from "./forecast.json";
+import LiveAstroChart from "./live-astro-chart";
 
 type Evidence = {
   type: "astro" | "framework" | "inference";
@@ -464,6 +465,11 @@ export default function Home() {
             </div>
             {notice && <p className="notice">{notice}</p>}
           </section>
+
+          <LiveAstroChart
+            levels={forecast.levels}
+            forecastTime={forecast.generatedAt}
+          />
 
           <section className="execution-map" id="map">
             <div className="simple-section-head">

@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const protocol =
     incoming.get("x-forwarded-proto") ??
     (host.startsWith("localhost") ? "http" : "https");
-  const image = `${protocol}://${host}/og-v2.png`;
+  const image = `${protocol}://${host}/og-v3.png`;
 
   return {
     title: "Astro Intelligence",
@@ -27,9 +27,9 @@ export async function generateMetadata(): Promise<Metadata> {
       images: [
         {
           url: image,
-          width: 1536,
-          height: 1024,
-          alt: "Astro Intelligence — position and execution map",
+          width: 1693,
+          height: 929,
+          alt: "Astro Intelligence — live BTC chart with public Astro overlays",
         },
       ],
     },

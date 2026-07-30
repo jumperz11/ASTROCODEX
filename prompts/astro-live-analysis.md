@@ -57,6 +57,13 @@ Evidence discipline
   `Not public`, and the condition that activates it.
 - Never convert an old entry or trim into a new instruction. Never invent a
   numeric entry, target, stop, or close level from an unreadable chart.
+- Inspect Astro's attached chart images whenever their labels are legible.
+  Put clearly readable entries, trims, take-profit zones, weekly opens, and
+  invalidation levels into `levels`; make each label state whether it is
+  active, historical, closed, or an objective.
+- Chart overlays must come from Astro's direct text or chart labels. Do not
+  populate `levels` with model-created technical analysis. Preserve ranges
+  when his chart shows a zone instead of a single price.
 
 The object passed to `save_astro_forecast` must satisfy its supplied schema.
 After the connector accepts it, return a concise human-readable summary.
