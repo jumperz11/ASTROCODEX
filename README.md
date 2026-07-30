@@ -6,7 +6,9 @@ The production loop runs entirely on the VPS:
 
 - `astro-scan.timer` starts a bounded Grok OAuth evidence scan every two minutes.
 - `astro-scan.service` checks the Coinbase BTC feed, researches Astro's current
-  public evidence, validates any changed forecast, and atomically records health.
+  public evidence with the pinned Grok 4.5 OAuth model, retrieves matching
+  historical context from the Astro Core Edge Codex, validates any changed
+  forecast, and atomically records health.
 - `astro-signal.service` serves the last validated forecast through a
   token-protected HTTPS endpoint.
 - `astro-watchdog.timer` checks freshness every five minutes and invokes
@@ -28,7 +30,7 @@ model inference so every forecast can be audited.
 
 - Grok is authenticated with the user's existing `grok.com` OAuth session.
 - A local, token-protected MCP connector exposes the Astro playbook and forecast
-  store to Grok.
+  store to Grok, plus read-only search over the private Astro Codex index.
 - Grok must cite exact
   `x.com/astronomer_zero/status/...` URLs before the connector accepts a
   forecast.
@@ -37,6 +39,19 @@ model inference so every forecast can be audited.
 - The latest accepted forecast is saved to `public/forecast.json` and rendered
   by the private dashboard.
 - No `XAI_API_KEY` is used or required.
+
+## Astro Codex memory
+
+Build the private search index from a Telegram HTML export:
+
+```bash
+npm run astro:codex:index -- /path/to/ChatExport /private/path/codex-index.json
+```
+
+On the VPS, `ASTRO_CODEX_INDEX` points to that private index. The archive and
+index are never deployed with the public dashboard. Retrieved Codex messages
+are historical framework context only; they cannot establish a current
+position without a fresh direct X post.
 
 ## One-time setup
 

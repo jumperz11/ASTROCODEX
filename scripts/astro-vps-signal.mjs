@@ -57,6 +57,10 @@ async function currentHealth() {
       forecastGeneratedAt: state.forecastGeneratedAt ?? null,
       marketCandleAt: state.marketCandleAt ?? null,
       changed: Boolean(state.changed),
+      runId: state.runId ?? null,
+      model: state.model ?? null,
+      codexEntries: Number(state.codex?.entries || 0),
+      codexBuiltAt: state.codex?.builtAt ?? null,
       consecutiveFailures: Number(state.consecutiveFailures || 0),
       error: state.error ?? null,
     };
@@ -69,6 +73,10 @@ async function currentHealth() {
       forecastGeneratedAt: null,
       marketCandleAt: null,
       changed: false,
+      runId: null,
+      model: null,
+      codexEntries: 0,
+      codexBuiltAt: null,
       consecutiveFailures: 0,
       error: "No completed VPS scan is available yet.",
     };
@@ -138,6 +146,10 @@ const server = createServer(async (request, response) => {
           forecast,
           checkedAt: health.checkedAt,
           status: health.status,
+          runId: health.runId,
+          model: health.model,
+          codexEntries: health.codexEntries,
+          codexBuiltAt: health.codexBuiltAt,
           error: health.error,
         }),
       );

@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { readFile, rename, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,6 +11,10 @@ const stateDirectory =
   process.env.ASTRO_STATE_DIR?.trim() || join(projectRoot, ".astro-runtime");
 const statePath = join(stateDirectory, "state.json");
 const historyPath = join(stateDirectory, "history.json");
+const codexIndexPath =
+  process.env.ASTRO_CODEX_INDEX?.trim() ||
+  join(stateDirectory, "codex-index.json");
+const grokModel = process.env.ASTRO_GROK_MODEL?.trim() || "grok-4.5";
 const timeoutMs = Math.max(
   60_000,
   Number.parseInt(process.env.ASTRO_AGENT_TIMEOUT_MS || "105000", 10),
@@ -106,6 +111,25 @@ async function verifyMarketFeed() {
     weeklyOpen,
     distanceFromWeeklyOpenPct:
       ((latestPrice - weeklyOpen) / weeklyOpen) * 100,
+  };
+}
+
+async function verifyCodexIndex() {
+  const index = await readJson(codexIndexPath);
+  if (
+    !index ||
+    index.version !== 1 ||
+    !Number.isInteger(index.entryCount) ||
+    index.entryCount < 10 ||
+    !Array.isArray(index.entries) ||
+    index.entries.length !== index.entryCount
+  ) {
+    throw new Error("Astro Codex memory index is missing or invalid.");
+  }
+  return {
+    builtAt: index.builtAt ?? null,
+    entries: index.entryCount,
+    media: Number(index.mediaCount || 0),
   };
 }
 
@@ -207,16 +231,22 @@ async function updateHistory({ checkedAt, changed, forecast, market }) {
 }
 
 const previous = await readJson(statePath, {});
+const runId = randomUUID();
 const startedAt = new Date().toISOString();
 await writeState({
   ...previous,
+  runId,
+  model: grokModel,
   status: "checking",
   startedAt,
   error: null,
 });
 
 try {
-  const market = await verifyMarketFeed();
+  const [market, codex] = await Promise.all([
+    verifyMarketFeed(),
+    verifyCodexIndex(),
+  ]);
   const before = await stat(forecastPath)
     .then((value) => value.mtimeMs)
     .catch(() => 0);
@@ -243,6 +273,9 @@ try {
   const changed = after > before;
   await updateHistory({ checkedAt: finishedAt, changed, forecast, market });
   await writeState({
+    runId,
+    model: grokModel,
+    codex,
     status: "healthy",
     startedAt,
     finishedAt,
@@ -256,7 +289,14 @@ try {
     error: null,
   });
   process.stdout.write(
-    `${JSON.stringify({ status: "healthy", checkedAt: finishedAt, changed })}\n`,
+    `${JSON.stringify({
+      status: "healthy",
+      runId,
+      model: grokModel,
+      codexEntries: codex.entries,
+      checkedAt: finishedAt,
+      changed,
+    })}\n`,
   );
 } catch (error) {
   const finishedAt = new Date().toISOString();
@@ -264,6 +304,8 @@ try {
     error instanceof Error ? error.message : "Unknown Astro scan failure.";
   await writeState({
     ...previous,
+    runId,
+    model: grokModel,
     status: "error",
     startedAt,
     finishedAt,

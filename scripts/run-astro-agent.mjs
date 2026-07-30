@@ -13,6 +13,7 @@ const question =
   process.argv.slice(2).join(" ").trim() ||
   "What is Astro likely thinking and doing next?";
 const credentials = await ensureConnectorCredentials();
+const grokModel = process.env.ASTRO_GROK_MODEL?.trim() || "grok-4.5";
 
 async function connectorIsReady() {
   try {
@@ -82,6 +83,8 @@ try {
 
 Connector workflow:
 - Call get_astro_playbook before forming the forecast.
+- Call search_astro_codex for historical context relevant to the current setup.
+- Treat Codex results as framework memory, never evidence of a current position.
 - Use current public X evidence and exact direct status URLs.
 - Call save_astro_forecast with the complete result.
 - If exact current evidence cannot be verified, do not save a forecast.
@@ -90,6 +93,8 @@ Connector workflow:
   await run("grok", [
     "--single",
     prompt,
+    "--model",
+    grokModel,
     "--max-turns",
     "14",
     "--output-format",

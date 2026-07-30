@@ -5,6 +5,10 @@ export const dynamic = "force-dynamic";
 type RemoteSignalEnvelope = {
   forecast?: unknown;
   checkedAt?: unknown;
+  status?: unknown;
+  runId?: unknown;
+  model?: unknown;
+  codexEntries?: unknown;
 };
 
 function isForecast(value: unknown): value is Record<string, unknown> {
@@ -25,6 +29,10 @@ function response(
     checkedAt: string | null;
     source: "vps" | "bundled";
     degraded?: boolean;
+    status?: string;
+    runId?: string | null;
+    model?: string | null;
+    codexEntries?: number;
   },
 ) {
   return Response.json(
@@ -72,6 +80,12 @@ export async function GET() {
     return response(forecast, {
       checkedAt,
       source: "vps",
+      status: typeof payload.status === "string" ? payload.status : "healthy",
+      runId: typeof payload.runId === "string" ? payload.runId : null,
+      model: typeof payload.model === "string" ? payload.model : null,
+      codexEntries: Number.isInteger(payload.codexEntries)
+        ? Number(payload.codexEntries)
+        : 0,
     });
   } catch {
     return response(bundledForecast, {

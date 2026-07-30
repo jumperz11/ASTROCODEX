@@ -368,6 +368,10 @@ type LiveSignalEnvelope = {
   checkedAt: string | null;
   source: "vps" | "bundled";
   degraded?: boolean;
+  status?: string;
+  runId?: string | null;
+  model?: string | null;
+  codexEntries?: number;
 };
 
 async function fetchLiveSignal(): Promise<LiveSignalEnvelope> {
@@ -474,6 +478,12 @@ export default function Home() {
   const [notice, setNotice] = useState("");
   const [lastUpdated, setLastUpdated] = useState("Validated Grok snapshot");
   const [signalCheckedAt, setSignalCheckedAt] = useState<string | null>(null);
+  const [systemStatus, setSystemStatus] = useState({
+    degraded: true,
+    model: null as string | null,
+    codexEntries: 0,
+    runId: null as string | null,
+  });
   const [clockNow, setClockNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -486,6 +496,12 @@ export default function Home() {
         const normalized = normalizeForecast(envelope.forecast);
         setForecast(normalized);
         setSignalCheckedAt(envelope.checkedAt);
+        setSystemStatus({
+          degraded: Boolean(envelope.degraded) || envelope.source !== "vps",
+          model: envelope.model ?? null,
+          codexEntries: Number(envelope.codexEntries || 0),
+          runId: envelope.runId ?? null,
+        });
         setLastUpdated(
           envelope.source === "vps"
             ? "VPS live signal"
@@ -563,6 +579,12 @@ export default function Home() {
       const normalized = normalizeForecast(envelope.forecast);
       setForecast(normalized);
       setSignalCheckedAt(envelope.checkedAt);
+      setSystemStatus({
+        degraded: Boolean(envelope.degraded) || envelope.source !== "vps",
+        model: envelope.model ?? null,
+        codexEntries: Number(envelope.codexEntries || 0),
+        runId: envelope.runId ?? null,
+      });
       setLastUpdated(
         envelope.source === "vps"
           ? "VPS live signal"
@@ -604,8 +626,12 @@ export default function Home() {
         </nav>
 
         <div className="status-cluster">
-          <span className={`connection-dot ${forecast.mode}`} />
-          <span>{forecast.mode === "live" ? "Live read" : "Snapshot"}</span>
+          <span
+            className={`connection-dot ${
+              systemStatus.degraded ? "stale" : forecast.mode
+            }`}
+          />
+          <span>{systemStatus.degraded ? "Protected snapshot" : "Systems live"}</span>
           <button className="sync-button" onClick={refreshForecast} disabled={loading}>
             {loading ? "Syncing…" : "Sync"}
           </button>
@@ -616,8 +642,37 @@ export default function Home() {
         <div className="desk" id="top">
           <section className="quick-view">
             <div className="live-meta">
-              <span><i className={`connection-dot ${forecast.mode}`} />Grok connected · evidence gated</span>
+              <span>
+                <i
+                  className={`connection-dot ${
+                    systemStatus.degraded ? "stale" : forecast.mode
+                  }`}
+                />
+                Grok connected · evidence gated
+                {systemStatus.model
+                  ? ` · ${systemStatus.model.replace("grok-", "Grok ")}`
+                  : ""}
+              </span>
               <span>{lastUpdated} · {timeLabel}</span>
+            </div>
+
+            <div
+              className="system-health-strip"
+              aria-label="System connection status"
+              title={systemStatus.runId ? `Latest scan ${systemStatus.runId}` : undefined}
+            >
+              <span className={signalFreshness.tone}>
+                <i /> Signal {signalFreshness.label.toLowerCase()}
+              </span>
+              <span className={systemStatus.codexEntries > 0 ? "live" : "stale"}>
+                <i /> Astro Codex{" "}
+                {systemStatus.codexEntries > 0
+                  ? `${systemStatus.codexEntries.toLocaleString()} memories`
+                  : "connecting"}
+              </span>
+              <span className={systemStatus.degraded ? "stale" : "live"}>
+                <i /> {systemStatus.degraded ? "Using safe snapshot" : "VPS connected"}
+              </span>
             </div>
 
             <div className="position-summary">

@@ -7,17 +7,20 @@ User question: {{QUESTION}}
 Research task
 
 1. Call `get_astro_playbook` from the `astro-intelligence` connector.
-2. Search X for @astronomer_zero's newest relevant posts and connected threads.
-3. Inspect quoted posts and chart images when they materially affect the reading.
-4. Reconstruct the public sequence: thesis, position direction, entry or scale
+2. Call `search_astro_codex` with the current setup, position terminology, and
+   the most important trigger from the latest accepted forecast. Treat results
+   only as historical framework context, never current-position evidence.
+3. Search X for @astronomer_zero's newest relevant posts and connected threads.
+4. Inspect quoted posts and chart images when they materially affect the reading.
+5. Reconstruct the public sequence: thesis, position direction, entry or scale
    areas, trims, targets, invalidation, and what confirmation he is waiting for.
-5. Apply the historical framework below.
-6. Create a timestamped probabilistic reading of what he is most likely to do
+6. Apply the historical framework and the retrieved Codex context.
+7. Create a timestamped probabilistic reading of what he is most likely to do
    next. Never claim access to private intentions.
-7. Use the verified Coinbase snapshot supplied in the user question to build a
+8. Use the verified Coinbase snapshot supplied in the user question to build a
    separate forward thesis: what the archived playbook suggests Astro would
    watch next before he posts. This is model inference, never an Astro quote.
-8. Call `save_astro_forecast` with the complete forecast object. Do not claim
+9. Call `save_astro_forecast` with the complete forecast object. Do not claim
    success unless the connector accepts it.
 
 Historical Astro framework

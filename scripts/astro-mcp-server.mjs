@@ -18,10 +18,14 @@ import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middlew
 import { InvalidRequestError } from "@modelcontextprotocol/sdk/server/auth/errors.js";
 import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
 import { readForecast, saveForecast } from "./forecast-store.mjs";
+import { searchCodexFile } from "./astro-codex-index.mjs";
 
 const scriptsDirectory = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(scriptsDirectory, "..");
 const playbookPath = join(projectRoot, "prompts", "astro-live-analysis.md");
+const codexIndexPath =
+  process.env.ASTRO_CODEX_INDEX?.trim() ||
+  join(projectRoot, ".astro", "codex-index.json");
 const host = "127.0.0.1";
 const port = Number.parseInt(process.env.ASTRO_MCP_PORT || "4318", 10);
 const ownerCode = process.env.ASTRO_OWNER_CODE;
@@ -112,6 +116,7 @@ class OwnerCodeOAuthProvider {
       <p>This grants only the Astro Intelligence connector tools:</p>
       <ul>
         <li>Read the versioned Astro playbook</li>
+        <li>Search the private Astro Core Edge Codex</li>
         <li>Read and save a validated forecast</li>
       </ul>
       <form method="post" action="/approve">
@@ -368,7 +373,7 @@ function createAstroServer() {
     },
     {
       instructions:
-        "Use this server only for research about public posts by @astronomer_zero. Call get_astro_playbook before analysis. Search X yourself, cite exact direct status URLs, then call save_astro_forecast. Never issue an autonomous trade.",
+        "Use this server only for research about public posts by @astronomer_zero. Call get_astro_playbook and search_astro_codex before analysis. Search X yourself, cite exact direct status URLs, then call save_astro_forecast. Never issue an autonomous trade.",
     },
   );
 
@@ -392,6 +397,46 @@ function createAstroServer() {
         },
       ],
     }),
+  );
+
+  server.registerTool(
+    "search_astro_codex",
+    {
+      title: "Search Astro Core Edge Codex",
+      description:
+        "Searches the private Telegram archive for historical Astro rules, terminology, setups, and execution examples. Results are framework context, never proof of a current position.",
+      inputSchema: {
+        query: z.string().min(3).max(500),
+        limit: z.number().int().min(1).max(12).optional(),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ query, limit }) => {
+      try {
+        const result = await searchCodexFile(codexIndexPath, query, limit ?? 6);
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+          structuredContent: {
+            entryCount: result.entryCount,
+            resultCount: result.results.length,
+          },
+        };
+      } catch {
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: "The Astro Codex index is unavailable. Do not invent archive context.",
+            },
+          ],
+        };
+      }
+    },
   );
 
   server.registerTool(
