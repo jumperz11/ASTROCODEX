@@ -14,7 +14,8 @@
     "db:generate": "drizzle-kit generate",
     "astro:setup": "node scripts/setup-grok-connector.mjs",
     "astro:connector": "node scripts/start-astro-connector.mjs",
-    "astro:run": "node scripts/run-astro-agent.mjs"
+    "astro:run": "node scripts/run-astro-agent.mjs",
+    "astro:vps": "node scripts/astro-vps-signal.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

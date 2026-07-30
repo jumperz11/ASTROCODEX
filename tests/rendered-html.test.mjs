@@ -41,6 +41,7 @@ test("server-renders the Astro Intelligence research terminal", async () => {
   assert.match(html, /There is no confirmed new trade to follow/);
   assert.match(html, /OPEN &amp; CLOSE MAP/);
   assert.match(html, /LIVE ASTRO MAP/);
+  assert.match(html, /ASTRO SIGNAL/);
   assert.match(html, /Coinbase public BTC-USD feed/);
   assert.match(html, /OPEN \/ ADD/);
   assert.match(html, /REDUCE \/ TAKE PROFIT/);
@@ -56,4 +57,24 @@ test("server-renders the Astro Intelligence research terminal", async () => {
   assert.match(html, /property="og:image"/);
   assert.doesNotMatch(html, /XAI_API_KEY/);
   assert.doesNotMatch(html, /Your site is taking shape|react-loading-skeleton/);
+});
+
+test("live signal endpoint safely falls back to the validated bundle", async () => {
+  const app = await worker();
+  const response = await app.fetch(
+    new Request("http://localhost/api/live-signal", {
+      headers: { accept: "application/json" },
+    }),
+    environment,
+    context,
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("cache-control") ?? "", /no-store/);
+
+  const data = await response.json();
+  assert.equal(data.source, "bundled");
+  assert.equal(data.checkedAt, null);
+  assert.equal(data.forecast.market, "BTC");
+  assert.equal(data.forecast.mode, "live");
 });

@@ -51,6 +51,39 @@ export function validateForecast(report) {
     }
   }
 
+  const signalFields = [
+    "plainSummary",
+    "astroMayDo",
+    "readerStep",
+    "changesWhen",
+  ];
+  const signalStates = [
+    "wait",
+    "long",
+    "short",
+    "take_profit",
+    "exit",
+    "conflict",
+  ];
+  if (
+    !report.signal ||
+    typeof report.signal !== "object" ||
+    Array.isArray(report.signal)
+  ) {
+    throw new Error("Forecast is missing signal.");
+  }
+  if (!signalStates.includes(report.signal.state)) {
+    throw new Error("Forecast signal state is invalid.");
+  }
+  for (const field of signalFields) {
+    if (
+      typeof report.signal[field] !== "string" ||
+      !report.signal[field].trim()
+    ) {
+      throw new Error(`Forecast signal is missing ${field}.`);
+    }
+  }
+
   const executionFields = ["entry", "takeProfit", "exit"];
   const levelFields = ["state", "level", "condition"];
   if (

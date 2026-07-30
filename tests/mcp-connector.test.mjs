@@ -210,6 +210,13 @@ test("forecast gate requires direct sources and balanced scenarios", () => {
       playbookMove: "Wait for confirmation",
       risk: "A new thesis supersedes this read",
     },
+    signal: {
+      state: "wait",
+      plainSummary: "There is no confirmed new trade.",
+      astroMayDo: "He may keep waiting for confirmation.",
+      readerStep: "Wait for a new direct Astro post.",
+      changesWhen: "Astro posts a confirmed new move.",
+    },
     execution: {
       entry: {
         state: "WAIT",
@@ -308,5 +315,13 @@ test("forecast gate requires direct sources and balanced scenarios", () => {
         ],
       }),
     /direct @astronomer_zero status URL/,
+  );
+  assert.throws(
+    () =>
+      validateForecast({
+        ...valid,
+        signal: { ...valid.signal, state: "guess" },
+      }),
+    /signal state is invalid/,
   );
 });

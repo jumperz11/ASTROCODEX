@@ -52,6 +52,22 @@ Evidence discipline
 - `decision.position` states the best-supported current position, `lookingFor`
   names the next confirmation, `playbookMove` names the likely behavior, and
   `risk` names the specific development that changes the read.
+- Populate `signal` in plain language for a reader who does not know trading
+  vocabulary. `state` must be exactly one of `wait`, `long`, `short`,
+  `take_profit`, `exit`, or `conflict`. Keep its four text fields short,
+  concrete, and free of unexplained jargon.
+- Use `long` or `short` only when a fresh direct Astro post supports a current
+  active position. An old entry, a model inference, or silence cannot create a
+  new active signal. Use `wait` when no fresh trade is confirmed.
+- Use `conflict` whenever Astro's direct text and readable chart labels disagree
+  on direction, entry, target, exit, or whether a position is open. The plain
+  summary must name the disagreement. Do not resolve a conflict by guessing.
+- Use `take_profit` only for a fresh direct trim/lock post and `exit` only for a
+  fresh direct full-close or explicit invalidation post. A partial close is not
+  a full exit.
+- `signal.readerStep` is a research step such as wait, open the source post, or
+  verify a new level. It must never prescribe leverage, position size, or an
+  autonomous buy/sell.
 - Populate `execution.entry`, `execution.takeProfit`, and `execution.exit` as
   a compact public-playbook map. Each needs a terse state, a verified level or
   `Not public`, and the condition that activates it.

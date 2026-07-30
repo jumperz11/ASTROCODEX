@@ -1632,6 +1632,23 @@ footer a {
   color: var(--muted);
 }
 
+.simple-move-head small.live,
+.chart-signal-pill span.live {
+  color: var(--green);
+}
+
+.simple-move-head small.aging,
+.chart-signal-pill span.aging,
+.simple-move-head small.scheduled,
+.chart-signal-pill span.scheduled {
+  color: var(--amber);
+}
+
+.simple-move-head small.stale,
+.chart-signal-pill span.stale {
+  color: var(--red);
+}
+
 .simple-move-now {
   padding: 28px 22px 25px;
 }
@@ -2531,8 +2548,95 @@ summary:focus-visible {
   height: 430px;
 }
 
+.chart-zone-layer {
+  position: absolute;
+  z-index: 2;
+  inset: 0 76px 0 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.chart-zone-layer i {
+  position: absolute;
+  right: 0;
+  left: 0;
+  border-top: 1px solid;
+  border-bottom: 1px solid;
+  opacity: 0.72;
+}
+
+.chart-signal-pill,
+.next-level-pill {
+  position: absolute;
+  z-index: 3;
+  top: 13px;
+  padding: 9px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(10, 11, 13, 0.9);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+}
+
+.chart-signal-pill {
+  left: 13px;
+  border-left: 3px solid var(--amber);
+}
+
+.chart-signal-pill.long {
+  border-left-color: var(--green);
+}
+
+.chart-signal-pill.short,
+.chart-signal-pill.conflict {
+  border-left-color: var(--red);
+}
+
+.chart-signal-pill.take_profit {
+  border-left-color: var(--amber);
+}
+
+.chart-signal-pill.exit {
+  border-left-color: var(--muted);
+}
+
+.chart-signal-pill small,
+.chart-signal-pill span,
+.next-level-pill small,
+.next-level-pill span {
+  display: block;
+  color: var(--muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chart-signal-pill strong {
+  display: block;
+  margin: 5px 0 4px;
+  color: var(--ink);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+
+.next-level-pill {
+  right: 86px;
+  text-align: right;
+}
+
+.next-level-pill strong {
+  display: block;
+  margin: 5px 0 4px;
+  color: var(--amber);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+  font-weight: 500;
+}
+
 .chart-feed-error {
   position: absolute;
+  z-index: 4;
   inset: auto 15px 15px;
   padding: 11px 13px;
   border: 1px solid rgba(255, 107, 102, 0.3);
@@ -2654,6 +2758,33 @@ summary:focus-visible {
 
   .live-chart-stage > div:first-child {
     height: 350px;
+  }
+
+  .chart-zone-layer {
+    right: 64px;
+  }
+
+  .chart-signal-pill,
+  .next-level-pill {
+    top: 8px;
+    padding: 7px 9px;
+  }
+
+  .chart-signal-pill {
+    left: 8px;
+  }
+
+  .chart-signal-pill strong {
+    font-size: 16px;
+  }
+
+  .next-level-pill {
+    top: 76px;
+    right: auto;
+    left: 8px;
+    width: max-content;
+    max-width: calc(100% - 84px);
+    text-align: left;
   }
 
   .astro-level-legend {

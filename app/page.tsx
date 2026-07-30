@@ -18,6 +18,22 @@ type ExecutionLevel = {
   condition: string;
 };
 
+type SignalState =
+  | "wait"
+  | "long"
+  | "short"
+  | "take_profit"
+  | "exit"
+  | "conflict";
+
+type SimpleSignal = {
+  state: SignalState;
+  plainSummary: string;
+  astroMayDo: string;
+  readerStep: string;
+  changesWhen: string;
+};
+
 type Forecast = {
   generatedAt: string;
   mode: "live" | "demo";
@@ -37,6 +53,7 @@ type Forecast = {
     playbookMove: string;
     risk: string;
   };
+  signal: SimpleSignal;
   execution: {
     entry: ExecutionLevel;
     takeProfit: ExecutionLevel;
@@ -87,6 +104,16 @@ const initialForecast: Forecast = {
     lookingFor: "Weekly liquidity and a clear safe-house level",
     playbookMove: "Manage the runner; do not chase a fresh full-size entry.",
     risk: "Runner closes or aggressive shorts return.",
+  },
+  signal: {
+    state: "wait",
+    plainSummary: "There is no confirmed new trade to follow.",
+    astroMayDo:
+      "He may keep a small piece of his current trade open. He has already taken some profit.",
+    readerStep:
+      "Wait for a new Astro post. Do not use his old entry price as a new entry.",
+    changesWhen:
+      "Astro clearly says he closed this trade or started a different one.",
   },
   execution: {
     entry: {
@@ -190,6 +217,38 @@ const initialForecast: Forecast = {
     "This is a timestamped inference from public posts and the archived framework—not Astro’s private intent, financial advice, or a guaranteed trade.",
 };
 
+function deriveSignal(report: Forecast): SimpleSignal {
+  const entryState = report.execution?.entry?.state?.toUpperCase() ?? "WAIT";
+  const noFreshEntry =
+    entryState.includes("WAIT") ||
+    entryState.includes("DONE") ||
+    entryState.includes("CLOSED") ||
+    report.confidence < 65;
+
+  if (noFreshEntry) {
+    return {
+      state: "wait",
+      plainSummary: "There is no confirmed new trade to follow.",
+      astroMayDo:
+        "He may keep a small piece of his current trade open. He has already taken some profit.",
+      readerStep:
+        "Wait for a new Astro post. Do not use his old entry price as a new entry.",
+      changesWhen:
+        "Astro clearly says he closed this trade or started a different one.",
+    };
+  }
+
+  return {
+    state: report.stanceTone === "short" ? "short" : "long",
+    plainSummary: "Astro may have posted a new trade setup.",
+    astroMayDo:
+      "He appears to be following a new idea that still needs confirmation.",
+    readerStep:
+      "Open his newest post and check the price and timing before considering anything.",
+    changesWhen: "Astro cancels it, takes profit, or posts a different move.",
+  };
+}
+
 function normalizeForecast(report: Forecast): Forecast {
   return {
     ...report,
@@ -201,6 +260,7 @@ function normalizeForecast(report: Forecast): Forecast {
         playbookMove: report.nextMove || "Wait for confirmation",
         risk: report.invalidation || "A new thesis supersedes this read",
       },
+    signal: report.signal ?? deriveSignal(report),
     execution:
       report.execution ?? {
         entry: {
@@ -230,33 +290,20 @@ function normalizeForecast(report: Forecast): Forecast {
 }
 
 function getSimpleNextMove(forecast: Forecast) {
-  const entryState = forecast.execution.entry.state.toUpperCase();
-  const noFreshEntry =
-    entryState.includes("WAIT") ||
-    entryState.includes("DONE") ||
-    entryState.includes("CLOSED") ||
-    forecast.confidence < 65;
-
-  if (noFreshEntry) {
-    return {
-      action: "WAIT",
-      summary: "There is no confirmed new trade to follow.",
-      astro:
-        "He may keep a small piece of his current trade open. He has already taken some profit.",
-      you:
-        "Wait for a new Astro post. Do not use his old entry price as a new entry.",
-      change:
-        "Astro clearly says he closed this trade or started a different one.",
-    };
-  }
-
+  const labels: Record<SignalState, string> = {
+    wait: "WAIT",
+    long: "LONG",
+    short: "SHORT",
+    take_profit: "TAKE PROFIT",
+    exit: "EXIT",
+    conflict: "WAIT · CONFLICT",
+  };
   return {
-    action: "CHECK FIRST",
-    summary: "Astro may have posted a new trade setup.",
-    astro: "He appears to be following a new idea that still needs confirmation.",
-    you:
-      "Open his newest post and check the price and timing before considering anything.",
-    change: "Astro cancels it, takes profit, or posts a different move.",
+    action: labels[forecast.signal.state],
+    summary: forecast.signal.plainSummary,
+    astro: forecast.signal.astroMayDo,
+    you: forecast.signal.readerStep,
+    change: forecast.signal.changesWhen,
   };
 }
 
@@ -264,6 +311,26 @@ const embeddedForecast =
   (liveForecast as Forecast).mode === "live"
     ? normalizeForecast(liveForecast as Forecast)
     : initialForecast;
+
+type LiveSignalEnvelope = {
+  forecast: Forecast;
+  checkedAt: string | null;
+  source: "vps" | "bundled";
+  degraded?: boolean;
+};
+
+async function fetchLiveSignal(): Promise<LiveSignalEnvelope> {
+  const response = await fetch(`/api/live-signal?ts=${Date.now()}`, {
+    cache: "no-store",
+  });
+  const data = (await response.json()) as LiveSignalEnvelope & {
+    error?: string;
+  };
+  if (!response.ok || !data.forecast) {
+    throw new Error(data.error || "The validated signal is unavailable.");
+  }
+  return data;
+}
 
 const rules = [
   {
@@ -354,36 +421,53 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
   const [lastUpdated, setLastUpdated] = useState("Validated Grok snapshot");
+  const [signalCheckedAt, setSignalCheckedAt] = useState<string | null>(null);
+  const [clockNow, setClockNow] = useState(() => Date.now());
 
   useEffect(() => {
-    const restore = window.setTimeout(() => {
-      void fetch(`/forecast.json?ts=${Date.now()}`, { cache: "no-store" })
-        .then(async (response) => {
-          if (!response.ok) throw new Error("Forecast snapshot unavailable.");
-          return (await response.json()) as Forecast;
-        })
-        .then((latest) => {
-          const normalized = normalizeForecast(latest);
-          setForecast(normalized);
-          setLastUpdated("Validated Grok snapshot");
-          window.localStorage.setItem(
-            "astro-intel-last-forecast",
-            JSON.stringify(normalized),
-          );
-        })
-        .catch(() => {
-          const saved = window.localStorage.getItem("astro-intel-last-forecast");
-          if (!saved) return;
-          try {
-            setForecast(normalizeForecast(JSON.parse(saved) as Forecast));
-            setLastUpdated("Restored validated snapshot");
-          } catch {
-            window.localStorage.removeItem("astro-intel-last-forecast");
-          }
-        });
-    }, 0);
+    let active = true;
 
-    return () => window.clearTimeout(restore);
+    async function load() {
+      try {
+        const envelope = await fetchLiveSignal();
+        if (!active) return;
+        const normalized = normalizeForecast(envelope.forecast);
+        setForecast(normalized);
+        setSignalCheckedAt(envelope.checkedAt);
+        setLastUpdated(
+          envelope.source === "vps"
+            ? "VPS live signal"
+            : "Validated Grok snapshot",
+        );
+        window.localStorage.setItem(
+          "astro-intel-last-forecast",
+          JSON.stringify(normalized),
+        );
+      } catch {
+        if (!active) return;
+        const saved = window.localStorage.getItem("astro-intel-last-forecast");
+        if (!saved) return;
+        try {
+          setForecast(normalizeForecast(JSON.parse(saved) as Forecast));
+          setLastUpdated("Restored validated snapshot");
+        } catch {
+          window.localStorage.removeItem("astro-intel-last-forecast");
+        }
+      }
+    }
+
+    void load();
+    const refresh = window.setInterval(() => void load(), 15_000);
+
+    return () => {
+      active = false;
+      window.clearInterval(refresh);
+    };
+  }, []);
+
+  useEffect(() => {
+    const clock = window.setInterval(() => setClockNow(Date.now()), 60_000);
+    return () => window.clearInterval(clock);
   }, []);
 
   const timeLabel = useMemo(() => {
@@ -401,21 +485,37 @@ export default function Home() {
     () => getSimpleNextMove(forecast),
     [forecast],
   );
+  const signalFreshness = useMemo(() => {
+    if (!signalCheckedAt) {
+      return { label: "30 MIN MONITOR", tone: "scheduled" };
+    }
+    const checked = new Date(signalCheckedAt).getTime();
+    if (!Number.isFinite(checked)) {
+      return { label: "CHECK TIME UNKNOWN", tone: "stale" };
+    }
+    const ageMinutes = Math.max(0, Math.floor((clockNow - checked) / 60_000));
+    if (ageMinutes <= 3) {
+      return { label: "LIVE · CHECKED NOW", tone: "live" };
+    }
+    if (ageMinutes <= 10) {
+      return { label: `CHECKED ${ageMinutes}M AGO`, tone: "aging" };
+    }
+    return { label: `LATE · ${ageMinutes}M AGO`, tone: "stale" };
+  }, [clockNow, signalCheckedAt]);
 
   async function refreshForecast() {
     setLoading(true);
     setNotice("");
     try {
-      const response = await fetch(`/forecast.json?ts=${Date.now()}`, {
-        cache: "no-store",
-      });
-      const data = (await response.json()) as Forecast & { error?: string };
-      if (!response.ok) {
-        throw new Error(data.error || "The validated snapshot is unavailable.");
-      }
-      const normalized = normalizeForecast(data);
+      const envelope = await fetchLiveSignal();
+      const normalized = normalizeForecast(envelope.forecast);
       setForecast(normalized);
-      setLastUpdated("Validated Grok snapshot");
+      setSignalCheckedAt(envelope.checkedAt);
+      setLastUpdated(
+        envelope.source === "vps"
+          ? "VPS live signal"
+          : "Validated Grok snapshot",
+      );
       window.localStorage.setItem(
         "astro-intel-last-forecast",
         JSON.stringify(normalized),
@@ -487,7 +587,9 @@ export default function Home() {
             <section className="simple-move-box" aria-label="Simple next move">
               <div className="simple-move-head">
                 <span><i />SIMPLE NEXT MOVE</span>
-                <small>CHECKED EVERY 30 MIN</small>
+                <small className={signalFreshness.tone}>
+                  {signalFreshness.label}
+                </small>
               </div>
 
               <div className="simple-move-now">
@@ -523,8 +625,14 @@ export default function Home() {
           </section>
 
           <LiveAstroChart
+            events={forecast.evidence.filter(
+              (item) => item.type === "astro" && item.source && item.time,
+            )}
+            freshnessLabel={signalFreshness.label}
+            freshnessTone={signalFreshness.tone}
             levels={forecast.levels}
             forecastTime={forecast.generatedAt}
+            signalState={forecast.signal.state}
           />
 
           <section className="execution-map" id="map">

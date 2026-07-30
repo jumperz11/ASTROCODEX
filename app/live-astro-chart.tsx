@@ -8,9 +8,12 @@ import {
   IChartApi,
   IPriceLine,
   ISeriesApi,
+  ISeriesMarkersPluginApi,
   LineStyle,
+  SeriesMarker,
   UTCTimestamp,
   createChart,
+  createSeriesMarkers,
 } from "lightweight-charts";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -28,6 +31,24 @@ type ParsedLevel = AstroLevel & {
 };
 
 type FeedState = "loading" | "live" | "delayed" | "error";
+type SignalState =
+  | "wait"
+  | "long"
+  | "short"
+  | "take_profit"
+  | "exit"
+  | "conflict";
+
+type AstroEvent = {
+  label: string;
+  source?: string;
+  time?: string;
+};
+
+type ZoneRect = ParsedLevel & {
+  height: number;
+  top: number;
+};
 
 const timeframes = [
   { label: "15M", seconds: 900 },
@@ -77,6 +98,36 @@ function levelColor(kind: AstroLevel["kind"]) {
   return "#ffb000";
 }
 
+function levelFill(kind: AstroLevel["kind"]) {
+  if (kind === "entry") return "rgba(82, 230, 167, 0.08)";
+  if (kind === "risk") return "rgba(255, 107, 102, 0.08)";
+  return "rgba(255, 176, 0, 0.08)";
+}
+
+function signalLabel(state: SignalState) {
+  const labels: Record<SignalState, string> = {
+    wait: "WAIT",
+    long: "LONG",
+    short: "SHORT",
+    take_profit: "TAKE PROFIT",
+    exit: "EXIT",
+    conflict: "WAIT · CONFLICT",
+  };
+  return labels[state];
+}
+
+function compactEventLabel(label: string) {
+  const lowered = label.toLowerCase();
+  if (lowered.includes("flip") || lowered.includes("close short")) return "FLIP";
+  if (lowered.includes("initial") && lowered.includes("trim")) return "TRIM";
+  if (lowered.includes("trim size")) return "40%";
+  if (lowered.includes("pre-set") || lowered.includes("tp")) return "TP";
+  if (lowered.includes("safe-house")) return "RUN";
+  if (lowered.includes("64.7")) return "64.7";
+  if (lowered.includes("win lock")) return "WIN";
+  return "ASTRO";
+}
+
 function formatPrice(value: number | null) {
   if (value === null || !Number.isFinite(value)) return "—";
   return new Intl.NumberFormat("en-US", {
@@ -105,22 +156,34 @@ function mapCandles(rows: unknown[]): CandlestickData<UTCTimestamp>[] {
 }
 
 export default function LiveAstroChart({
+  events,
+  freshnessLabel,
+  freshnessTone,
   levels,
   forecastTime,
+  signalState,
 }: {
+  events: AstroEvent[];
+  freshnessLabel: string;
+  freshnessTone: string;
   levels: AstroLevel[];
   forecastTime: string;
+  signalState: SignalState;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const markersRef =
+    useRef<ISeriesMarkersPluginApi<UTCTimestamp> | null>(null);
   const currentCandleRef =
     useRef<CandlestickData<UTCTimestamp> | null>(null);
   const priceLinesRef = useRef<IPriceLine[]>([]);
+  const updateZonesRef = useRef<() => void>(() => {});
   const [timeframe, setTimeframe] = useState(3600);
   const [price, setPrice] = useState<number | null>(null);
   const [feedState, setFeedState] = useState<FeedState>("loading");
   const [feedNote, setFeedNote] = useState("Loading Coinbase candles…");
+  const [zoneRects, setZoneRects] = useState<ZoneRect[]>([]);
 
   const parsedLevels = useMemo(
     () =>
@@ -129,6 +192,40 @@ export default function LiveAstroChart({
         .filter((level): level is ParsedLevel => level !== null),
     [levels],
   );
+  const eventMarkers = useMemo<SeriesMarker<UTCTimestamp>[]>(
+    () =>
+      events
+        .flatMap((event, index) => {
+          if (!event.time) return [];
+          const timestamp = Math.floor(new Date(event.time).getTime() / 1000);
+          if (!Number.isFinite(timestamp)) return [];
+          const bucket = Math.floor(timestamp / timeframe) * timeframe;
+          return [
+            {
+              color: "#ffb000",
+              id: `${event.source ?? event.label}-${index}`,
+              position: "aboveBar" as const,
+              shape: "circle" as const,
+              size: 0.8,
+              text: compactEventLabel(event.label),
+              time: bucket as UTCTimestamp,
+            },
+          ];
+        })
+        .sort((left, right) => Number(left.time) - Number(right.time)),
+    [events, timeframe],
+  );
+  const nextAstroLevel = useMemo(() => {
+    if (price === null) return null;
+    const next = parsedLevels
+      .filter((level) => level.kind === "trim" && level.price > price + 5)
+      .sort((left, right) => left.price - right.price)[0];
+    if (!next) return null;
+    return {
+      ...next,
+      distance: ((next.price - price) / price) * 100,
+    };
+  }, [parsedLevels, price]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -199,12 +296,18 @@ export default function LiveAstroChart({
       priceLineWidth: 1,
       lastValueVisible: true,
     });
+    const markers = createSeriesMarkers(series, [], {
+      autoScale: false,
+    });
 
     chartRef.current = chart;
     seriesRef.current = series;
+    markersRef.current = markers;
 
     return () => {
+      markers.detach();
       priceLinesRef.current = [];
+      markersRef.current = null;
       seriesRef.current = null;
       chartRef.current = null;
       chart.remove();
@@ -229,6 +332,58 @@ export default function LiveAstroChart({
         title: level.shortLabel,
       }),
     );
+  }, [parsedLevels]);
+
+  useEffect(() => {
+    markersRef.current?.setMarkers(eventMarkers);
+  }, [eventMarkers]);
+
+  useEffect(() => {
+    const chart = chartRef.current;
+    const series = seriesRef.current;
+    const container = containerRef.current;
+    if (!chart || !series || !container) return;
+
+    let animationFrame = 0;
+    const updateZones = () => {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = window.requestAnimationFrame(() => {
+        const chartHeight = container.clientHeight;
+        const zones = parsedLevels.flatMap((level) => {
+          if (level.high - level.low < 10) return [];
+          const highCoordinate = series.priceToCoordinate(level.high);
+          const lowCoordinate = series.priceToCoordinate(level.low);
+          if (highCoordinate === null || lowCoordinate === null) return [];
+          const rawTop = Math.min(highCoordinate, lowCoordinate);
+          const rawBottom = Math.max(highCoordinate, lowCoordinate);
+          if (rawBottom < 0 || rawTop > chartHeight) return [];
+          const top = Math.max(0, rawTop);
+          const bottom = Math.min(chartHeight, rawBottom);
+          return [
+            {
+              ...level,
+              top,
+              height: Math.max(3, bottom - top),
+            },
+          ];
+        });
+        setZoneRects(zones);
+      });
+    };
+
+    updateZonesRef.current = updateZones;
+    const rangeHandler = () => updateZones();
+    chart.timeScale().subscribeVisibleLogicalRangeChange(rangeHandler);
+    const resizeObserver = new ResizeObserver(updateZones);
+    resizeObserver.observe(container);
+    updateZones();
+
+    return () => {
+      updateZonesRef.current = () => {};
+      window.cancelAnimationFrame(animationFrame);
+      resizeObserver.disconnect();
+      chart.timeScale().unsubscribeVisibleLogicalRangeChange(rangeHandler);
+    };
   }, [parsedLevels]);
 
   useEffect(() => {
@@ -262,6 +417,7 @@ export default function LiveAstroChart({
         currentCandleRef.current = candles.at(-1) ?? null;
         setPrice(currentCandleRef.current?.close ?? null);
         chart.timeScale().fitContent();
+        updateZonesRef.current();
         setFeedState("delayed");
         setFeedNote("Candles loaded · connecting live price…");
 
@@ -321,6 +477,7 @@ export default function LiveAstroChart({
 
             currentCandleRef.current = nextCandle;
             series.update(nextCandle);
+            updateZonesRef.current();
             setPrice(nextPrice);
             setFeedState("live");
             setFeedNote("Live · Coinbase BTC-USD");
@@ -408,6 +565,33 @@ export default function LiveAstroChart({
 
       <div className="live-chart-stage">
         <div ref={containerRef} />
+        <div className="chart-zone-layer" aria-hidden="true">
+          {zoneRects.map((zone) => (
+            <i
+              key={`${zone.label}-${zone.value}`}
+              style={{
+                background: levelFill(zone.kind),
+                borderColor: levelColor(zone.kind),
+                height: `${zone.height}px`,
+                top: `${zone.top}px`,
+              }}
+            />
+          ))}
+        </div>
+        <div className={`chart-signal-pill ${signalState}`}>
+          <small>ASTRO SIGNAL</small>
+          <strong>{signalLabel(signalState)}</strong>
+          <span className={freshnessTone}>{freshnessLabel}</span>
+        </div>
+        {nextAstroLevel && (
+          <div className="next-level-pill">
+            <small>NEXT ASTRO AREA</small>
+            <strong>
+              {nextAstroLevel.shortLabel} · {formatPrice(nextAstroLevel.price)}
+            </strong>
+            <span>{nextAstroLevel.distance.toFixed(1)}% away</span>
+          </div>
+        )}
         {feedState === "error" && (
           <div className="chart-feed-error">
             Live market data is temporarily unavailable. Astro’s validated map remains below.

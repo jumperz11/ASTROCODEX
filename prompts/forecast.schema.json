@@ -12,6 +12,7 @@
     "invalidation",
     "waitFor",
     "decision",
+    "signal",
     "execution",
     "bias",
     "framework",
@@ -48,6 +49,34 @@
         "lookingFor": { "type": "string" },
         "playbookMove": { "type": "string" },
         "risk": { "type": "string" }
+      }
+    },
+    "signal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "plainSummary",
+        "astroMayDo",
+        "readerStep",
+        "changesWhen"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "wait",
+            "long",
+            "short",
+            "take_profit",
+            "exit",
+            "conflict"
+          ]
+        },
+        "plainSummary": { "type": "string" },
+        "astroMayDo": { "type": "string" },
+        "readerStep": { "type": "string" },
+        "changesWhen": { "type": "string" }
       }
     },
     "execution": {

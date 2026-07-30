@@ -276,6 +276,20 @@ const forecastSchema = z.object({
     playbookMove: z.string().min(1),
     risk: z.string().min(1),
   }),
+  signal: z.object({
+    state: z.enum([
+      "wait",
+      "long",
+      "short",
+      "take_profit",
+      "exit",
+      "conflict",
+    ]),
+    plainSummary: z.string().min(1),
+    astroMayDo: z.string().min(1),
+    readerStep: z.string().min(1),
+    changesWhen: z.string().min(1),
+  }),
   execution: z.object({
     entry: z.object({
       state: z.string().min(1),
