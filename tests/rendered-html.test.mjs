@@ -39,11 +39,13 @@ test("server-renders the Astro Intelligence research terminal", async () => {
   assert.match(html, /OPEN \/ ADD/);
   assert.match(html, /REDUCE \/ TAKE PROFIT/);
   assert.match(html, /CLOSE \/ INVALIDATE/);
-  assert.match(html, /Reduced long \/ runner/i);
   assert.match(html, /POSITION TIMELINE/);
   assert.match(html, /Grok connected/);
-  assert.match(html, /Astro closed short IV/i);
-  assert.match(html, /64K confirmed · 67\.7K flagged/i);
+  assert.match(html, /Open latest Astro post/i);
+  assert.match(
+    html,
+    /https:\/\/x\.com\/astronomer_zero\/status\/\d+/i,
+  );
   assert.match(html, /Human judgment remains the final gate/);
   assert.match(html, /property="og:image"/);
   assert.doesNotMatch(html, /XAI_API_KEY/);

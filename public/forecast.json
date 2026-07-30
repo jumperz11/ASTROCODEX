@@ -1,178 +1,221 @@
 {
   "market": "BTC",
-  "stance": "Reduced-risk long management after partial realization: profits publicly locked, residual runner possible toward unfinished weekly liquidity, top short III retained until FOMC-reversal confirmation. Not a fresh full-size long entry.",
+  "stance": "Long V reduced after staged trims; Short III still open. Intraweek long win locked near 64.7k HV liquidity; residual runner possible toward unfinished weekly open. FOMC-reversal / 7% min drawdown not publicly cancelled.",
   "stanceTone": "long",
-  "confidence": 46,
-  "headline": "Astro closed short IV, flipped intraweek long, then locked partial wins — residual runner vs unfinished FOMC risk",
-  "summary": "On Jul 29 Astro fully closed aggressive short IV and flipped into an intraweek long aimed at clearing weekly open / intrawweek liquidity (roughly a 2,000-point objective), while stating the FOMC reversal and 7% minimum drawdown were not finished and that top short III still made sense until most confluences confirmed the reversal was over. He then publicly trimmed initial long profits at 64k, posted a non-numeric “safe house” update, and later wrote “67.7k, another piece is gone” while locking the win and counting five wins in a row. Independent spot context during the run was ~64.66k (high ~65.04k), so the literal 67.7k print is materially inconsistent with both his own 64k trim and the market snapshot — this is flagged as ambiguity, not silently corrected to 64.7k, and it lowers confidence. The original long is already partially realized and counted as a win; the most defensible near-term reading is reduced-risk management (locked profit, possible runner, short III retained), not a new full-size long.",
-  "nextMove": "Most defensible next behavior is continued reduced-risk management: leave or manage a protected runner toward unfinished weekly open / intrawweek liquidity if still held, take further opportunistic locks if price extends, and keep top short III until most confluences confirm the FOMC reversal is over. Do not treat a fresh full-size long as Astro’s next move unless a new direct post says so.",
-  "invalidation": "A new direct @astronomer_zero post that (1) fully closes any remaining long runner, (2) re-adds aggressive short IV, (3) declares the FOMC reversal complete / finished, or (4) defines a new numeric level or thesis that supersedes the current long-management frame.",
-  "waitFor": "A fresh direct post clarifying residual long size (if any), a numeric safe-house level, whether top short III is still held, and any correction or clarification of the 67.7k print versus the earlier 64k trim.",
+  "confidence": 56,
+  "headline": "Astro locked Long V fifth win at ~64.7k HV liquidity; Short III open; weekly open still unfinished",
+  "summary": "Public sequence: Jul 29 fully closed aggressive short IV and flipped into intraweek Long V (~63.45–63.48k chart entry zone) aimed at weekly open / intrawweek liquidity while stating FOMC reversal and 7% min drawdown were unfinished and Short III should stay until most confluences confirm the reversal is over. He trimmed initial long profits at 64k (public formula 40% at ~1.5R), pre-set flight limits at 64.7k as the lock/TP for the fifth win, confirmed “64.7, yup,” and later posted a win-lock note that literally reads “67.7k” while the attached chart labels TP (Close 30%) at high-value liquidity ~64.73–64.82k. Multi-post + chart evidence treats 64.7k as the operative lock level and 67.7k as inconsistent text. Best-supported posture is reduced-risk Long V management (win counted, residual size not fully public) with top Short III retained—not a fresh full-size long.",
+  "nextMove": "Most defensible next behavior: manage any residual Long V as a protected runner toward unfinished weekly open (~65.5k class on his charts) if still held; take further opportunistic locks if price extends; keep Short III until most confluences confirm FOMC reversal is over. Do not treat a new full-size long as his next move unless a fresh direct post says so.",
+  "invalidation": "A new direct @astronomer_zero post that (1) fully closes residual Long V, (2) re-adds aggressive short IV, (3) declares FOMC reversal complete/finished, or (4) posts a new numeric thesis that supersedes the Long V / Short III dual book.",
+  "waitFor": "Fresh direct post on residual Long V size (if any), whether Short III remains, progress vs weekly open, and any explicit correction of the 67.7k text vs the 64.7k TP sequence.",
   "decision": {
-    "position": "Reduced long / runner",
-    "status": "Profit locked · top short III remains",
-    "lookingFor": "Weekly liquidity and proof the FOMC reversal is over",
-    "playbookMove": "Manage the runner. Do not chase a fresh full-size long.",
-    "risk": "Runner closes or aggressive short IV returns"
+    "position": "Long V reduced / Short III open",
+    "status": "Win locked · residual unclear",
+    "lookingFor": "Weekly open & FOMC-over proof",
+    "playbookMove": "Manage runner; no fresh full long",
+    "risk": "Full long close or short IV re-add"
   },
   "execution": {
     "entry": {
-      "state": "WAIT",
-      "level": "Not public",
-      "condition": "No fresh full-size long entry is supported by the latest direct posts."
+      "state": "DONE · Long V",
+      "level": "~63.45–63.48k chart",
+      "condition": "No fresh full-size long re-entry supported by latest direct posts."
     },
     "takeProfit": {
       "state": "PARTIALS TAKEN",
-      "level": "64K confirmed · 67.7K flagged",
-      "condition": "Further profit locks are more likely if price reaches unfinished weekly liquidity."
+      "level": "64k trim · ~64.7k TP 30%",
+      "condition": "Further locks more likely if price extends toward unfinished weekly open / HV liquidity."
     },
     "exit": {
       "state": "CONDITIONAL",
       "level": "Not public",
-      "condition": "The read changes if the runner closes or aggressive short IV returns."
+      "condition": "Read changes if residual long fully closed or aggressive short IV returns."
     }
   },
   "bias": {
-    "cyclical": "Astro still frames FOMC reversal as in play and 7% minimum drawdown as unfinished, even while trading a countertrend long near perceived move completion.",
-    "weekly": "Intraweek long thesis targets untouched weekly open and intrawweek liquidity left during the week (~2,000+ points stated as minimum scale of the bounce objective).",
-    "swing": "Execution has moved into partial realization and win-lock language; residual long may remain as a runner while structural short III is retained pending reversal confirmation."
+    "cyclical": "FOMC reversal still framed as in play; 7% min drawdown unfinished even after bulk downside (~6.3%+ from his 66.3k short entry) and the countertrend Long V win.",
+    "weekly": "Intraweek long targets untouched weekly open and liquidity left during the week; charts mark weekly open ~65.48–65.55k still above the 64.7k lock zone.",
+    "swing": "Staged long execution: Long V entry → 64k initial trim (~40%) → 64.7k HV-liquidity TP (Close 30% on chart) → win locked; residual runner size Not public; Short III retained."
   },
   "framework": {
-    "phase": "Staged execution after direction flip: entry → partial realization → protected runner, with higher-timeframe bearish FOMC thesis not yet publicly cancelled.",
-    "typeA": "Insufficient public inputs to classify the bounce as a formal Type A retest (4.8% long-wick / 0.57 range target not established in cited posts).",
-    "sentiment": "Five-win streak and historical win/loss cycle commentary are performance notes only; playbook: sentiment can confirm a plan but cannot create one.",
-    "score": "Moderate-low evidence alignment (46): strong directional posts and trim sequence, but non-readable safe-house chart, incomplete residual-size disclosure, and a material 67.7k vs ~64.7k-class price inconsistency reduce confidence."
+    "phase": "Partial realization / protected-runner stage after direction flip; higher-TF bearish FOMC thesis not publicly cancelled.",
+    "typeA": "Insufficient inputs to classify bounce as formal Type A retest (4.8% long-wick / 0.57 range target not established in cited posts).",
+    "sentiment": "Five-win streak and cursed-5 cycle notes are performance commentary only; sentiment cannot create a plan.",
+    "score": "Moderate evidence alignment (56): multi-post long/TP sequence plus readable chart labels (Long V, Short III, Weekly Open, TP Close 30%); residual size still undisclosed and 67.7k text inconsistency remains a soft conflict."
   },
   "levels": [
     {
-      "label": "Prior short IV entry (Astro-stated)",
+      "label": "Prior short IV entry (stated)",
       "value": "66.3k",
       "kind": "entry"
     },
     {
-      "label": "Initial long profit trim",
+      "label": "Long V chart entry zone",
+      "value": "~63.45–63.48k",
+      "kind": "entry"
+    },
+    {
+      "label": "Initial long trim (text + formula ~40%)",
       "value": "64k",
       "kind": "trim"
     },
     {
-      "label": "Further profit lock as literally posted (ambiguous vs market ~64.7k class)",
-      "value": "67.7k",
+      "label": "HV liquidity TP / fifth-win lock (text 64.7k + chart ~64.73–64.82k)",
+      "value": "~64.7k",
       "kind": "trim"
     },
     {
-      "label": "Unfinished FOMC / 7% min drawdown risk still publicly in play",
-      "value": "Not finished (no new numeric invalidation posted)",
+      "label": "Weekly open (chart; unfinished weekly objective)",
+      "value": "~65.48–65.55k",
+      "kind": "trim"
+    },
+    {
+      "label": "FOMC / 7% min drawdown risk still public",
+      "value": "Not finished",
       "kind": "risk"
     }
   ],
   "evidence": [
     {
       "type": "astro",
-      "label": "Full close short IV and flip to intraweek long",
-      "detail": "Literal: fully closed shorts IV and started flipping into a long; “For me, it is time to take a long.” Defined as intraweek long to complete the weekly move by clearing liquidity left during the week. FOMC reversal remains in play; 7% minimum drawdown not finished, but 6.3%+ of the move down from his 66.3k short entry had already developed. Violent countertrend bounces become more likely near completion. Targets untouched weekly open and intrawweek liquidity (at least roughly a 2,000-point move). Aggressive short IV no longer beneficial to hold; top short III still makes sense until most confluences confirm FOMC reversal is over. TLDR: fully close aggressive short IV and flip into a new long.",
+      "label": "Close short IV; flip to intraweek long",
+      "detail": "Literal: fully closed shorts IV and started flipping into a long; “For me, it is time to take a long.” Intraweek long to clear weekly liquidity; FOMC reversal still in play; 7% min drawdown not finished; 6.3%+ already from 66.3k short entry. Aggressive short IV closed; Short III held until most confluences confirm FOMC reversal is over. Chart labels: Short III (Still open), Short IV (now closed and flipped into a long), Long near ~63.46k, Weekly Open.",
       "source": "https://x.com/astronomer_zero/status/2082560085994434700",
-      "time": "2026-07-29T20:13:00"
+      "time": "2026-07-29T20:13:11Z"
     },
     {
       "type": "astro",
       "label": "Initial long trim at 64k",
-      "detail": "Literal: the long was green and “64k is a good point to trim some initial profits.”",
+      "detail": "Literal: long green; “64k is a good point to trim some initial profits.” Chart shows Long V and lower Trim near price.",
       "source": "https://x.com/astronomer_zero/status/2082599877545259450",
-      "time": "2026-07-29T22:51:00"
+      "time": "2026-07-29T22:51:18Z"
     },
     {
       "type": "astro",
-      "label": "Safe-house update (non-numeric in text)",
-      "detail": "Literal: “Kitty cat dashing her way to ‘the safe house’.” Attached chart was not reliably machine-readable; no numeric safe-house level is invented from this post.",
+      "label": "Trim size formula 40%",
+      "detail": "Literal reply on the 64k trim thread: “% trim = 1/(1+RR)” and “1/(1+1.5) = 40%.”",
+      "source": "https://x.com/astronomer_zero/status/2082606049677525130",
+      "time": "2026-07-29T23:15:49Z"
+    },
+    {
+      "type": "astro",
+      "label": "Pre-set 64.7k TP / fifth-win lock",
+      "detail": "Literal: “64.7k is close, 5th win in a row close, I set my limits… This is where we TP the trade, and lock in our fifth live W in a row.” Flight limits set JIC. Chart marks TP (Close 30%) at high-value liquidity ~64.75k.",
+      "source": "https://x.com/astronomer_zero/status/2082760071910691053",
+      "time": "2026-07-30T09:27:51Z"
+    },
+    {
+      "type": "astro",
+      "label": "Safe-house update toward upper target",
+      "detail": "Literal: “Kitty cat dashing her way to ‘the safe house’.” Chart shows “Entered a long,” doghouse near ~65.45–65.55 (weekly-open class), price mid-run ~64.5k—not a numeric stop/entry invention beyond labeled zones.",
       "source": "https://x.com/astronomer_zero/status/2082761831953928345",
-      "time": "2026-07-30T09:34:00"
+      "time": "2026-07-30T09:34:51Z"
     },
     {
       "type": "astro",
-      "label": "Further lock at literally posted 67.7k",
-      "detail": "Literal: “67.7k, another piece is gone,” followed by “Let’s indeed lock in this win.” Same post quotes the earlier 64k initial-profit trim. Treat 67.7k exactly as posted; do not rewrite as 64.7k.",
+      "label": "Direct 64.7 confirmation",
+      "detail": "Literal reply in the safe-house thread: “64.7, yup.” Supports 64.7k as the operative level class before the later win-lock post.",
+      "source": "https://x.com/astronomer_zero/status/2082787616613937240",
+      "time": "2026-07-30T11:17:18Z"
+    },
+    {
+      "type": "astro",
+      "label": "Win lock; literal 67.7k text vs chart ~64.8k",
+      "detail": "Literal: “67.7k, another piece is gone… Let’s indeed lock in this win.” Five live wins. Attached chart shows last ~64.82k and TP (Close 30%) at high-value liquidity ~64.73k—not 67.7k. Treat text as posted; operative chart/prior posts align with ~64.7k.",
       "source": "https://x.com/astronomer_zero/status/2082796525126856769",
-      "time": "2026-07-30T11:52:00"
+      "time": "2026-07-30T11:52:42Z"
     },
     {
       "type": "astro",
-      "label": "Five-win streak / cycle commentary",
-      "detail": "Literal: trade made five wins in a row; notes historical sequence of five wins, one loss, five wins, one loss; “Let’s see if this run breaks the cycle.” Performance commentary only, not a predictive market signal.",
+      "label": "Five-win streak / cycle note",
+      "detail": "Literal: five wins in a row; historical 5W-1L cycle thrice; “Let’s see if this run breaks the cycle.” Performance note only.",
       "source": "https://x.com/astronomer_zero/status/2082800860153966927",
-      "time": "2026-07-30T12:09:00"
+      "time": "2026-07-30T12:09:56Z"
     },
     {
       "type": "framework",
-      "label": "Staged execution and direction-before-execution",
-      "detail": "Playbook: execution is staged (entry, selective compounding, partial realization, protected runner); distinguish soft thesis invalidation from catastrophic risk. Direction comes before execution; highest relevant timeframe first. A past position is not automatically a current position — short IV is closed; long has been partially realized; residual size is not fully public.",
+      "label": "Staged execution; past ≠ current",
+      "detail": "Execution stages: entry, selective compounding, partial realization, protected runner. Soft thesis invalidation ≠ catastrophic risk. A past position is not automatically a current position—Short IV closed; Long V partially realized; residual size Not public.",
       "source": "astro-playbook",
       "time": "framework"
     },
     {
       "type": "framework",
-      "label": "Confidence requires multi-factor alignment",
-      "detail": "Playbook: high confidence needs minimally correlated price, time, volume, volatility, divergence, and positioning evidence; missing inputs must reduce confidence. Here: chart level unreadable, residual size undisclosed, and a material posted-price inconsistency are missing/conflicted inputs.",
+      "label": "Confidence needs multi-factor alignment",
+      "detail": "High confidence needs minimally correlated price, time, volume, volatility, divergence, and positioning evidence; missing inputs reduce confidence. Residual Long V size and full book risk remain incompletely disclosed.",
       "source": "astro-playbook",
       "time": "framework"
     },
     {
       "type": "inference",
-      "label": "67.7k price inconsistency lowers confidence",
-      "detail": "Inference only (not Astro’s claim): Astro literally posted 67.7k for a further lock after a 64k initial trim, while an independent spot snapshot during the run was ~64,663 (intraday high ~65,040, low ~63,252). That makes 67.7k inconsistent with both his prior trim and contemporaneous spot. Possible explanations include typo, different instrument/print, or delayed/aggregated reference — none are confirmed. Ambiguity is flagged; post is not silently corrected to 64.7k; confidence is reduced.",
+      "label": "64.7k is the operative lock; 67.7k text inconsistent",
+      "detail": "Inference only: pre-set TP text (64.7k), “64.7, yup,” and chart TP ~64.73–64.82k outweigh the isolated “67.7k” string in the win-lock poem. Likely typo/misprint; not silently erased—flagged as conflict while decision levels use 64.7k class.",
       "source": "model-inference",
-      "time": "2026-07-30"
+      "time": "2026-07-30T15:19:59Z"
     },
     {
       "type": "inference",
-      "label": "Near-term posture is reduced-risk management",
-      "detail": "Inference only: given public trims, “lock in this win,” five-win count, unfinished weekly-liquidity language, and retained short-III logic, the most defensible near-term interpretation is reduced-risk management (locked profit, possible runner toward unfinished weekly liquidity, top short III kept until reversal confirmation) — not a newly stated full-size long re-entry.",
+      "label": "Near-term posture is reduced dual-book management",
+      "detail": "Inference only: with 40% trim + chart 30% TP close + “another piece is gone” + win counted, residual Long V may remain as runner toward weekly open while Short III stays open until FOMC-over confirmation. Not a newly stated full-size long re-entry.",
       "source": "model-inference",
-      "time": "2026-07-30"
+      "time": "2026-07-30T15:19:59Z"
     }
   ],
   "scenarios": [
     {
-      "name": "Reduced-risk runner management (base)",
-      "probability": 52,
-      "description": "Astro continues treating the trade as a partially realized win: residual long, if any, is managed as a protected runner toward unfinished weekly open / intrawweek liquidity; further opportunistic locks if price extends; top short III retained until most confluences confirm FOMC reversal is over. No new full-size long is required for this path.",
-      "trigger": "Silence or only management/lock language; no post re-adding aggressive short IV; no declaration that FOMC reversal is finished; optional further trim posts without fresh full long entry."
+      "name": "Reduced-risk dual-book management (base)",
+      "probability": 50,
+      "description": "Astro continues treating Long V as a partially realized win: residual long if any managed as protected runner; Short III retained until FOMC-over confluences; no re-add of aggressive short IV; silence or only management language.",
+      "trigger": "No post fully closing residual long, no short-IV re-add, no FOMC-reversal-finished declaration; optional further trim posts without fresh full long entry."
     },
     {
-      "name": "Extended long realization toward weekly liquidity",
-      "probability": 28,
-      "description": "Price continues toward the stated weekly-open / ~2,000-point liquidity objective and Astro posts additional long-side realization or explicit runner updates without reopening aggressive short IV. Still distinct from inventing a brand-new full-size long unless he posts one.",
-      "trigger": "New direct posts showing further long profit-taking, runner progress toward weekly open/liquidity, or renewed long-side engagement language while short IV stays closed."
+      "name": "Extension toward weekly open",
+      "probability": 30,
+      "description": "Price pushes into charted weekly open / ~65.5k class liquidity and Astro posts further long-side realization or runner updates while Short III remains the structural short.",
+      "trigger": "New direct posts of further Long V profit-taking or progress toward weekly open without reopening aggressive short IV."
     },
     {
       "name": "Thesis shift back to aggressive short",
       "probability": 20,
-      "description": "New public evidence that residual long is closed and/or aggressive shorts are re-engaged as the unfinished FOMC reversal / 7% minimum drawdown resumes. This would supersede the reduced-risk long-management reading.",
-      "trigger": "Fresh Astro post fully closing the runner, re-adding aggressive short IV, or stating that the countertrend long thesis is done and downside continuation is the active plan."
+      "description": "Public close of residual long and/or re-engagement of aggressive shorts as unfinished FOMC / 7% min drawdown resumes—superseding the reduced long-management read.",
+      "trigger": "Fresh post fully closing Long V runner, re-adding short IV, or stating countertrend long thesis is done and downside is the active plan."
     }
   ],
   "sources": [
     {
-      "label": "Position flip — close short IV, start long (Jul 29, 8:13 PM)",
+      "label": "Flip — close short IV, start long (Jul 29 20:13Z)",
       "url": "https://x.com/astronomer_zero/status/2082560085994434700"
     },
     {
-      "label": "First trim — 64k initial profits (Jul 29, 10:51 PM)",
+      "label": "First trim — 64k (Jul 29 22:51Z)",
       "url": "https://x.com/astronomer_zero/status/2082599877545259450"
     },
     {
-      "label": "Safe-house update (Jul 30, 9:34 AM)",
+      "label": "Trim formula — 40% at 1.5R (Jul 29 23:15Z)",
+      "url": "https://x.com/astronomer_zero/status/2082606049677525130"
+    },
+    {
+      "label": "Pre-set 64.7k TP / flight limits (Jul 30 09:27Z)",
+      "url": "https://x.com/astronomer_zero/status/2082760071910691053"
+    },
+    {
+      "label": "Safe-house update (Jul 30 09:34Z)",
       "url": "https://x.com/astronomer_zero/status/2082761831953928345"
     },
     {
-      "label": "Further profit lock — 67.7k as posted (Jul 30, 11:52 AM)",
+      "label": "Confirm 64.7, yup (Jul 30 11:17Z)",
+      "url": "https://x.com/astronomer_zero/status/2082787616613937240"
+    },
+    {
+      "label": "Win lock / fifth W (Jul 30 11:52Z)",
       "url": "https://x.com/astronomer_zero/status/2082796525126856769"
     },
     {
-      "label": "Result / five-win streak commentary (Jul 30, 12:09 PM)",
+      "label": "Streak / cycle commentary (Jul 30 12:09Z)",
       "url": "https://x.com/astronomer_zero/status/2082800860153966927"
     }
   ],
-  "caveat": "Research only — not a trade instruction; no buy/sell/size/leverage guidance. The original intraweek long is already partially realized and publicly counted as a win. Literal posted level 67.7k conflicts with Astro’s own 64k trim and independent spot ~64.66k (high ~65.04k); ambiguity is explicit and confidence is reduced (not silently corrected to 64.7k). Safe-house chart was not machine-readable — no numeric level invented. Independent market snapshot is context only and is not in sources. Streak/cycle comments are performance notes, not predictive signals. Invalidation requires new direct Astro evidence.",
-  "generatedAt": "2026-07-30T14:15:07.016Z",
+  "caveat": "Research only — not financial advice; no buy/sell/size/leverage instructions. Long V is already partially realized and counted as a win; residual size is Not public. Text “67.7k” conflicts with Astro’s own 64.7k TP posts, “64.7, yup,” and chart labels (~64.7–64.8k); operative level is 64.7k class while the conflict is explicit. Chart levels are from Astro-labeled drawings, not invented stops. FOMC 7% min drawdown and Short III remain publicly active unless a new direct post cancels them. Streak comments are performance notes, not predictive signals.",
+  "generatedAt": "2026-07-30T15:22:08.588Z",
   "mode": "live"
 }
