@@ -35,9 +35,10 @@ test("server-renders the Astro Intelligence research terminal", async () => {
   assert.match(html, /<title>Astro Intelligence<\/title>/i);
   assert.match(html, /ASTRO[\s\S]*INTELLIGENCE/);
   assert.match(html, /ASTRO POSITION/);
-  assert.match(html, /LIVE NEXT MOVE/);
-  assert.match(html, /YOUR NEXT STEP/);
-  assert.match(html, /WAIT · NO FRESH ENTRY/);
+  assert.match(html, /SIMPLE NEXT MOVE/);
+  assert.match(html, /WHAT YOU DO/);
+  assert.match(html, />WAIT</);
+  assert.match(html, /There is no confirmed new trade to follow/);
   assert.match(html, /OPEN &amp; CLOSE MAP/);
   assert.match(html, /LIVE ASTRO MAP/);
   assert.match(html, /Coinbase public BTC-USD feed/);

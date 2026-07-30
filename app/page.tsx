@@ -229,7 +229,7 @@ function normalizeForecast(report: Forecast): Forecast {
   };
 }
 
-function getViewerNextStep(forecast: Forecast) {
+function getSimpleNextMove(forecast: Forecast) {
   const entryState = forecast.execution.entry.state.toUpperCase();
   const noFreshEntry =
     entryState.includes("WAIT") ||
@@ -239,14 +239,24 @@ function getViewerNextStep(forecast: Forecast) {
 
   if (noFreshEntry) {
     return {
-      action: "WAIT · NO FRESH ENTRY",
-      detail: `Watch ${forecast.decision.lookingFor}. Reassess only after a new direct Astro post changes the validated map.`,
+      action: "WAIT",
+      summary: "There is no confirmed new trade to follow.",
+      astro:
+        "He may keep a small piece of his current trade open. He has already taken some profit.",
+      you:
+        "Wait for a new Astro post. Do not use his old entry price as a new entry.",
+      change:
+        "Astro clearly says he closed this trade or started a different one.",
     };
   }
 
   return {
-    action: "VERIFY THE SETUP",
-    detail: `${forecast.execution.entry.condition} Confirm the source post before treating the map as active.`,
+    action: "CHECK FIRST",
+    summary: "Astro may have posted a new trade setup.",
+    astro: "He appears to be following a new idea that still needs confirmation.",
+    you:
+      "Open his newest post and check the price and timing before considering anything.",
+    change: "Astro cancels it, takes profit, or posts a different move.",
   };
 }
 
@@ -387,8 +397,8 @@ export default function Home() {
     const minute = String(date.getUTCMinutes()).padStart(2, "0");
     return `${months[date.getUTCMonth()]} ${date.getUTCDate()}, ${hour}:${minute} UTC`;
   }, [forecast.generatedAt]);
-  const viewerNextStep = useMemo(
-    () => getViewerNextStep(forecast),
+  const simpleNextMove = useMemo(
+    () => getSimpleNextMove(forecast),
     [forecast],
   );
 
@@ -474,28 +484,32 @@ export default function Home() {
               </div>
             </div>
 
-            <section className="next-move-board" aria-label="Live next move">
-              <div className="next-move-head">
-                <span><i />LIVE NEXT MOVE</span>
-                <small>ASTRO SCAN · EVERY 30 MIN</small>
+            <section className="simple-move-box" aria-label="Simple next move">
+              <div className="simple-move-head">
+                <span><i />SIMPLE NEXT MOVE</span>
+                <small>CHECKED EVERY 30 MIN</small>
               </div>
 
-              <div className="next-move-grid">
+              <div className="simple-move-now">
+                <small>RIGHT NOW</small>
+                <strong>{simpleNextMove.action}</strong>
+                <p>{simpleNextMove.summary}</p>
+              </div>
+
+              <div className="simple-move-explain">
                 <article>
-                  <small>ASTRO LIKELY</small>
-                  <strong>{forecast.decision.playbookMove}</strong>
-                  <span>{forecast.scenarios[0]?.probability}% base path</span>
+                  <small>WHAT ASTRO MAY DO</small>
+                  <p>{simpleNextMove.astro}</p>
                 </article>
-                <article className="viewer-next-step">
-                  <small>YOUR NEXT STEP</small>
-                  <strong>{viewerNextStep.action}</strong>
-                  <p>{viewerNextStep.detail}</p>
+                <article>
+                  <small>WHAT YOU DO</small>
+                  <p>{simpleNextMove.you}</p>
                 </article>
               </div>
 
-              <div className="next-move-trigger">
-                <small>READ CHANGES WHEN</small>
-                <span>{forecast.decision.risk}</span>
+              <div className="simple-move-change">
+                <small>THIS CHANGES WHEN</small>
+                <span>{simpleNextMove.change}</span>
               </div>
             </section>
 
