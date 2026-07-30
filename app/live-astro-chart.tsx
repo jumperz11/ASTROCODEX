@@ -38,6 +38,7 @@ type ParsedLevel = AstroLevel & {
 };
 
 type FeedState = "loading" | "live" | "delayed" | "error";
+type OverlayMode = "focus" | "astro" | "model";
 type SignalState =
   | "wait"
   | "long"
@@ -201,6 +202,7 @@ export default function LiveAstroChart({
   const [feedState, setFeedState] = useState<FeedState>("loading");
   const [feedNote, setFeedNote] = useState("Loading Coinbase candles…");
   const [zoneRects, setZoneRects] = useState<ZoneRect[]>([]);
+  const [overlayMode, setOverlayMode] = useState<OverlayMode>("focus");
 
   const parsedLevels = useMemo(
     () =>
@@ -264,6 +266,50 @@ export default function LiveAstroChart({
       distance: ((next.price - price) / price) * 100,
     };
   }, [parsedLevels, price]);
+  const focusAstroLevels = useMemo(
+    () =>
+      [...parsedLevels]
+        .sort(
+          (left, right) =>
+            Math.abs(left.price - (price ?? left.price)) -
+            Math.abs(right.price - (price ?? right.price)),
+        )
+        .slice(0, 3),
+    [parsedLevels, price],
+  );
+  const focusThesisLevels = useMemo(
+    () =>
+      [...parsedThesisLevels]
+        .sort(
+          (left, right) =>
+            Math.abs(left.price - (price ?? left.price)) -
+            Math.abs(right.price - (price ?? right.price)),
+        )
+        .slice(0, 1),
+    [parsedThesisLevels, price],
+  );
+  const visibleAstroLevels = useMemo(
+    () =>
+      overlayMode === "focus"
+        ? focusAstroLevels
+        : overlayMode === "astro"
+          ? parsedLevels
+          : [],
+    [focusAstroLevels, overlayMode, parsedLevels],
+  );
+  const visibleThesisLevels = useMemo(
+    () =>
+      overlayMode === "focus"
+        ? focusThesisLevels
+        : overlayMode === "model"
+          ? parsedThesisLevels
+          : [],
+    [focusThesisLevels, overlayMode, parsedThesisLevels],
+  );
+  const visibleEventMarkers = useMemo(
+    () => (overlayMode === "model" ? [] : eventMarkers.slice(-4)),
+    [eventMarkers, overlayMode],
+  );
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -361,7 +407,7 @@ export default function LiveAstroChart({
     }
 
     priceLinesRef.current = [
-      ...parsedLevels.map((level) =>
+      ...visibleAstroLevels.map((level) =>
         series.createPriceLine({
           price: level.price,
           color: levelColor(level.kind),
@@ -371,7 +417,7 @@ export default function LiveAstroChart({
           title: `ASTRO · ${level.shortLabel}`,
         }),
       ),
-      ...parsedThesisLevels.map((level) =>
+      ...visibleThesisLevels.map((level) =>
         series.createPriceLine({
           price: level.price,
           color: thesisLevelColor(level.thesisKind),
@@ -382,11 +428,11 @@ export default function LiveAstroChart({
         }),
       ),
     ];
-  }, [parsedLevels, parsedThesisLevels]);
+  }, [visibleAstroLevels, visibleThesisLevels]);
 
   useEffect(() => {
-    markersRef.current?.setMarkers(eventMarkers);
-  }, [eventMarkers]);
+    markersRef.current?.setMarkers(visibleEventMarkers);
+  }, [visibleEventMarkers]);
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -399,7 +445,7 @@ export default function LiveAstroChart({
       window.cancelAnimationFrame(animationFrame);
       animationFrame = window.requestAnimationFrame(() => {
         const chartHeight = container.clientHeight;
-        const zones = parsedLevels.flatMap((level) => {
+        const zones = visibleAstroLevels.flatMap((level) => {
           if (level.high - level.low < 10) return [];
           const highCoordinate = series.priceToCoordinate(level.high);
           const lowCoordinate = series.priceToCoordinate(level.low);
@@ -434,7 +480,7 @@ export default function LiveAstroChart({
       resizeObserver.disconnect();
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(rangeHandler);
     };
-  }, [parsedLevels]);
+  }, [visibleAstroLevels]);
 
   useEffect(() => {
     const series = seriesRef.current;
@@ -613,7 +659,19 @@ export default function LiveAstroChart({
             </button>
           ))}
         </div>
-        <span>Drag to inspect · pinch to zoom</span>
+        <div className="chart-overlay-toggle" aria-label="Chart information layer">
+          {(["focus", "astro", "model"] as const).map((mode) => (
+            <button
+              aria-pressed={overlayMode === mode}
+              className={overlayMode === mode ? "active" : ""}
+              key={mode}
+              onClick={() => setOverlayMode(mode)}
+              type="button"
+            >
+              {mode === "focus" ? "Focus" : mode === "astro" ? "Astro" : "Model"}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="live-chart-stage">
@@ -631,25 +689,6 @@ export default function LiveAstroChart({
             />
           ))}
         </div>
-        <div className={`chart-signal-pill ${signalState}`}>
-          <small>ASTRO SIGNAL</small>
-          <strong>{signalLabel(signalState)}</strong>
-          <span className={freshnessTone}>{freshnessLabel}</span>
-        </div>
-        {nextAstroLevel && (
-          <div className="next-level-pill">
-            <small>NEXT ASTRO AREA</small>
-            <strong>
-              {nextAstroLevel.shortLabel} · {formatPrice(nextAstroLevel.price)}
-            </strong>
-            <span>{nextAstroLevel.distance.toFixed(1)}% away</span>
-          </div>
-        )}
-        <div className="model-trigger-pill">
-          <small>MODEL IS WATCHING</small>
-          <strong>{thesisTrigger}</strong>
-          <span>Inference · not an Astro quote</span>
-        </div>
         {feedState === "error" && (
           <div className="chart-feed-error">
             Live market data is temporarily unavailable. Astro’s validated map remains below.
@@ -657,23 +696,58 @@ export default function LiveAstroChart({
         )}
       </div>
 
-      <div className="astro-level-legend">
-        {parsedLevels.map((level) => (
-          <div key={`${level.label}-${level.value}`}>
-            <i style={{ background: levelColor(level.kind) }} />
-            <span>{level.shortLabel}</span>
-            <strong>{level.value}</strong>
-          </div>
-        ))}
-        {parsedThesisLevels.map((level) => (
-          <div className="model-level" key={`model-${level.label}-${level.value}`}>
-            <i style={{ background: thesisLevelColor(level.thesisKind) }} />
-            <span>MODEL · {level.shortLabel}</span>
-            <strong>{level.value}</strong>
-            <small>{level.reason}</small>
-          </div>
-        ))}
+      <div className="chart-decision-strip">
+        <div className={`chart-decision-now ${signalState}`}>
+          <small>ASTRO SIGNAL · NOW</small>
+          <strong>{signalLabel(signalState)}</strong>
+          <span className={freshnessTone}>{freshnessLabel}</span>
+        </div>
+        <div>
+          <small>NEXT ASTRO AREA</small>
+          {nextAstroLevel ? (
+            <>
+              <strong>
+                {nextAstroLevel.shortLabel} · {formatPrice(nextAstroLevel.price)}
+              </strong>
+              <span>{nextAstroLevel.distance.toFixed(1)}% away</span>
+            </>
+          ) : (
+            <>
+              <strong>No confirmed target above</strong>
+              <span>Wait for a new direct update</span>
+            </>
+          )}
+        </div>
+        <div className="chart-model-watch">
+          <small>MODEL WATCH</small>
+          <strong>{thesisTrigger}</strong>
+          <span>Inference · not an Astro quote</span>
+        </div>
       </div>
+
+      <details className="chart-levels-details">
+        <summary>
+          <span>All chart levels</span>
+          <small>{parsedLevels.length} Astro · {parsedThesisLevels.length} model</small>
+        </summary>
+        <div className="astro-level-legend">
+          {parsedLevels.map((level) => (
+            <div key={`${level.label}-${level.value}`}>
+              <i style={{ background: levelColor(level.kind) }} />
+              <span>{level.shortLabel}</span>
+              <strong>{level.value}</strong>
+            </div>
+          ))}
+          {parsedThesisLevels.map((level) => (
+            <div className="model-level" key={`model-${level.label}-${level.value}`}>
+              <i style={{ background: thesisLevelColor(level.thesisKind) }} />
+              <span>MODEL · {level.shortLabel}</span>
+              <strong>{level.value}</strong>
+              <small>{level.reason}</small>
+            </div>
+          ))}
+        </div>
+      </details>
 
       <div className="chart-source-note">
         <span>MARKET · Coinbase public BTC-USD feed</span>

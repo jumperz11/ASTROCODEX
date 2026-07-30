@@ -2504,21 +2504,13 @@ summary:focus-visible {
   background: var(--panel);
 }
 
-.chart-controls > span {
-  padding-right: 13px;
-  color: #676e79;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 7px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .chart-timeframes {
   display: flex;
   align-self: stretch;
 }
 
-.chart-timeframes button {
+.chart-timeframes button,
+.chart-overlay-toggle button {
   min-width: 52px;
   border: 0;
   border-right: 1px solid var(--line);
@@ -2530,10 +2522,25 @@ summary:focus-visible {
   cursor: pointer;
 }
 
-.chart-timeframes button.active {
+.chart-timeframes button.active,
+.chart-overlay-toggle button.active {
   background: var(--amber);
   color: var(--ink);
   font-weight: 800;
+}
+
+.chart-overlay-toggle {
+  display: flex;
+  align-self: stretch;
+  border-left: 1px solid var(--line);
+}
+
+.chart-overlay-toggle button {
+  min-width: 68px;
+}
+
+.chart-overlay-toggle button:last-child {
+  border-right: 0;
 }
 
 .live-chart-stage {
@@ -2646,11 +2653,124 @@ summary:focus-visible {
   line-height: 1.4;
 }
 
+.chart-decision-strip {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.7fr) minmax(220px, 1fr) minmax(260px, 1.35fr);
+  border: 1px solid var(--line);
+  border-top: 0;
+  background: var(--panel);
+}
+
+.chart-decision-strip > div {
+  min-width: 0;
+  padding: 14px 16px;
+  display: grid;
+  gap: 5px;
+  align-content: center;
+  border-right: 1px solid var(--line);
+  box-shadow: inset 0 2px 0 var(--amber);
+}
+
+.chart-decision-strip > div:last-child {
+  border-right: 0;
+}
+
+.chart-decision-strip small,
+.chart-decision-strip span {
+  overflow: hidden;
+  color: var(--muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.chart-decision-strip strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 550;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chart-decision-now.long {
+  box-shadow: inset 0 2px 0 var(--green);
+}
+
+.chart-decision-now.short,
+.chart-decision-now.conflict {
+  box-shadow: inset 0 2px 0 var(--red);
+}
+
+.chart-decision-now.exit {
+  box-shadow: inset 0 2px 0 var(--muted);
+}
+
+.chart-decision-now strong {
+  font-size: 18px;
+  letter-spacing: -0.035em;
+}
+
+.chart-decision-strip .chart-model-watch {
+  box-shadow: inset 0 2px 0 #7aa2ff;
+}
+
+.chart-model-watch small {
+  color: #9ebaff;
+}
+
+.chart-levels-details {
+  border: 1px solid var(--line);
+  border-top: 0;
+  background: #0f1115;
+}
+
+.chart-levels-details summary {
+  min-height: 42px;
+  padding: 0 13px;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  list-style: none;
+  text-transform: uppercase;
+}
+
+.chart-levels-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.chart-levels-details summary::before {
+  content: "+";
+  color: var(--amber);
+}
+
+.chart-levels-details[open] summary::before {
+  content: "−";
+}
+
+.chart-levels-details summary span {
+  margin-right: auto;
+}
+
+.chart-levels-details summary small {
+  color: #5d646f;
+  font: inherit;
+}
+
 .astro-level-legend {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  border: 1px solid var(--line);
-  border-top: 0;
+  border-top: 1px solid var(--line);
 }
 
 .astro-level-legend > div {
@@ -3080,11 +3200,7 @@ summary:focus-visible {
   }
 
   .chart-controls {
-    display: block;
-  }
-
-  .chart-controls > span {
-    display: none;
+    display: grid;
   }
 
   .chart-timeframes button {
@@ -3095,41 +3211,57 @@ summary:focus-visible {
 
   .chart-timeframes {
     width: 100%;
+    border-bottom: 1px solid var(--line);
   }
 
   .chart-timeframes button:last-child {
     border-right: 0;
   }
 
+  .chart-overlay-toggle {
+    width: 100%;
+    border-left: 0;
+  }
+
+  .chart-overlay-toggle button {
+    min-height: 42px;
+    min-width: 0;
+    flex: 1;
+  }
+
   .live-chart-stage > div:first-child {
-    height: 350px;
+    height: 360px;
   }
 
   .chart-zone-layer {
     right: 64px;
   }
 
-  .chart-signal-pill,
-  .next-level-pill {
-    top: 8px;
-    padding: 7px 9px;
+  .chart-decision-strip {
+    grid-template-columns: 1fr;
   }
 
-  .chart-signal-pill {
-    left: 8px;
+  .chart-decision-strip > div {
+    min-height: 70px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
   }
 
-  .chart-signal-pill strong {
-    font-size: 16px;
+  .chart-decision-strip > div:last-child {
+    border-bottom: 0;
   }
 
-  .next-level-pill {
-    top: 76px;
-    right: auto;
-    left: 8px;
-    width: max-content;
-    max-width: calc(100% - 84px);
-    text-align: left;
+  .chart-decision-strip strong,
+  .chart-decision-strip span {
+    white-space: normal;
+  }
+
+  .chart-levels-details summary {
+    min-height: 48px;
+  }
+
+  .chart-levels-details summary small {
+    text-align: right;
   }
 
   .astro-level-legend {
