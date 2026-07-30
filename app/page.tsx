@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import liveForecast from "../public/forecast.json";
+import liveForecast from "./forecast.json";
 
 type Evidence = {
   type: "astro" | "framework" | "inference";

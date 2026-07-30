@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 const scriptsDirectory = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(scriptsDirectory, "..");
 const forecastPath = join(projectRoot, "public", "forecast.json");
+const embeddedForecastPath = join(projectRoot, "app", "forecast.json");
 
 export function validateForecast(report) {
   if (!report || typeof report !== "object" || Array.isArray(report)) {
@@ -99,14 +100,20 @@ export function validateForecast(report) {
 
 export async function saveForecast(report) {
   const validated = validateForecast(report);
-  const temporaryPath = `${forecastPath}.tmp`;
-  await writeFile(
-    temporaryPath,
-    `${JSON.stringify(validated, null, 2)}\n`,
-    "utf8",
-  );
-  await rename(temporaryPath, forecastPath);
+  await writeForecastSnapshots(validated);
   return validated;
+}
+
+export async function writeForecastSnapshots(report) {
+  const serialized = `${JSON.stringify(report, null, 2)}\n`;
+  const destinations = [forecastPath, embeddedForecastPath];
+  await Promise.all(
+    destinations.map(async (destination) => {
+      const temporaryPath = `${destination}.tmp`;
+      await writeFile(temporaryPath, serialized, "utf8");
+      await rename(temporaryPath, destination);
+    }),
+  );
 }
 
 export async function readForecast() {
