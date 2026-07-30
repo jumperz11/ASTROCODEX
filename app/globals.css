@@ -1578,47 +1578,119 @@ footer a {
   letter-spacing: -0.05em;
 }
 
-.next-action {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 24px;
-  align-items: center;
+.next-move-board {
   margin-top: 34px;
-  padding: 21px 22px;
-  border-left: 3px solid var(--amber);
-  background: rgba(255, 176, 0, 0.06);
+  border: 1px solid rgba(255, 176, 0, 0.24);
+  background:
+    linear-gradient(135deg, rgba(255, 176, 0, 0.08), transparent 58%),
+    rgba(255, 255, 255, 0.014);
 }
 
-.next-action div small,
-.next-action > span small {
-  display: block;
-  color: var(--amber);
+.next-move-head {
+  min-height: 39px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 0 18px;
+  border-bottom: 1px solid rgba(255, 176, 0, 0.18);
+}
+
+.next-move-head span,
+.next-move-head small,
+.next-move-grid small,
+.next-move-grid span,
+.next-move-trigger small {
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 7px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
 }
 
-.next-action div strong {
+.next-move-head span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--amber);
+  font-weight: 700;
+}
+
+.next-move-head i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 12px rgba(82, 230, 167, 0.55);
+}
+
+.next-move-head small,
+.next-move-grid small,
+.next-move-grid span,
+.next-move-trigger small {
+  color: var(--muted);
+}
+
+.next-move-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr);
+}
+
+.next-move-grid article {
+  min-width: 0;
+  padding: 22px;
+}
+
+.next-move-grid article + article {
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.next-move-grid strong {
   display: block;
-  margin-top: 8px;
+  margin: 9px 0 10px;
   font-size: clamp(17px, 2vw, 24px);
   font-weight: 500;
   line-height: 1.25;
   letter-spacing: -0.025em;
 }
 
-.next-action > span {
-  min-width: 62px;
-  color: var(--amber);
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 31px;
-  text-align: right;
+.next-move-grid article:first-child strong {
+  max-width: 690px;
 }
 
-.next-action > span small {
-  margin-top: 4px;
-  color: var(--muted);
+.next-move-grid article:first-child span {
+  color: var(--amber);
+}
+
+.viewer-next-step {
+  background: rgba(82, 230, 167, 0.035);
+}
+
+.viewer-next-step small,
+.viewer-next-step strong {
+  color: var(--green);
+}
+
+.viewer-next-step p {
+  margin: 0;
+  color: #a7adb7;
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.next-move-trigger {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 15px;
+  padding: 12px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: #8f969f;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.next-move-trigger small {
+  color: var(--red);
+  white-space: nowrap;
 }
 
 .quick-view .position-actions {
@@ -2072,19 +2144,38 @@ summary:focus-visible {
     grid-column: 1 / -1;
   }
 
-  .next-action {
+  .next-move-board {
     margin-top: 22px;
-    padding: 18px;
-    gap: 14px;
   }
 
-  .next-action div strong {
+  .next-move-head {
+    align-items: flex-start;
+    padding: 12px 15px;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .next-move-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .next-move-grid article {
+    padding: 18px;
+  }
+
+  .next-move-grid article + article {
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 0;
+  }
+
+  .next-move-grid strong {
     font-size: 17px;
   }
 
-  .next-action > span {
-    min-width: 50px;
-    font-size: 25px;
+  .next-move-trigger {
+    grid-template-columns: 1fr;
+    gap: 5px;
+    padding: 13px 18px;
   }
 
   .quick-view .position-actions {
@@ -2527,7 +2618,7 @@ summary:focus-visible {
   }
 
   .chart-controls {
-    display: grid;
+    display: block;
   }
 
   .chart-controls > span {
@@ -2538,6 +2629,10 @@ summary:focus-visible {
     min-height: 42px;
     min-width: 0;
     flex: 1;
+  }
+
+  .chart-timeframes {
+    width: 100%;
   }
 
   .chart-timeframes button:last-child {

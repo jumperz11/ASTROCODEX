@@ -229,6 +229,27 @@ function normalizeForecast(report: Forecast): Forecast {
   };
 }
 
+function getViewerNextStep(forecast: Forecast) {
+  const entryState = forecast.execution.entry.state.toUpperCase();
+  const noFreshEntry =
+    entryState.includes("WAIT") ||
+    entryState.includes("DONE") ||
+    entryState.includes("CLOSED") ||
+    forecast.confidence < 65;
+
+  if (noFreshEntry) {
+    return {
+      action: "WAIT · NO FRESH ENTRY",
+      detail: `Watch ${forecast.decision.lookingFor}. Reassess only after a new direct Astro post changes the validated map.`,
+    };
+  }
+
+  return {
+    action: "VERIFY THE SETUP",
+    detail: `${forecast.execution.entry.condition} Confirm the source post before treating the map as active.`,
+  };
+}
+
 const embeddedForecast =
   (liveForecast as Forecast).mode === "live"
     ? normalizeForecast(liveForecast as Forecast)
@@ -366,6 +387,10 @@ export default function Home() {
     const minute = String(date.getUTCMinutes()).padStart(2, "0");
     return `${months[date.getUTCMonth()]} ${date.getUTCDate()}, ${hour}:${minute} UTC`;
   }, [forecast.generatedAt]);
+  const viewerNextStep = useMemo(
+    () => getViewerNextStep(forecast),
+    [forecast],
+  );
 
   async function refreshForecast() {
     setLoading(true);
@@ -449,13 +474,30 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="next-action">
-              <div>
-                <small>MOST LIKELY NEXT</small>
-                <strong>{forecast.decision.playbookMove}</strong>
+            <section className="next-move-board" aria-label="Live next move">
+              <div className="next-move-head">
+                <span><i />LIVE NEXT MOVE</span>
+                <small>ASTRO SCAN · EVERY 30 MIN</small>
               </div>
-              <span>{forecast.scenarios[0]?.probability}%<small>BASE</small></span>
-            </div>
+
+              <div className="next-move-grid">
+                <article>
+                  <small>ASTRO LIKELY</small>
+                  <strong>{forecast.decision.playbookMove}</strong>
+                  <span>{forecast.scenarios[0]?.probability}% base path</span>
+                </article>
+                <article className="viewer-next-step">
+                  <small>YOUR NEXT STEP</small>
+                  <strong>{viewerNextStep.action}</strong>
+                  <p>{viewerNextStep.detail}</p>
+                </article>
+              </div>
+
+              <div className="next-move-trigger">
+                <small>READ CHANGES WHEN</small>
+                <span>{forecast.decision.risk}</span>
+              </div>
+            </section>
 
             <div className="position-actions">
               <a href={forecast.sources[0]?.url || "https://x.com/astronomer_zero"} target="_blank" rel="noreferrer">
