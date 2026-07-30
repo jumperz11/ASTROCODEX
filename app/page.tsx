@@ -161,6 +161,21 @@ const initialForecast: Forecast = {
     "This is a timestamped inference from public posts and the archived framework—not Astro’s private intent, financial advice, or a guaranteed trade.",
 };
 
+function normalizeForecast(report: Forecast): Forecast {
+  if (report.decision) return report;
+
+  return {
+    ...report,
+    decision: {
+      position: report.stance || "Position not public",
+      status: "Legacy snapshot · refresh for the compact read",
+      lookingFor: report.waitFor || "A fresh direct Astro update",
+      playbookMove: report.nextMove || "Wait for confirmation",
+      risk: report.invalidation || "A new thesis supersedes this read",
+    },
+  };
+}
+
 const embeddedForecast =
   (liveForecast as Forecast).mode === "live"
     ? (liveForecast as Forecast)
@@ -281,18 +296,19 @@ export default function Home() {
           return (await response.json()) as Forecast;
         })
         .then((latest) => {
-          setForecast(latest);
+          const normalized = normalizeForecast(latest);
+          setForecast(normalized);
           setLastUpdated("Validated Grok snapshot");
           window.localStorage.setItem(
             "astro-intel-last-forecast",
-            JSON.stringify(latest),
+            JSON.stringify(normalized),
           );
         })
         .catch(() => {
           const saved = window.localStorage.getItem("astro-intel-last-forecast");
           if (!saved) return;
           try {
-            setForecast(JSON.parse(saved) as Forecast);
+            setForecast(normalizeForecast(JSON.parse(saved) as Forecast));
             setLastUpdated("Restored validated snapshot");
           } catch {
             window.localStorage.removeItem("astro-intel-last-forecast");
@@ -326,9 +342,13 @@ export default function Home() {
       if (!response.ok) {
         throw new Error(data.error || "The validated snapshot is unavailable.");
       }
-      setForecast(data);
+      const normalized = normalizeForecast(data);
+      setForecast(normalized);
       setLastUpdated("Validated Grok snapshot");
-      window.localStorage.setItem("astro-intel-last-forecast", JSON.stringify(data));
+      window.localStorage.setItem(
+        "astro-intel-last-forecast",
+        JSON.stringify(normalized),
+      );
       setNotice("Loaded the newest forecast accepted by the evidence gate.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Unable to refresh right now.");
