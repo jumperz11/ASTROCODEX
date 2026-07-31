@@ -66,6 +66,22 @@ async function currentHealth() {
       codexBuiltAt: state.codex?.builtAt ?? null,
       telegramEnabled: Boolean(state.telegram?.enabled),
       telegramStatus: state.telegram?.status ?? "disabled",
+      telegramSourceStatus: state.telegramSource?.status ?? "unknown",
+      telegramSourceLastSuccessAt:
+        state.telegramSource?.lastSuccessAt ?? null,
+      telegramSourceNewestAt:
+        state.telegramSource?.newestAcceptedAt ?? null,
+      telegramSourceLastAnalyzedAt:
+        state.telegramSource?.lastAnalyzedAt ?? null,
+      telegramSourceAnalyzedNewestAt:
+        state.telegramSource?.analyzedNewestAt ?? null,
+      telegramSourceMessages: Number(
+        state.telegramSource?.messageCount || 0,
+      ),
+      telegramSourceMedia: Number(state.telegramSource?.mediaCount || 0),
+      telegramSources: Array.isArray(state.telegramSource?.sources)
+        ? state.telegramSource.sources
+        : [],
       consecutiveFailures: Number(state.consecutiveFailures || 0),
       error: state.error ?? null,
     };
@@ -85,6 +101,14 @@ async function currentHealth() {
       codexBuiltAt: null,
       telegramEnabled: false,
       telegramStatus: "disabled",
+      telegramSourceStatus: "starting",
+      telegramSourceLastSuccessAt: null,
+      telegramSourceNewestAt: null,
+      telegramSourceLastAnalyzedAt: null,
+      telegramSourceAnalyzedNewestAt: null,
+      telegramSourceMessages: 0,
+      telegramSourceMedia: 0,
+      telegramSources: [],
       consecutiveFailures: 0,
       error: "No completed VPS scan is available yet.",
     };
@@ -166,6 +190,16 @@ const server = createServer(async (request, response) => {
           codexBuiltAt: health.codexBuiltAt,
           telegramEnabled: health.telegramEnabled,
           telegramStatus: health.telegramStatus,
+          telegramSourceStatus: health.telegramSourceStatus,
+          telegramSourceLastSuccessAt: health.telegramSourceLastSuccessAt,
+          telegramSourceNewestAt: health.telegramSourceNewestAt,
+          telegramSourceLastAnalyzedAt:
+            health.telegramSourceLastAnalyzedAt,
+          telegramSourceAnalyzedNewestAt:
+            health.telegramSourceAnalyzedNewestAt,
+          telegramSourceMessages: health.telegramSourceMessages,
+          telegramSourceMedia: health.telegramSourceMedia,
+          telegramSources: health.telegramSources,
           hermesAudit: latestHermesPrediction
             ? {
                 id: latestHermesPrediction.id,

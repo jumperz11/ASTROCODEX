@@ -96,18 +96,43 @@ async function telegramSourceSummary() {
   const discoveredChats = Array.isArray(source?.discoveredChats)
     ? source.discoveredChats
     : [];
+  const allowedChats = discoveredChats
+    .filter((chat) => chat?.allowed)
+    .map((chat) => ({
+      id: chat.id,
+      title: chat.title,
+      type: chat.type,
+      lastMessageAt: chat.lastMessageAt ?? null,
+      messageCount: Number(chat.messageCount || 0),
+      mediaCount: Number(chat.mediaCount || 0),
+    }));
+  const lastSuccessAt = source?.lastSuccessAt ?? source?.updatedAt ?? null;
+  const lastSuccessMs = new Date(lastSuccessAt || 0).getTime();
+  const stale =
+    !Number.isFinite(lastSuccessMs) ||
+    Date.now() - lastSuccessMs > 2 * 60_000;
+  if (
+    source?.mode !== "telegram-user-read-only" ||
+    source?.status === "error" ||
+    stale ||
+    allowedChats.length !== 2
+  ) {
+    throw new Error(
+      `Approved Telegram ingestion is unhealthy: ${
+        source?.error ||
+        (stale ? "source polling is stale" : "exactly two sources are required")
+      }.`,
+    );
+  }
   return {
     path: telegramSourcePath,
+    status: "healthy",
+    lastSuccessAt,
+    stale: false,
     newestAcceptedAt: source?.newestAcceptedAt ?? null,
     messageCount: messages.length,
     mediaCount: messages.filter((message) => message?.mediaPath).length,
-    allowedChats: discoveredChats
-      .filter((chat) => chat?.allowed)
-      .map((chat) => ({
-        id: chat.id,
-        title: chat.title,
-        type: chat.type,
-      })),
+    allowedChats,
   };
 }
 
@@ -482,6 +507,16 @@ try {
       marketCandleAt: market.candleAt,
       marketPrice: market.price,
       telegramSourceUpdatedAt: telegramSources.newestAcceptedAt,
+      telegramSource: {
+        status: telegramSources.status,
+        lastSuccessAt: telegramSources.lastSuccessAt,
+        newestAcceptedAt: telegramSources.newestAcceptedAt,
+        messageCount: telegramSources.messageCount,
+        mediaCount: telegramSources.mediaCount,
+        sources: telegramSources.allowedChats,
+        lastAnalyzedAt: previous.telegramSource?.lastAnalyzedAt ?? null,
+        analyzedNewestAt: previous.telegramSource?.analyzedNewestAt ?? null,
+      },
       changed: false,
       agentRun: false,
       telegram,
@@ -554,6 +589,16 @@ try {
     marketCandleAt: market.candleAt,
     marketPrice: market.price,
     telegramSourceUpdatedAt: telegramSources.newestAcceptedAt,
+    telegramSource: {
+      status: telegramSources.status,
+      lastSuccessAt: telegramSources.lastSuccessAt,
+      newestAcceptedAt: telegramSources.newestAcceptedAt,
+      messageCount: telegramSources.messageCount,
+      mediaCount: telegramSources.mediaCount,
+      sources: telegramSources.allowedChats,
+      lastAnalyzedAt: finishedAt,
+      analyzedNewestAt: telegramSources.newestAcceptedAt,
+    },
     changed,
     agentRun: true,
     lastAgentAt: finishedAt,

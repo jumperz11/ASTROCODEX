@@ -166,7 +166,7 @@ function messageFingerprint(message) {
     .digest("hex");
 }
 
-export async function buildCodexIndex(archiveDirectory) {
+export async function buildCodexIndex(archiveDirectory, liveSourcePath = null) {
   const sourceFiles = (await telegramSourceFiles(archiveDirectory))
     .sort((left, right) => {
       const leftDirectory = dirname(left);
@@ -185,6 +185,28 @@ export async function buildCodexIndex(archiveDirectory) {
     messages.push(
       ...parseTelegramHtml(html, sourceFile, mediaPrefix, sourceName),
     );
+  }
+  if (liveSourcePath) {
+    try {
+      const liveSource = JSON.parse(await readFile(liveSourcePath, "utf8"));
+      for (const message of liveSource.messages ?? []) {
+        if (!message?.chatTitle || !message?.postedAt) continue;
+        const text = String(message.text || "").trim();
+        const media = message.mediaPath ? [String(message.mediaPath)] : [];
+        if (!text && media.length === 0) continue;
+        messages.push({
+          id: Number(message.messageId || 0),
+          ref: `telegram-live:${message.chatId}:${message.messageId}`,
+          source: String(message.chatTitle),
+          date: String(message.editedAt || message.postedAt),
+          author: "AstronomerZero",
+          text: text || "[Media-only live chart or attachment]",
+          media,
+        });
+      }
+    } catch {
+      // A missing live ledger must not prevent the protected archive rebuild.
+    }
   }
   const byFingerprint = new Map();
   for (const message of messages) {
@@ -213,6 +235,7 @@ export async function buildCodexIndex(archiveDirectory) {
     archive: basename(archiveDirectory),
     archiveSources,
     sourceFiles,
+    liveSourcePath,
     duplicateCount: messages.length - entries.length,
     entryCount: entries.length,
     mediaCount: entries.reduce((total, entry) => total + entry.media.length, 0),
@@ -286,12 +309,13 @@ export async function searchCodexFile(indexPath, query, limit) {
 async function main() {
   const archiveDirectory = process.argv[2];
   const outputPath = process.argv[3];
+  const liveSourcePath = process.argv[4];
   if (!archiveDirectory || !outputPath) {
     throw new Error(
       "Usage: node scripts/astro-codex-index.mjs ARCHIVE_DIRECTORY OUTPUT_PATH",
     );
   }
-  const index = await buildCodexIndex(archiveDirectory);
+  const index = await buildCodexIndex(archiveDirectory, liveSourcePath);
   await writeFile(outputPath, `${JSON.stringify(index)}\n`, {
     encoding: "utf8",
     mode: 0o600,

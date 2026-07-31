@@ -2,6 +2,7 @@
 Description=Astro read-only Telegram user source ingestion
 After=network-online.target
 Wants=network-online.target
+Conflicts=astro-telegram-ingest.service
 
 [Service]
 Type=simple

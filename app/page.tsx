@@ -590,6 +590,20 @@ type LiveSignalEnvelope = {
   codexMedia?: number;
   telegramEnabled?: boolean;
   telegramStatus?: string;
+  telegramSourceStatus?: string;
+  telegramSourceLastSuccessAt?: string | null;
+  telegramSourceNewestAt?: string | null;
+  telegramSourceLastAnalyzedAt?: string | null;
+  telegramSourceAnalyzedNewestAt?: string | null;
+  telegramSourceMessages?: number;
+  telegramSourceMedia?: number;
+  telegramSources?: Array<{
+    id?: string;
+    title?: string;
+    lastMessageAt?: string | null;
+    messageCount?: number;
+    mediaCount?: number;
+  }>;
   hermesAudit?: HermesAudit | null;
 };
 
@@ -707,6 +721,14 @@ export default function Home() {
     runId: null as string | null,
     telegramEnabled: false,
     telegramStatus: "disabled",
+    telegramSourceStatus: "unknown",
+    telegramSourceLastSuccessAt: null as string | null,
+    telegramSourceNewestAt: null as string | null,
+    telegramSourceLastAnalyzedAt: null as string | null,
+    telegramSourceAnalyzedNewestAt: null as string | null,
+    telegramSourceMessages: 0,
+    telegramSourceMedia: 0,
+    telegramSources: [] as NonNullable<LiveSignalEnvelope["telegramSources"]>,
     hermesAudit: null as HermesAudit | null,
   });
   const [clockNow, setClockNow] = useState(() => Date.now());
@@ -746,6 +768,19 @@ export default function Home() {
           runId: envelope.runId ?? null,
           telegramEnabled: Boolean(envelope.telegramEnabled),
           telegramStatus: envelope.telegramStatus ?? "disabled",
+          telegramSourceStatus: envelope.telegramSourceStatus ?? "unknown",
+          telegramSourceLastSuccessAt:
+            envelope.telegramSourceLastSuccessAt ?? null,
+          telegramSourceNewestAt: envelope.telegramSourceNewestAt ?? null,
+          telegramSourceLastAnalyzedAt:
+            envelope.telegramSourceLastAnalyzedAt ?? null,
+          telegramSourceAnalyzedNewestAt:
+            envelope.telegramSourceAnalyzedNewestAt ?? null,
+          telegramSourceMessages: Number(envelope.telegramSourceMessages || 0),
+          telegramSourceMedia: Number(envelope.telegramSourceMedia || 0),
+          telegramSources: Array.isArray(envelope.telegramSources)
+            ? envelope.telegramSources
+            : [],
           hermesAudit: envelope.hermesAudit ?? null,
         });
         setLastUpdated(
@@ -1034,6 +1069,19 @@ export default function Home() {
         runId: envelope.runId ?? null,
         telegramEnabled: Boolean(envelope.telegramEnabled),
         telegramStatus: envelope.telegramStatus ?? "disabled",
+        telegramSourceStatus: envelope.telegramSourceStatus ?? "unknown",
+        telegramSourceLastSuccessAt:
+          envelope.telegramSourceLastSuccessAt ?? null,
+        telegramSourceNewestAt: envelope.telegramSourceNewestAt ?? null,
+        telegramSourceLastAnalyzedAt:
+          envelope.telegramSourceLastAnalyzedAt ?? null,
+        telegramSourceAnalyzedNewestAt:
+          envelope.telegramSourceAnalyzedNewestAt ?? null,
+        telegramSourceMessages: Number(envelope.telegramSourceMessages || 0),
+        telegramSourceMedia: Number(envelope.telegramSourceMedia || 0),
+        telegramSources: Array.isArray(envelope.telegramSources)
+          ? envelope.telegramSources
+          : [],
         hermesAudit: envelope.hermesAudit ?? null,
       });
       setLastUpdated(
@@ -1154,6 +1202,36 @@ export default function Home() {
                 {systemStatus.telegramEnabled
                   ? systemStatus.telegramStatus
                   : "setup pending"}
+              </span>
+              <span
+                className={
+                  systemStatus.telegramSourceStatus === "healthy" &&
+                  systemStatus.telegramSources.length === 2 &&
+                  Boolean(systemStatus.telegramSourceAnalyzedNewestAt) &&
+                  systemStatus.telegramSourceAnalyzedNewestAt ===
+                    systemStatus.telegramSourceNewestAt
+                    ? "live"
+                    : systemStatus.telegramSourceStatus === "healthy"
+                      ? "aging"
+                      : "stale"
+                }
+                title={`${systemStatus.telegramSources
+                  .map((source) => source.title)
+                  .filter(Boolean)
+                  .join(" · ")}${
+                  systemStatus.telegramSourceLastAnalyzedAt
+                    ? ` · Hermes checked ${systemStatus.telegramSourceLastAnalyzedAt}`
+                    : ""
+                }`}
+              >
+                <i /> Astro sources{" "}
+                {systemStatus.telegramSourceStatus === "healthy"
+                  ? Boolean(systemStatus.telegramSourceAnalyzedNewestAt) &&
+                    systemStatus.telegramSourceAnalyzedNewestAt ===
+                      systemStatus.telegramSourceNewestAt
+                    ? `${systemStatus.telegramSources.length}/2 checked`
+                    : "new update pending"
+                  : systemStatus.telegramSourceStatus}
               </span>
             </div>
 

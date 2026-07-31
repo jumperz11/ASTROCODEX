@@ -4,7 +4,7 @@ import {
   timingSafeEqual,
 } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { dirname, extname, join, resolve } from "node:path";
+import { dirname, extname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
 import * as z from "zod/v4";
@@ -28,6 +28,9 @@ const codexIndexPath =
   join(projectRoot, ".astro", "codex-index.json");
 const codexArchivePath =
   process.env.ASTRO_CODEX_ARCHIVE?.trim() || null;
+const telegramSourcePath =
+  process.env.ASTRO_TELEGRAM_SOURCE_PATH?.trim() ||
+  join(projectRoot, ".astro-runtime", "telegram-source.json");
 const host = "127.0.0.1";
 const port = Number.parseInt(process.env.ASTRO_MCP_PORT || "4318", 10);
 const ownerCode = process.env.ASTRO_OWNER_CODE;
@@ -56,10 +59,17 @@ function secureEquals(actual, expected) {
 async function closestCodexChart(results) {
   if (!codexArchivePath) return null;
   const archiveRoot = resolve(codexArchivePath);
+  const telegramMediaRoot = resolve(dirname(telegramSourcePath), "telegram-media");
   for (const result of results) {
-    for (const relativePath of result.media ?? []) {
-      const absolutePath = resolve(archiveRoot, relativePath);
-      if (!absolutePath.startsWith(`${archiveRoot}/`)) continue;
+    for (const mediaPath of result.media ?? []) {
+      const absolutePath = isAbsolute(mediaPath)
+        ? resolve(mediaPath)
+        : resolve(archiveRoot, mediaPath);
+      const insideArchive = absolutePath.startsWith(`${archiveRoot}/`);
+      const insideTelegramMedia = absolutePath.startsWith(
+        `${telegramMediaRoot}/`,
+      );
+      if (!insideArchive && !insideTelegramMedia) continue;
       const extension = extname(absolutePath).toLowerCase();
       const mimeType =
         extension === ".png"

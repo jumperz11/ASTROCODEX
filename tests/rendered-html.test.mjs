@@ -91,7 +91,9 @@ test("live signal endpoint safely falls back to the validated bundle", async () 
   assert.equal(data.source, "bundled");
   assert.equal(data.checkedAt, null);
   assert.equal(data.forecast.market, "BTC");
-  assert.equal(data.forecast.mode, "live");
+  assert.equal(data.forecast.mode, "snapshot");
+  assert.equal(data.forecast.signal.state, "wait");
+  assert.equal(data.degraded, true);
 });
 
 test("history endpoint keeps the audited scorecard available when VPS history is offline", async () => {

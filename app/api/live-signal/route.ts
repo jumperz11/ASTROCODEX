@@ -12,6 +12,14 @@ type RemoteSignalEnvelope = {
   codexMedia?: unknown;
   telegramEnabled?: unknown;
   telegramStatus?: unknown;
+  telegramSourceStatus?: unknown;
+  telegramSourceLastSuccessAt?: unknown;
+  telegramSourceNewestAt?: unknown;
+  telegramSourceLastAnalyzedAt?: unknown;
+  telegramSourceAnalyzedNewestAt?: unknown;
+  telegramSourceMessages?: unknown;
+  telegramSourceMedia?: unknown;
+  telegramSources?: unknown;
   hermesAudit?: unknown;
 };
 
@@ -27,6 +35,28 @@ function isForecast(value: unknown): value is Record<string, unknown> {
   );
 }
 
+function safeBundledForecast() {
+  return {
+    ...bundledForecast,
+    mode: "snapshot",
+    confidence: Math.min(Number(bundledForecast.confidence || 0), 50),
+    decision: {
+      ...bundledForecast.decision,
+      status: "Live VPS confirmation is unavailable.",
+      playbookMove: "Wait for the live evidence connection to recover.",
+    },
+    signal: {
+      ...bundledForecast.signal,
+      state: "wait",
+      plainSummary:
+        "The live evidence connection is unavailable. This snapshot is context only.",
+      astroMayDo: "Unknown until the live source reconnects.",
+      readerStep: "Wait. Do not use the bundled snapshot as a fresh signal.",
+      changesWhen: "The live VPS evidence source reconnects.",
+    },
+  };
+}
+
 function response(
   forecast: unknown,
   options: {
@@ -40,6 +70,14 @@ function response(
     codexMedia?: number;
     telegramEnabled?: boolean;
     telegramStatus?: string;
+    telegramSourceStatus?: string;
+    telegramSourceLastSuccessAt?: string | null;
+    telegramSourceNewestAt?: string | null;
+    telegramSourceLastAnalyzedAt?: string | null;
+    telegramSourceAnalyzedNewestAt?: string | null;
+    telegramSourceMessages?: number;
+    telegramSourceMedia?: number;
+    telegramSources?: unknown[];
     hermesAudit?: unknown;
   },
 ) {
@@ -58,9 +96,11 @@ export async function GET() {
   const signalToken = process.env.ASTRO_SIGNAL_TOKEN?.trim();
 
   if (!signalUrl || !signalToken) {
-    return response(bundledForecast, {
+    return response(safeBundledForecast(), {
       checkedAt: null,
       source: "bundled",
+      degraded: true,
+      status: "degraded",
     });
   }
 
@@ -102,6 +142,35 @@ export async function GET() {
         typeof payload.telegramStatus === "string"
           ? payload.telegramStatus
           : "disabled",
+      telegramSourceStatus:
+        typeof payload.telegramSourceStatus === "string"
+          ? payload.telegramSourceStatus
+          : "unknown",
+      telegramSourceLastSuccessAt:
+        typeof payload.telegramSourceLastSuccessAt === "string"
+          ? payload.telegramSourceLastSuccessAt
+          : null,
+      telegramSourceNewestAt:
+        typeof payload.telegramSourceNewestAt === "string"
+          ? payload.telegramSourceNewestAt
+          : null,
+      telegramSourceLastAnalyzedAt:
+        typeof payload.telegramSourceLastAnalyzedAt === "string"
+          ? payload.telegramSourceLastAnalyzedAt
+          : null,
+      telegramSourceAnalyzedNewestAt:
+        typeof payload.telegramSourceAnalyzedNewestAt === "string"
+          ? payload.telegramSourceAnalyzedNewestAt
+          : null,
+      telegramSourceMessages: Number.isInteger(payload.telegramSourceMessages)
+        ? Number(payload.telegramSourceMessages)
+        : 0,
+      telegramSourceMedia: Number.isInteger(payload.telegramSourceMedia)
+        ? Number(payload.telegramSourceMedia)
+        : 0,
+      telegramSources: Array.isArray(payload.telegramSources)
+        ? payload.telegramSources
+        : [],
       hermesAudit:
         payload.hermesAudit &&
         typeof payload.hermesAudit === "object" &&
@@ -110,10 +179,11 @@ export async function GET() {
           : null,
     });
   } catch {
-    return response(bundledForecast, {
+    return response(safeBundledForecast(), {
       checkedAt: null,
       source: "bundled",
       degraded: true,
+      status: "degraded",
     });
   }
 }

@@ -171,14 +171,32 @@ async function listDialogs() {
   await client.disconnect();
 }
 
+function mediaExtension(message) {
+  if (message?.photo) return "jpg";
+  const mimeType = String(message?.document?.mimeType || "").toLowerCase();
+  if (mimeType === "image/png") return "png";
+  if (mimeType === "image/jpeg") return "jpg";
+  if (mimeType === "image/webp") return "webp";
+  const fileName = message?.document?.attributes
+    ?.map((attribute) => attribute?.fileName)
+    .find(Boolean);
+  const extension = String(fileName || "").split(".").at(-1)?.toLowerCase();
+  return ["jpg", "jpeg", "png", "webp"].includes(extension || "")
+    ? extension === "jpeg"
+      ? "jpg"
+      : extension
+    : null;
+}
+
 async function downloadChart(client, message, id) {
-  if (!message?.photo) return null;
+  const extension = mediaExtension(message);
+  if (!extension) return null;
   try {
     const bytes = await client.downloadMedia(message, {});
     if (!Buffer.isBuffer(bytes) || bytes.length === 0 || bytes.length > 12_000_000) {
       return null;
     }
-    const path = join(mediaDirectory, `${id.replaceAll(":", "-")}.jpg`);
+    const path = join(mediaDirectory, `${id.replaceAll(":", "-")}.${extension}`);
     await writeFile(path, bytes, { mode: 0o600 });
     return path;
   } catch {
@@ -231,6 +249,10 @@ async function ingestOnce(client) {
       const id = `telegram-user:${dialog.id}:${message.id}`;
       const existing = known.get(id);
       const postedAt = messageDate(message);
+      const editedAt = message.editDate
+        ? messageDate({ date: message.editDate })
+        : null;
+      const activityAt = editedAt || postedAt;
       const mediaPath =
         existing?.mediaPath || (await downloadChart(client, message, id));
       known.set(id, {
@@ -240,16 +262,38 @@ async function ingestOnce(client) {
         chatUsername: dialog.username,
         messageId: message.id,
         postedAt,
-        editedAt: message.editDate ? messageDate({ date: message.editDate }) : null,
+        editedAt,
+        activityAt,
         text: String(message.message || "").slice(0, 12_000),
         mediaPath,
         sourceKind: "user-session",
       });
-      if (!newestAcceptedAt || postedAt > newestAcceptedAt) {
-        newestAcceptedAt = postedAt;
+      if (!newestAcceptedAt || activityAt > newestAcceptedAt) {
+        newestAcceptedAt = activityAt;
       }
     }
   }
+
+  const retainedMessages = [...known.values()]
+    .sort((left, right) => left.postedAt.localeCompare(right.postedAt))
+    .slice(-5000);
+  const sourceHealth = selected.map((dialog) => {
+    const sourceMessages = retainedMessages.filter(
+      (message) => message.chatId === dialog.id,
+    );
+    const latest = sourceMessages
+      .map((message) => message.activityAt || message.editedAt || message.postedAt)
+      .sort()
+      .at(-1);
+    return {
+      id: dialog.id,
+      title: dialog.title,
+      lastMessageAt: latest || null,
+      messageCount: sourceMessages.length,
+      mediaCount: sourceMessages.filter((message) => message.mediaPath).length,
+    };
+  });
+  const completedAt = new Date().toISOString();
 
   await writeAtomic(
     sourcePath,
@@ -257,7 +301,11 @@ async function ingestOnce(client) {
       {
         version: 2,
         mode: "telegram-user-read-only",
-        updatedAt: new Date().toISOString(),
+        status: "healthy",
+        updatedAt: completedAt,
+        lastAttemptAt: completedAt,
+        lastSuccessAt: completedAt,
+        error: null,
         newestAcceptedAt,
         allowlist: selected.map((dialog) => dialog.id),
         discoveredChats: selected.map((dialog) => ({
@@ -266,11 +314,10 @@ async function ingestOnce(client) {
           username: dialog.username,
           type: dialog.type,
           allowed: true,
-          lastSeenAt: new Date().toISOString(),
+          lastSeenAt: completedAt,
+          ...sourceHealth.find((source) => source.id === dialog.id),
         })),
-        messages: [...known.values()]
-          .sort((left, right) => left.postedAt.localeCompare(right.postedAt))
-          .slice(-5000),
+        messages: retainedMessages,
       },
       null,
       2,
@@ -300,8 +347,29 @@ async function ingest() {
     try {
       await ingestOnce(client);
     } catch (error) {
-      process.stderr.write(
-        `${error instanceof Error ? error.message : "Telegram user ingestion error"}\n`,
+      const message =
+        error instanceof Error ? error.message : "Telegram user ingestion error";
+      process.stderr.write(`${message}\n`);
+      const failedAt = new Date().toISOString();
+      const failedState = await readJson(sourcePath, {
+        version: 2,
+        mode: "telegram-user-read-only",
+        discoveredChats: [],
+        messages: [],
+      });
+      await writeAtomic(
+        sourcePath,
+        `${JSON.stringify(
+          {
+            ...failedState,
+            status: "error",
+            updatedAt: failedAt,
+            lastAttemptAt: failedAt,
+            error: message,
+          },
+          null,
+          2,
+        )}\n`,
       );
     }
     await new Promise((resolve) => setTimeout(resolve, 20_000));
