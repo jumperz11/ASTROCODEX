@@ -730,7 +730,15 @@ export default function Home() {
   const [forecast, setForecast] = useState<Forecast>(embeddedForecast);
   const [activeView, setActiveView] =
     useState<
-      "desk" | "live" | "positions" | "hermes" | "history" | "evidence" | "playbook"
+      | "desk"
+      | "chart"
+      | "live"
+      | "journal"
+      | "positions"
+      | "hermes"
+      | "history"
+      | "evidence"
+      | "playbook"
     >("desk");
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
@@ -1132,7 +1140,9 @@ export default function Home() {
   function showView(
     view:
       | "desk"
+      | "chart"
       | "live"
+      | "journal"
       | "positions"
       | "hermes"
       | "history"
@@ -1164,12 +1174,18 @@ export default function Home() {
 
         <nav aria-label="Primary navigation">
           <button className={activeView === "desk" ? "active" : ""} onClick={() => showView("desk")}>Now</button>
+          <button className={activeView === "chart" ? "active" : ""} onClick={() => showView("chart")}>Chart</button>
           <button className={activeView === "live" ? "active" : ""} onClick={() => showView("live")}>Live</button>
-          <button className={activeView === "positions" ? "active" : ""} onClick={() => showView("positions")}>Positions</button>
-          <button className={activeView === "hermes" ? "active" : ""} onClick={() => showView("hermes")}>Hermes</button>
-          <button className={activeView === "history" ? "active" : ""} onClick={() => showView("history")}>History</button>
-          <button className={activeView === "evidence" ? "active" : ""} onClick={() => showView("evidence")}>Evidence</button>
-          <button className={activeView === "playbook" ? "active" : ""} onClick={() => showView("playbook")}>School</button>
+          <button
+            className={
+              ["journal", "positions", "hermes", "history", "evidence", "playbook"].includes(activeView)
+                ? "active"
+                : ""
+            }
+            onClick={() => showView("journal")}
+          >
+            Journal
+          </button>
         </nav>
 
         <div className="status-cluster">
@@ -1209,29 +1225,7 @@ export default function Home() {
               title={systemStatus.runId ? `Latest scan ${systemStatus.runId}` : undefined}
             >
               <span className={signalFreshness.tone}>
-                <i /> Signal {signalFreshness.label.toLowerCase()}
-              </span>
-              <span className={systemStatus.codexEntries > 0 ? "live" : "stale"}>
-                <i /> Astro Codex{" "}
-                {systemStatus.codexEntries > 0
-                  ? `${systemStatus.codexEntries.toLocaleString()} memories`
-                  : "connecting"}
-              </span>
-              <span className={systemStatus.degraded ? "stale" : "live"}>
-                <i /> {systemStatus.degraded ? "Using safe snapshot" : "VPS connected"}
-              </span>
-              <span
-                className={
-                  systemStatus.telegramEnabled &&
-                  systemStatus.telegramStatus !== "error"
-                    ? "live"
-                    : "scheduled"
-                }
-              >
-                <i /> Telegram{" "}
-                {systemStatus.telegramEnabled
-                  ? systemStatus.telegramStatus
-                  : "setup pending"}
+                <i /> {signalFreshness.label}
               </span>
               <span
                 className={
@@ -1254,15 +1248,16 @@ export default function Home() {
                     : ""
                 }`}
               >
-                <i /> Astro sources{" "}
+                <i /> Astro{" "}
                 {systemStatus.telegramSourceStatus === "healthy"
                   ? Boolean(systemStatus.telegramSourceAnalyzedNewestAt) &&
                     systemStatus.telegramSourceAnalyzedNewestAt ===
                       systemStatus.telegramSourceNewestAt
-                    ? `${systemStatus.telegramSources.length}/2 checked`
-                    : "new update pending"
+                    ? `${systemStatus.telegramSources.length}/2 sources checked`
+                    : "update pending"
                   : systemStatus.telegramSourceStatus}
               </span>
+              <button onClick={() => showView("live")}>Open live monitor</button>
             </div>
 
             <section
@@ -1351,6 +1346,37 @@ export default function Home() {
 
             {notice && <p className="notice">{notice}</p>}
           </section>
+
+          <nav className="now-shortcuts" aria-label="Open a detailed view">
+            <button onClick={() => showView("chart")}>
+              <span>01</span>
+              <strong>Open chart</strong>
+              <small>Price, levels and projection</small>
+            </button>
+            <button onClick={() => showView("live")}>
+              <span>02</span>
+              <strong>Watch Hermes</strong>
+              <small>Real system activity</small>
+            </button>
+            <button onClick={() => showView("journal")}>
+              <span>03</span>
+              <strong>Review history</strong>
+              <small>Positions, evidence and school</small>
+            </button>
+          </nav>
+        </div>
+      )}
+
+      {activeView === "chart" && (
+        <div className="chart-view" id="top">
+          <header className="chart-page-intro">
+            <div>
+              <span className="eyebrow">MARKET MAP</span>
+              <h1>Chart</h1>
+              <p>Only price, confirmed Astro levels, and the separated Hermes projection.</p>
+            </div>
+            <button onClick={() => showView("desk")}>← Back to Now</button>
+          </header>
 
           <LiveAstroChart
             events={forecast.evidence.filter(
@@ -1688,6 +1714,61 @@ export default function Home() {
         </section>
       )}
 
+      {["positions", "hermes", "history", "evidence", "playbook"].includes(
+        activeView,
+      ) && (
+        <nav className="journal-subnav" aria-label="Journal sections">
+          <button onClick={() => showView("journal")}>← Journal</button>
+          <button className={activeView === "positions" ? "active" : ""} onClick={() => showView("positions")}>Positions</button>
+          <button className={activeView === "hermes" ? "active" : ""} onClick={() => showView("hermes")}>Thesis</button>
+          <button className={activeView === "history" ? "active" : ""} onClick={() => showView("history")}>History</button>
+          <button className={activeView === "evidence" ? "active" : ""} onClick={() => showView("evidence")}>Evidence</button>
+          <button className={activeView === "playbook" ? "active" : ""} onClick={() => showView("playbook")}>School</button>
+        </nav>
+      )}
+
+      {activeView === "journal" && (
+        <section className="journal-view">
+          <header>
+            <span className="eyebrow">REVIEW & LEARN</span>
+            <h1>Journal</h1>
+            <p>Everything saved for later—kept away from the live decision screen.</p>
+          </header>
+          <div className="journal-grid">
+            <button onClick={() => showView("positions")}>
+              <span>01</span>
+              <strong>Positions</strong>
+              <p>Current Astro and Hermes position maps, entries and targets.</p>
+              <small>Open →</small>
+            </button>
+            <button onClick={() => showView("hermes")}>
+              <span>02</span>
+              <strong>Hermes thesis</strong>
+              <p>The longer-horizon model, its conditions and failure point.</p>
+              <small>Open →</small>
+            </button>
+            <button onClick={() => showView("history")}>
+              <span>03</span>
+              <strong>Track record</strong>
+              <p>Closed plays, forecast outcomes and verified success rate.</p>
+              <small>Open →</small>
+            </button>
+            <button onClick={() => showView("evidence")}>
+              <span>04</span>
+              <strong>Evidence</strong>
+              <p>Direct Astro posts separated from framework and inference.</p>
+              <small>Open →</small>
+            </button>
+            <button onClick={() => showView("playbook")}>
+              <span>05</span>
+              <strong>Astro School</strong>
+              <p>The organized library Hermes uses to recognize his playbook.</p>
+              <small>Open →</small>
+            </button>
+          </div>
+        </section>
+      )}
+
       {activeView === "positions" && (
         <PositionsView
           forecast={forecast}
@@ -1964,17 +2045,21 @@ export default function Home() {
         <button className={activeView === "desk" ? "active" : ""} onClick={() => showView("desk")}>
           <span>●</span>Now
         </button>
+        <button className={activeView === "chart" ? "active" : ""} onClick={() => showView("chart")}>
+          <span>⌁</span>Chart
+        </button>
         <button className={activeView === "live" ? "active" : ""} onClick={() => showView("live")}>
           <span>›_</span>Live
         </button>
-        <button className={activeView === "positions" ? "active" : ""} onClick={() => showView("positions")}>
-          <span>▤</span>Positions
-        </button>
-        <button className={activeView === "hermes" ? "active" : ""} onClick={() => showView("hermes")}>
-          <span>◇</span>Hermes
-        </button>
-        <button className={activeView === "history" ? "active" : ""} onClick={() => showView("history")}>
-          <span>↺</span>History
+        <button
+          className={
+            ["journal", "positions", "hermes", "history", "evidence", "playbook"].includes(activeView)
+              ? "active"
+              : ""
+          }
+          onClick={() => showView("journal")}
+        >
+          <span>▤</span>Journal
         </button>
       </nav>
 
