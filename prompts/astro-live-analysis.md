@@ -142,6 +142,17 @@ Evidence discipline
   macro path after that transition. `learningNote` must name the retrieved
   historical execution or phase behavior that changed or supported the read.
   Keep all eight fields compact enough for a dedicated dashboard tab.
+- Populate `hermes.projection` as the frozen, scoreable chart map. It must have
+  a 24-to-2160-hour horizon, model confidence, one directional sequence, two to
+  four ordered numeric checkpoints, and an invalidation condition. Use a
+  numeric invalidation price when the evidence supports one; otherwise use
+  `null` and explain the non-numeric failure condition. Checkpoint prices must
+  come from direct Astro levels, verified market structure, or clearly labeled
+  model levels. Never invent precision unsupported by those inputs.
+- A saved Hermes projection is a commitment for scoring. Do not slide a target
+  as price approaches it. Replace the live map only after material new evidence,
+  a completed final checkpoint, invalidation, or horizon expiry. The VPS keeps
+  both hits and failures in the audit ledger.
 - Hermes may forecast a sequence such as hold → trim/close → later flip, but it
   may not skip the required confirmation between phases. A future plan remains
   conditional until Astro posts it directly.

@@ -3,6 +3,10 @@ import { randomUUID } from "node:crypto";
 import { readFile, rename, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  evaluateHermesPredictions,
+  hermesLedgerSummary,
+} from "./hermes-ledger.mjs";
 
 const scriptsDirectory = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(scriptsDirectory, "..");
@@ -21,7 +25,7 @@ const timeoutMs = Math.max(
   Number.parseInt(process.env.ASTRO_AGENT_TIMEOUT_MS || "210000", 10),
 );
 const researchPrompt =
-  "Check @astronomer_zero's newest relevant public X posts and connected threads. Compare them with the latest accepted Astro Intelligence forecast. Call Astro Codex with at least three focused searches: the closest historical market phase, the closest position/execution sequence, and the closest behavior around the active trigger or silence. Apply the archived playbook and treat the three scenarios as a next-move prediction engine: each scenario must predict Astro's next observable behavior, be ordered highest probability first, and explicitly combine his best-supported current public position, retrieved Astro Codex behavior, distance to verified levels, and the supplied live market snapshot. Also rebuild the Hermes longer-horizon thesis on every material save: connect the supported current campaign to the expected transition and then the next days-to-weeks or macro campaign; include a specific retrieved learning note; never skip the confirmation required between phases or convert a future plan into a current signal. Save a forecast when new direct evidence materially changes the read, when the Hermes longer-horizon path materially changes, OR when verified market movement changes the leading predicted behavior, crosses a relevant Astro/model level, or shifts a scenario weight by at least 10 points. If the latest accepted forecast has no Hermes object, save one compatibility update even when the rest of the read is unchanged. Without a fresh direct update, cap the leading scenario at 70%. A model-only update may change scenarios, thesis, and Hermes while Astro is silent, but it must keep the confirmed signal at wait unless fresh direct evidence supports long, short, take_profit, exit, or conflict. Never turn archive similarity or market movement alone into a confirmed trade. Preserve exact direct status URLs and the separation between Astro evidence and inference. If nothing material changed, do not save.";
+  "Check @astronomer_zero's newest relevant public X posts and connected threads. Compare them with the latest accepted Astro Intelligence forecast. Call Astro Codex with at least three focused searches: the closest historical market phase, the closest position/execution sequence, and the closest behavior around the active trigger or silence. Apply the archived playbook and treat the three scenarios as a next-move prediction engine: each scenario must predict Astro's next observable behavior, be ordered highest probability first, and explicitly combine his best-supported current public position, retrieved Astro Codex behavior, distance to verified levels, and the supplied live market snapshot. Also rebuild the Hermes longer-horizon thesis on every material save: connect the supported current campaign to the expected transition and then the next days-to-weeks or macro campaign; include a specific retrieved learning note; never skip the confirmation required between phases or convert a future plan into a current signal. Hermes projection must be a stable, scoreable map rather than a decorative curve: choose a 24-to-2160-hour horizon, two to four ordered numeric checkpoints, a direction, confidence, and a numeric invalidation when evidence supports one. Do not move an existing checkpoint merely because live price approaches it; replace the map only when evidence changes, it is completed, invalidated, or expires. Save a forecast when new direct evidence materially changes the read, when the Hermes longer-horizon path materially changes, when the current Hermes audit becomes hit or wrong and needs a successor map, OR when verified market movement changes the leading predicted behavior, crosses a relevant Astro/model level, or shifts a scenario weight by at least 10 points. If the latest accepted forecast has no Hermes projection object, save one compatibility update even when the rest of the read is unchanged. A wrong Hermes map must be studied and replaced, never erased from the supplied audit ledger. Without a fresh direct update, cap the leading scenario and Hermes projection confidence at 70%. A model-only update may change scenarios, thesis, and Hermes while Astro is silent, but it must keep the confirmed signal at wait unless fresh direct evidence supports long, short, take_profit, exit, or conflict. Never turn archive similarity or market movement alone into a confirmed trade. Preserve exact direct status URLs and the separation between Astro evidence and inference. If nothing material changed, do not save.";
 
 async function readJson(path, fallback = null) {
   try {
@@ -134,7 +138,7 @@ async function verifyCodexIndex() {
   };
 }
 
-function runAgent(market, trackRecord) {
+function runAgent(market, trackRecord, hermesAudit) {
   return new Promise((resolve, reject) => {
     const { XAI_API_KEY: ignoredApiKey, ...oauthEnvironment } = process.env;
     void ignoredApiKey;
@@ -149,6 +153,9 @@ ${JSON.stringify(market)}
 
 Current audited track record (carry forward; change only with new direct evidence):
 ${JSON.stringify(trackRecord)}
+
+Hermes prediction audit ledger (machine-scored; preserve failures and learn from them):
+${JSON.stringify(hermesAudit)}
 
 Use this snapshot only for the separate model thesis and thesisLevels. Keep Astro-confirmed levels in levels. Never present the market snapshot or model levels as Astro's words.`,
       ],
@@ -201,6 +208,7 @@ async function updateHistory({ checkedAt, changed, forecast, market }) {
       signal: forecast?.signal ?? null,
       execution: forecast?.execution ?? null,
       thesis: forecast?.thesis ?? null,
+      hermes: forecast?.hermes ?? null,
       levels: forecast?.levels ?? [],
       thesisLevels: forecast?.thesisLevels ?? [],
       scenarios: forecast?.scenarios ?? [],
@@ -226,12 +234,63 @@ async function updateHistory({ checkedAt, changed, forecast, market }) {
       forecast: snapshot.forecast,
     });
   }
+  const hermesPredictions = evaluateHermesPredictions(
+    history.hermesPredictions,
+    market,
+    checkedAt,
+  );
+  const projection = forecast?.hermes?.projection;
+  if (
+    changed &&
+    forecastId &&
+    projection &&
+    !hermesPredictions.some((item) => item?.id === forecastId)
+  ) {
+    const createdMs = new Date(forecastId).getTime();
+    const createdAt = Number.isFinite(createdMs) ? forecastId : checkedAt;
+    hermesPredictions.push({
+      id: forecastId,
+      createdAt,
+      resolvedAt: null,
+      status: "active",
+      outcomeReason: null,
+      anchorPrice: market.price,
+      latestPrice: market.price,
+      maxObservedPrice: market.price,
+      minObservedPrice: market.price,
+      direction: projection.direction,
+      confidence: projection.confidence,
+      horizonHours: projection.horizonHours,
+      horizonEndsAt: new Date(
+        new Date(createdAt).getTime() + projection.horizonHours * 3_600_000,
+      ).toISOString(),
+      checkpoints: projection.checkpoints.map((checkpoint) => ({
+        ...checkpoint,
+        hitAt: null,
+        hitPrice: null,
+      })),
+      invalidation: projection.invalidation,
+      thesis: forecast.hermes.coreThesis,
+      learningNote: forecast.hermes.learningNote,
+      sources: forecast.sources ?? [],
+    });
+  }
+  const hermesStats = hermesLedgerSummary(hermesPredictions);
 
   const seededTrackRecord = await readJson(trackRecordSeedPath);
   await writeJsonAtomic(historyPath, {
     updatedAt: checkedAt,
     daily: daily.slice(-365),
     plays: plays.slice(-500),
+    hermesPredictions: hermesPredictions.slice(-500),
+    hermesStats: {
+      total: hermesStats.total,
+      active: hermesStats.active,
+      hits: hermesStats.hits,
+      wrong: hermesStats.wrong,
+      resolved: hermesStats.resolved,
+      hitRate: hermesStats.hitRate,
+    },
     trackRecord:
       forecast?.trackRecord ?? history.trackRecord ?? seededTrackRecord ?? null,
   });
@@ -257,10 +316,16 @@ try {
   const currentHistory = await readJson(historyPath, {});
   const currentTrackRecord =
     currentHistory?.trackRecord ?? (await readJson(trackRecordSeedPath, null));
+  const evaluatedHermesPredictions = evaluateHermesPredictions(
+    currentHistory?.hermesPredictions,
+    market,
+    startedAt,
+  );
+  const currentHermesAudit = hermesLedgerSummary(evaluatedHermesPredictions);
   const before = await stat(forecastPath)
     .then((value) => value.mtimeMs)
     .catch(() => 0);
-  const result = await runAgent(market, currentTrackRecord);
+  const result = await runAgent(market, currentTrackRecord, currentHermesAudit);
   const after = await stat(forecastPath)
     .then((value) => value.mtimeMs)
     .catch(() => 0);

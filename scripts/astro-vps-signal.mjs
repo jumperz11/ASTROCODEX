@@ -134,10 +134,15 @@ const server = createServer(async (request, response) => {
   }
 
   try {
-    const [forecast, health] = await Promise.all([
+    const [forecast, health, history] = await Promise.all([
       readJson(forecastPath),
       currentHealth(),
+      readJson(historyPath).catch(() => ({ hermesPredictions: [] })),
     ]);
+    const hermesPredictions = Array.isArray(history.hermesPredictions)
+      ? history.hermesPredictions
+      : [];
+    const latestHermesPrediction = hermesPredictions.at(-1) ?? null;
     response
       .writeHead(200, {
         "Content-Type": "application/json",
@@ -153,6 +158,27 @@ const server = createServer(async (request, response) => {
           codexEntries: health.codexEntries,
           codexMedia: health.codexMedia,
           codexBuiltAt: health.codexBuiltAt,
+          hermesAudit: latestHermesPrediction
+            ? {
+                id: latestHermesPrediction.id,
+                status: latestHermesPrediction.status,
+                createdAt: latestHermesPrediction.createdAt,
+                resolvedAt: latestHermesPrediction.resolvedAt ?? null,
+                anchorPrice: latestHermesPrediction.anchorPrice,
+                latestPrice: latestHermesPrediction.latestPrice,
+                hitCheckpoints: Array.isArray(latestHermesPrediction.checkpoints)
+                  ? latestHermesPrediction.checkpoints.filter(
+                      (checkpoint) => checkpoint.hitAt,
+                    ).length
+                  : 0,
+                totalCheckpoints: Array.isArray(
+                  latestHermesPrediction.checkpoints,
+                )
+                  ? latestHermesPrediction.checkpoints.length
+                  : 0,
+                outcomeReason: latestHermesPrediction.outcomeReason ?? null,
+              }
+            : null,
           error: health.error,
         }),
       );

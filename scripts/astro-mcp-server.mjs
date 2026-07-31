@@ -412,6 +412,33 @@ const forecastSchema = z.object({
     confirmation: z.string().min(1),
     failure: z.string().min(1),
     learningNote: z.string().min(1),
+    projection: z.object({
+      direction: z.enum([
+        "down_then_up",
+        "up_then_down",
+        "up",
+        "down",
+        "range",
+      ]),
+      horizonHours: z.number().int().min(24).max(2160),
+      confidence: z.number().int().min(0).max(100),
+      checkpoints: z
+        .array(
+          z.object({
+            label: z.string().min(1),
+            price: z.number().min(10000).max(250000),
+            kind: z.enum(["transition", "confirmation", "target"]),
+            horizonHours: z.number().int().min(1).max(2160),
+            condition: z.string().min(1),
+          }),
+        )
+        .min(2)
+        .max(4),
+      invalidation: z.object({
+        price: z.number().min(10000).max(250000).nullable(),
+        condition: z.string().min(1),
+      }),
+    }),
   }),
   thesisLevels: z
     .array(

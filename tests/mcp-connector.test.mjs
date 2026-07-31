@@ -251,6 +251,31 @@ test("forecast gate requires direct sources and balanced scenarios", () => {
       confirmation: "A direct Astro structure update.",
       failure: "A new direct thesis supersedes this sequence.",
       learningNote: "Closest archive behavior favors waiting through an unresolved range.",
+      projection: {
+        direction: "up",
+        horizonHours: 168,
+        confidence: 55,
+        checkpoints: [
+          {
+            label: "Weekly-open decision",
+            price: 65000,
+            kind: "confirmation",
+            horizonHours: 72,
+            condition: "Price reaches the model decision area.",
+          },
+          {
+            label: "Range continuation",
+            price: 67000,
+            kind: "target",
+            horizonHours: 168,
+            condition: "Continuation holds beyond the decision area.",
+          },
+        ],
+        invalidation: {
+          price: 62000,
+          condition: "The range fails before confirmation.",
+        },
+      },
     },
     thesisLevels: [
       {
@@ -364,6 +389,14 @@ test("forecast gate requires direct sources and balanced scenarios", () => {
   assert.throws(
     () => validateForecast({ ...valid, hermes: undefined }),
     /missing Hermes longer-horizon thesis/,
+  );
+  assert.throws(
+    () =>
+      validateForecast({
+        ...valid,
+        hermes: { ...valid.hermes, projection: undefined },
+      }),
+    /Hermes projection is invalid/,
   );
   assert.throws(
     () =>

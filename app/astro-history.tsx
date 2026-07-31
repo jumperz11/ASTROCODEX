@@ -72,7 +72,39 @@ type HistoryPayload = {
   daily: DailySnapshot[];
   plays: PlaySnapshot[];
   trackRecord?: TrackRecord;
+  hermesPredictions?: HermesPrediction[];
+  hermesStats?: {
+    total: number;
+    active: number;
+    hits: number;
+    wrong: number;
+    resolved: number;
+    hitRate: number | null;
+  };
   degraded?: boolean;
+};
+
+type HermesPrediction = {
+  id: string;
+  createdAt: string;
+  resolvedAt: string | null;
+  status: "active" | "hit" | "wrong";
+  outcomeReason: string | null;
+  anchorPrice: number;
+  latestPrice: number;
+  direction: string;
+  confidence: number;
+  horizonHours: number;
+  horizonEndsAt: string;
+  thesis: string;
+  learningNote: string;
+  checkpoints: Array<{
+    label: string;
+    price: number;
+    kind: string;
+    condition: string;
+    hitAt: string | null;
+  }>;
 };
 
 type AuditedPlay = {
@@ -263,7 +295,8 @@ export default function AstroHistory() {
     daily: [],
     plays: [],
   });
-  const [mode, setMode] = useState<"record" | "days" | "plays">("record");
+  const [mode, setMode] =
+    useState<"record" | "hermes" | "days" | "plays">("record");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -341,7 +374,7 @@ export default function AstroHistory() {
     ? `${Math.round((wins / scored.length) * 100)}%`
     : "Too early";
 
-  function switchMode(next: "record" | "days" | "plays") {
+  function switchMode(next: "record" | "hermes" | "days" | "plays") {
     setMode(next);
     setSelectedId(null);
   }
@@ -363,6 +396,12 @@ export default function AstroHistory() {
           onClick={() => switchMode("record")}
         >
           Results
+        </button>
+        <button
+          className={mode === "hermes" ? "active" : ""}
+          onClick={() => switchMode("hermes")}
+        >
+          Hermes maps
         </button>
         <button
           className={mode === "days" ? "active" : ""}
@@ -471,6 +510,78 @@ export default function AstroHistory() {
               <li>Open, deleted, vague, or conflicting calls stay unscored.</li>
             </ul>
           </details>
+        </div>
+      ) : mode === "hermes" ? (
+        <div className="hermes-ledger-view">
+          <div className="record-score-grid">
+            <article className="record-score primary">
+              <small>MAPS HIT</small>
+              <strong>{history.hermesStats?.hits ?? 0}</strong>
+              <span>Final checkpoint reached</span>
+            </article>
+            <article className="record-score">
+              <small>MAPS WRONG</small>
+              <strong>{history.hermesStats?.wrong ?? 0}</strong>
+              <span>Invalidated or expired</span>
+            </article>
+            <article className="record-score">
+              <small>ACTIVE</small>
+              <strong>{history.hermesStats?.active ?? 0}</strong>
+              <span>Still being measured</span>
+            </article>
+            <article className="record-score">
+              <small>HERMES HIT RATE</small>
+              <strong className="record-rate">
+                {history.hermesStats?.hitRate === null ||
+                history.hermesStats?.hitRate === undefined
+                  ? "Too early"
+                  : `${history.hermesStats.hitRate}%`}
+              </strong>
+              <span>Resolved maps only</span>
+            </article>
+          </div>
+
+          <div className="record-section-head">
+            <div>
+              <small>PERMANENT HERMES LEDGER</small>
+              <h2>Every path stays—even when wrong.</h2>
+            </div>
+            <p>Anchor → checkpoints → result → lesson</p>
+          </div>
+
+          <div className="hermes-map-ledger">
+            {[...(history.hermesPredictions ?? [])].reverse().map((map) => (
+              <article className={`hermes-map-record ${map.status}`} key={map.id}>
+                <header>
+                  <span>{map.status === "hit" ? "HIT" : map.status === "wrong" ? "WRONG" : "LIVE"}</span>
+                  <strong>{map.confidence}%</strong>
+                  <time>{shortDate(map.createdAt)} → {shortDate(map.resolvedAt)}</time>
+                </header>
+                <h3>{map.thesis}</h3>
+                <div className="hermes-map-meta">
+                  <span>ANCHOR {money(map.anchorPrice)}</span>
+                  <span>{map.direction.replaceAll("_", " ").toUpperCase()}</span>
+                  <span>{map.horizonHours}H HORIZON</span>
+                </div>
+                <div className="hermes-map-checkpoints">
+                  {map.checkpoints.map((checkpoint, index) => (
+                    <div className={checkpoint.hitAt ? "hit" : ""} key={`${map.id}-${checkpoint.label}`}>
+                      <small>{String(index + 1).padStart(2, "0")} · {checkpoint.kind}</small>
+                      <strong>{checkpoint.label} · {money(checkpoint.price)}</strong>
+                      <span>{checkpoint.hitAt ? `HIT ${shortDate(checkpoint.hitAt)}` : checkpoint.condition}</span>
+                    </div>
+                  ))}
+                </div>
+                <p>{map.outcomeReason || map.learningNote}</p>
+              </article>
+            ))}
+            {!history.hermesPredictions?.length && (
+              <div className="history-empty">
+                <strong>First measurable Hermes map is being prepared.</strong>
+                <p>It will appear after the next accepted VPS forecast.</p>
+              </div>
+            )}
+          </div>
         </div>
       ) : !selected ? (
         <div className="history-empty">

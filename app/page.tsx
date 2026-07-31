@@ -35,6 +35,35 @@ type SimpleSignal = {
   changesWhen: string;
 };
 
+type HermesProjection = {
+  direction: "down_then_up" | "up_then_down" | "up" | "down" | "range";
+  horizonHours: number;
+  confidence: number;
+  checkpoints: Array<{
+    label: string;
+    price: number;
+    kind: "transition" | "confirmation" | "target";
+    horizonHours: number;
+    condition: string;
+  }>;
+  invalidation: {
+    price: number | null;
+    condition: string;
+  };
+};
+
+type HermesAudit = {
+  id: string;
+  status: "active" | "hit" | "wrong";
+  createdAt: string;
+  resolvedAt: string | null;
+  anchorPrice: number;
+  latestPrice: number;
+  hitCheckpoints: number;
+  totalCheckpoints: number;
+  outcomeReason: string | null;
+};
+
 type Forecast = {
   generatedAt: string;
   mode: "live" | "demo";
@@ -77,6 +106,7 @@ type Forecast = {
     confirmation: string;
     failure: string;
     learningNote: string;
+    projection?: HermesProjection;
   };
   thesisLevels: Array<{
     label: string;
@@ -181,6 +211,31 @@ const initialForecast: Forecast = {
     failure: "A new direct thesis that supersedes the current position sequence.",
     learningNote:
       "Archive baseline: staged entry, gradual profit-taking, protected runner, then a confirmed transition.",
+    projection: {
+      direction: "up",
+      horizonHours: 168,
+      confidence: 55,
+      checkpoints: [
+        {
+          label: "Weekly-open decision",
+          price: 65_500,
+          kind: "confirmation",
+          horizonHours: 72,
+          condition: "Price reaches the known decision area.",
+        },
+        {
+          label: "Higher-timeframe continuation",
+          price: 67_700,
+          kind: "target",
+          horizonHours: 168,
+          condition: "Continuation holds after the decision area.",
+        },
+      ],
+      invalidation: {
+        price: null,
+        condition: "No public numeric invalidation is available.",
+      },
+    },
   },
   thesisLevels: [
     {
@@ -501,6 +556,7 @@ type LiveSignalEnvelope = {
   model?: string | null;
   codexEntries?: number;
   codexMedia?: number;
+  hermesAudit?: HermesAudit | null;
 };
 
 async function fetchLiveSignal(): Promise<LiveSignalEnvelope> {
@@ -613,6 +669,7 @@ export default function Home() {
     codexEntries: 0,
     codexMedia: 0,
     runId: null as string | null,
+    hermesAudit: null as HermesAudit | null,
   });
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [hasUnseenUpdate, setHasUnseenUpdate] = useState(false);
@@ -649,6 +706,7 @@ export default function Home() {
           codexEntries: Number(envelope.codexEntries || 0),
           codexMedia: Number(envelope.codexMedia || 0),
           runId: envelope.runId ?? null,
+          hermesAudit: envelope.hermesAudit ?? null,
         });
         setLastUpdated(
           envelope.source === "vps"
@@ -932,7 +990,9 @@ export default function Home() {
         degraded: Boolean(envelope.degraded) || envelope.source !== "vps",
         model: envelope.model ?? null,
         codexEntries: Number(envelope.codexEntries || 0),
+        codexMedia: Number(envelope.codexMedia || 0),
         runId: envelope.runId ?? null,
+        hermesAudit: envelope.hermesAudit ?? null,
       });
       setLastUpdated(
         envelope.source === "vps"
@@ -1181,6 +1241,8 @@ export default function Home() {
             hermesLongerMove={forecast.hermes.longerMove}
             hermesConfirmation={forecast.hermes.confirmation}
             hermesFailure={forecast.hermes.failure}
+            hermesProjection={forecast.hermes.projection}
+            hermesAudit={systemStatus.hermesAudit}
             onOpenHermes={() => showView("hermes")}
           />
 
@@ -1349,7 +1411,12 @@ export default function Home() {
               <span className={signalFreshness.tone}><i /> AUTO-UPDATING</span>
               <strong>{forecast.confidence}%</strong>
               <small>EVIDENCE ALIGNMENT</small>
-              <p>{signalFreshness.label} · {timeLabel}</p>
+              <p>
+                {systemStatus.hermesAudit
+                  ? `${systemStatus.hermesAudit.status.toUpperCase()} MAP · ${systemStatus.hermesAudit.hitCheckpoints}/${systemStatus.hermesAudit.totalCheckpoints} CHECKPOINTS`
+                  : "FIRST MAP PENDING"}{" "}
+                · {signalFreshness.label} · {timeLabel}
+              </p>
             </div>
           </div>
 

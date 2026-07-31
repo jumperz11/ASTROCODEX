@@ -132,6 +132,62 @@ export function validateForecast(report) {
       throw new Error(`Forecast Hermes thesis is missing ${field}.`);
     }
   }
+  const projection = report.hermes.projection;
+  const projectionDirections = [
+    "down_then_up",
+    "up_then_down",
+    "up",
+    "down",
+    "range",
+  ];
+  if (
+    !projection ||
+    typeof projection !== "object" ||
+    Array.isArray(projection) ||
+    !projectionDirections.includes(projection.direction) ||
+    !Number.isInteger(projection.horizonHours) ||
+    projection.horizonHours < 24 ||
+    projection.horizonHours > 2_160 ||
+    !Number.isInteger(projection.confidence) ||
+    projection.confidence < 0 ||
+    projection.confidence > 100 ||
+    !Array.isArray(projection.checkpoints) ||
+    projection.checkpoints.length < 2 ||
+    projection.checkpoints.length > 4
+  ) {
+    throw new Error("Forecast Hermes projection is invalid.");
+  }
+  for (const checkpoint of projection.checkpoints) {
+    if (
+      !checkpoint ||
+      typeof checkpoint !== "object" ||
+      !["transition", "confirmation", "target"].includes(checkpoint.kind) ||
+      typeof checkpoint.label !== "string" ||
+      !checkpoint.label.trim() ||
+      typeof checkpoint.condition !== "string" ||
+      !checkpoint.condition.trim() ||
+      !Number.isFinite(checkpoint.price) ||
+      checkpoint.price < 10_000 ||
+      checkpoint.price > 250_000 ||
+      !Number.isInteger(checkpoint.horizonHours) ||
+      checkpoint.horizonHours < 1 ||
+      checkpoint.horizonHours > projection.horizonHours
+    ) {
+      throw new Error("Every Hermes checkpoint must be numeric and time-bound.");
+    }
+  }
+  if (
+    !projection.invalidation ||
+    typeof projection.invalidation !== "object" ||
+    typeof projection.invalidation.condition !== "string" ||
+    !projection.invalidation.condition.trim() ||
+    (projection.invalidation.price !== null &&
+      (!Number.isFinite(projection.invalidation.price) ||
+        projection.invalidation.price < 10_000 ||
+        projection.invalidation.price > 250_000))
+  ) {
+    throw new Error("Forecast Hermes invalidation is invalid.");
+  }
   if (
     !Array.isArray(report.thesisLevels) ||
     report.thesisLevels.length < 1 ||

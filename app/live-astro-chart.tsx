@@ -65,6 +65,31 @@ type ZoneRect = ParsedLevel & {
 
 type LevelPurpose = "entry" | "target" | "invalidation" | "context";
 
+type HermesProjection = {
+  direction: "down_then_up" | "up_then_down" | "up" | "down" | "range";
+  horizonHours: number;
+  confidence: number;
+  checkpoints: Array<{
+    label: string;
+    price: number;
+    kind: "transition" | "confirmation" | "target";
+    horizonHours: number;
+    condition: string;
+  }>;
+  invalidation: {
+    price: number | null;
+    condition: string;
+  };
+};
+
+type HermesAudit = {
+  id: string;
+  status: "active" | "hit" | "wrong";
+  hitCheckpoints: number;
+  totalCheckpoints: number;
+  outcomeReason: string | null;
+};
+
 const timeframes = [
   { label: "15M", seconds: 900 },
   { label: "1H", seconds: 3600 },
@@ -296,6 +321,8 @@ export default function LiveAstroChart({
   hermesLongerMove,
   hermesConfirmation,
   hermesFailure,
+  hermesProjection,
+  hermesAudit,
   onOpenHermes,
 }: {
   events: AstroEvent[];
@@ -319,6 +346,8 @@ export default function LiveAstroChart({
   hermesLongerMove: string;
   hermesConfirmation: string;
   hermesFailure: string;
+  hermesProjection?: HermesProjection;
+  hermesAudit?: HermesAudit | null;
   onOpenHermes: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -651,14 +680,16 @@ export default function LiveAstroChart({
         : 0);
     const hermesText =
       `${hermesCurrentPhase} ${hermesNextPhase} ${hermesLongerMove} ${hermesConfirmation}`.toLowerCase();
-    const currentIsDown =
-      /\bshort\b|downside|lower|drawdown|sell/.test(
-        hermesCurrentPhase.toLowerCase(),
-      );
-    const longerIsUp =
-      /\blong\b|upside|higher|reclaim|new ath|bull/.test(
-        hermesLongerMove.toLowerCase(),
-      );
+    const currentIsDown = hermesProjection
+      ? ["down", "down_then_up"].includes(hermesProjection.direction)
+      : /\bshort\b|downside|lower|drawdown|sell/.test(
+          hermesCurrentPhase.toLowerCase(),
+        );
+    const longerIsUp = hermesProjection
+      ? ["up", "down_then_up"].includes(hermesProjection.direction)
+      : /\blong\b|upside|higher|reclaim|new ath|bull/.test(
+          hermesLongerMove.toLowerCase(),
+        );
     const mentioned = pricesFromText(hermesText).filter(
       (value) => value > price * 0.78 && value < price * 1.24,
     );
@@ -675,12 +706,29 @@ export default function LiveAstroChart({
       .filter((value) => value > price * 1.001)
       .sort((left, right) => left - right);
 
-    const transitionPrice = currentIsDown
-      ? below.at(-1) ?? price * 0.975
-      : above[0] ?? price * 1.02;
-    const campaignTarget = longerIsUp
-      ? above.at(-1) ?? Math.max(price * 1.065, transitionPrice * 1.08)
-      : below.at(-1) ?? Math.min(price * 0.935, transitionPrice * 0.94);
+    const stableCheckpoints = hermesProjection?.checkpoints
+      .filter(
+        (checkpoint) =>
+          Number.isFinite(checkpoint.price) &&
+          checkpoint.price > price * 0.78 &&
+          checkpoint.price < price * 1.24,
+      )
+      .sort((left, right) => left.horizonHours - right.horizonHours);
+    const transitionPrice =
+      stableCheckpoints?.find((checkpoint) => checkpoint.kind === "transition")
+        ?.price ??
+      stableCheckpoints?.[0]?.price ??
+      (currentIsDown
+        ? below.at(-1) ?? price * 0.975
+        : above[0] ?? price * 1.02);
+    const campaignTarget =
+      [...(stableCheckpoints ?? [])]
+        .reverse()
+        .find((checkpoint) => checkpoint.kind === "target")?.price ??
+      stableCheckpoints?.at(-1)?.price ??
+      (longerIsUp
+        ? above.at(-1) ?? Math.max(price * 1.065, transitionPrice * 1.08)
+        : below.at(-1) ?? Math.min(price * 0.935, transitionPrice * 0.94));
     const basePrice =
       transitionPrice + (campaignTarget - transitionPrice) * 0.08;
     const curvedPoints: LineData<UTCTimestamp>[] = [
@@ -725,7 +773,7 @@ export default function LiveAstroChart({
       campaignTarget,
       currentIsDown,
       longerIsUp,
-      confidence: predictedProbability,
+      confidence: hermesProjection?.confidence ?? predictedProbability,
     };
   }, [
     forecastTime,
@@ -733,6 +781,7 @@ export default function LiveAstroChart({
     hermesCurrentPhase,
     hermesLongerMove,
     hermesNextPhase,
+    hermesProjection,
     latestCandleTime,
     parsedThesisLevels,
     predictedProbability,
@@ -885,7 +934,9 @@ export default function LiveAstroChart({
       overlayMode !== "astro" &&
       Boolean(projectionPlan);
     const hermesVisible =
-      overlayMode === "hermes" && Boolean(hermesProjectionPlan);
+      overlayMode === "hermes" &&
+      hermesAudit?.status !== "wrong" &&
+      Boolean(hermesProjectionPlan);
     projectionSeries.applyOptions({
       visible: overlayMode === "hermes" ? hermesVisible : visible,
       color:
@@ -970,6 +1021,7 @@ export default function LiveAstroChart({
     }
   }, [
     forecastTime,
+    hermesAudit?.status,
     hermesProjectionPlan,
     overlayMode,
     projectionPlan,
@@ -1312,7 +1364,9 @@ export default function LiveAstroChart({
             <span>{projectionPlan.confidence}% MODEL WEIGHT</span>
           </div>
         )}
-        {overlayMode === "hermes" && hermesProjectionPlan && (
+        {overlayMode === "hermes" &&
+          hermesAudit?.status !== "wrong" &&
+          hermesProjectionPlan && (
           <>
             <div className="chart-hermes-hud">
               <small>HERMES · PROBABILITY MAP</small>
@@ -1323,7 +1377,9 @@ export default function LiveAstroChart({
                 <i>→</i>
                 {hermesProjectionPlan.longerIsUp ? "CAMPAIGN ↑" : "CAMPAIGN ↓"}
               </strong>
-              <span>{predictedProbability}% LEADING PATH · {hermesHorizon}</span>
+              <span>
+                {hermesProjectionPlan.confidence}% LEADING PATH · {hermesHorizon}
+              </span>
             </div>
             <div className="chart-hermes-legend">
               <span><i className="main" />Expected route</span>
@@ -1331,6 +1387,13 @@ export default function LiveAstroChart({
               <small>Model inference · not Astro’s drawing</small>
             </div>
           </>
+        )}
+        {overlayMode === "hermes" && hermesAudit?.status === "wrong" && (
+          <div className="chart-hermes-rebuilding">
+            <small>OLD MAP INVALIDATED</small>
+            <strong>Hermes is rebuilding the path</strong>
+            <span>{hermesAudit.outcomeReason || "The expected route failed."}</span>
+          </div>
         )}
         {feedState === "error" && (
           <div className="chart-feed-error">
@@ -1348,6 +1411,21 @@ export default function LiveAstroChart({
             </div>
             <button type="button" onClick={onOpenHermes}>Open full brain →</button>
           </header>
+          {hermesAudit && (
+            <div className={`chart-hermes-audit ${hermesAudit.status}`}>
+              <span>
+                {hermesAudit.status === "active"
+                  ? "LIVE MAP"
+                  : hermesAudit.status === "hit"
+                    ? "PATH HIT"
+                    : "PATH WRONG · REBUILDING"}
+              </span>
+              <strong>
+                {hermesAudit.hitCheckpoints}/{hermesAudit.totalCheckpoints} checkpoints
+              </strong>
+              <small>Every resolved map stays in the learning ledger.</small>
+            </div>
+          )}
           <div className="chart-hermes-path">
             <article>
               <small>NOW</small>

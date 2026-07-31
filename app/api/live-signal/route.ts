@@ -10,6 +10,7 @@ type RemoteSignalEnvelope = {
   model?: unknown;
   codexEntries?: unknown;
   codexMedia?: unknown;
+  hermesAudit?: unknown;
 };
 
 function isForecast(value: unknown): value is Record<string, unknown> {
@@ -35,6 +36,7 @@ function response(
     model?: string | null;
     codexEntries?: number;
     codexMedia?: number;
+    hermesAudit?: unknown;
   },
 ) {
   return Response.json(
@@ -91,6 +93,12 @@ export async function GET() {
       codexMedia: Number.isInteger(payload.codexMedia)
         ? Number(payload.codexMedia)
         : 0,
+      hermesAudit:
+        payload.hermesAudit &&
+        typeof payload.hermesAudit === "object" &&
+        !Array.isArray(payload.hermesAudit)
+          ? payload.hermesAudit
+          : null,
     });
   } catch {
     return response(bundledForecast, {

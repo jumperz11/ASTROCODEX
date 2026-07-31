@@ -4680,6 +4680,47 @@ summary:focus-visible {
   border-top: 1px dashed rgba(196, 125, 255, 0.7);
 }
 
+.chart-hermes-rebuilding {
+  position: absolute;
+  z-index: 5;
+  top: 50%;
+  left: 50%;
+  width: min(420px, calc(100% - 100px));
+  padding: 18px;
+  border: 1px solid rgba(255, 107, 102, 0.3);
+  background: rgba(12, 13, 17, 0.94);
+  box-shadow: inset 3px 0 0 var(--red);
+  transform: translate(-50%, -50%);
+  backdrop-filter: blur(12px);
+  pointer-events: none;
+}
+
+.chart-hermes-rebuilding small,
+.chart-hermes-rebuilding strong,
+.chart-hermes-rebuilding span {
+  display: block;
+}
+
+.chart-hermes-rebuilding small {
+  color: var(--red);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 7px;
+  letter-spacing: 0.1em;
+}
+
+.chart-hermes-rebuilding strong {
+  margin-top: 7px;
+  color: var(--paper);
+  font-size: 16px;
+}
+
+.chart-hermes-rebuilding span {
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
 .chart-signal-pill,
 .next-level-pill {
   position: absolute;
@@ -4869,6 +4910,46 @@ summary:focus-visible {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
+}
+
+.chart-hermes-audit {
+  min-height: 38px;
+  padding: 0 16px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  background: rgba(122, 162, 255, 0.035);
+}
+
+.chart-hermes-audit span,
+.chart-hermes-audit strong,
+.chart-hermes-audit small {
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 7px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.chart-hermes-audit span {
+  color: #9ebaff;
+}
+
+.chart-hermes-audit strong {
+  color: var(--paper);
+}
+
+.chart-hermes-audit small {
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.chart-hermes-audit.hit span {
+  color: var(--green);
+}
+
+.chart-hermes-audit.wrong span {
+  color: var(--red);
 }
 
 .chart-hermes-path {
@@ -5304,6 +5385,145 @@ summary:focus-visible {
   gap: 12px;
 }
 
+.hermes-ledger-view {
+  display: grid;
+  gap: 18px;
+}
+
+.hermes-map-ledger {
+  display: grid;
+  gap: 12px;
+}
+
+.hermes-map-record {
+  padding: 22px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: inset 3px 0 0 #8eb1ff;
+}
+
+.hermes-map-record.hit {
+  box-shadow: inset 3px 0 0 var(--green);
+}
+
+.hermes-map-record.wrong {
+  box-shadow: inset 3px 0 0 var(--red);
+}
+
+.hermes-map-record > header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.hermes-map-record > header span,
+.hermes-map-record > header strong,
+.hermes-map-record > header time,
+.hermes-map-meta span,
+.hermes-map-checkpoints small,
+.hermes-map-checkpoints span {
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hermes-map-record > header span {
+  padding: 6px 8px;
+  border: 1px solid rgba(142, 177, 255, 0.35);
+  color: #b9ccff;
+}
+
+.hermes-map-record.hit > header span {
+  border-color: rgba(82, 230, 167, 0.4);
+  color: var(--green);
+}
+
+.hermes-map-record.wrong > header span {
+  border-color: rgba(255, 107, 102, 0.4);
+  color: var(--red);
+}
+
+.hermes-map-record > header strong {
+  color: var(--paper);
+}
+
+.hermes-map-record > header time {
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.hermes-map-record h3 {
+  max-width: 980px;
+  margin: 20px 0 0;
+  color: var(--paper);
+  font-size: 18px;
+  font-weight: 520;
+  line-height: 1.45;
+}
+
+.hermes-map-meta {
+  margin-top: 15px;
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.hermes-map-meta span {
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.hermes-map-checkpoints {
+  margin-top: 17px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+
+.hermes-map-checkpoints > div {
+  min-width: 0;
+  padding: 13px;
+  background: #0d0f13;
+}
+
+.hermes-map-checkpoints > div.hit {
+  box-shadow: inset 0 2px 0 var(--green);
+}
+
+.hermes-map-checkpoints small,
+.hermes-map-checkpoints strong,
+.hermes-map-checkpoints span {
+  display: block;
+}
+
+.hermes-map-checkpoints small {
+  color: #9ebaff;
+}
+
+.hermes-map-checkpoints strong {
+  margin-top: 7px;
+  color: var(--paper);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.hermes-map-checkpoints span {
+  margin-top: 6px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.hermes-map-record > p {
+  margin: 16px 0 0;
+  color: #aeb4bd;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
 .play-record {
   min-width: 0;
   padding: 22px;
@@ -5585,6 +5805,10 @@ summary:focus-visible {
     grid-template-columns: 1fr;
   }
 
+  .hermes-map-checkpoints {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .forward-thesis-grid,
   .history-thesis-grid {
     grid-template-columns: 1fr 1fr;
@@ -5624,7 +5848,7 @@ summary:focus-visible {
   .history-switch {
     width: 100%;
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
   }
 
   .history-switch button {
@@ -5686,6 +5910,27 @@ summary:focus-visible {
 
   .play-record > p {
     min-height: 0;
+  }
+
+  .hermes-map-record {
+    padding: 18px 16px;
+  }
+
+  .hermes-map-record > header {
+    flex-wrap: wrap;
+  }
+
+  .hermes-map-record > header time {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .hermes-map-record h3 {
+    font-size: 15px;
+  }
+
+  .hermes-map-checkpoints {
+    grid-template-columns: 1fr;
   }
 
   .forward-thesis-grid,
@@ -5917,6 +6162,15 @@ summary:focus-visible {
     display: none;
   }
 
+  .chart-hermes-rebuilding {
+    width: calc(100% - 82px);
+    padding: 13px;
+  }
+
+  .chart-hermes-rebuilding strong {
+    font-size: 13px;
+  }
+
   .chart-decision-strip {
     display: none;
   }
@@ -5932,6 +6186,17 @@ summary:focus-visible {
 
   .chart-hermes-brief > header button {
     flex: 0 0 auto;
+  }
+
+  .chart-hermes-audit {
+    padding: 9px 12px;
+    flex-wrap: wrap;
+    gap: 5px 10px;
+  }
+
+  .chart-hermes-audit small {
+    width: 100%;
+    margin-left: 0;
   }
 
   .chart-hermes-path {
