@@ -34,19 +34,11 @@ test("server-renders the Astro Intelligence research terminal", async () => {
   const html = await response.text();
   assert.match(html, /<title>Astro Intelligence<\/title>/i);
   assert.match(html, /ASTRO[\s\S]*INTELLIGENCE/);
-  assert.match(html, /ASTRO POSITION/);
-  assert.match(html, /ASTRO NEXT-MOVE MODEL/);
-  assert.match(html, /BEFORE HIS NEXT POST/);
-  assert.match(html, /MODEL FORECAST/);
-  assert.match(html, /ASTRO CODEX ARCHIVE/);
-  assert.match(html, /PUBLIC X SEQUENCE/);
-  assert.match(html, /WHAT YOU DO/);
+  assert.match(html, /WHERE ASTRO IS NOW/);
   assert.match(html, />WAIT</);
   assert.match(html, /No fresh opportunity is confirmed yet/);
-  assert.match(html, /LATEST ASTRO UPDATE/);
-  assert.match(html, /CONFIRMED SIGNAL/);
-  assert.match(html, /ACTIVATES WHEN/);
-  assert.match(html, /Previous moves/);
+  assert.match(html, /WHAT SHOULD I DO/);
+  assert.match(html, /WHAT HE MAY DO NEXT/);
   assert.match(html, /ASTRO NEXT · MODEL/);
   assert.match(html, /PREDICTED ASTRO NEXT/);
   assert.match(html, /WATCH PRICE/);
@@ -56,6 +48,11 @@ test("server-renders the Astro Intelligence research terminal", async () => {
   assert.match(html, /YOUR STEP/);
   assert.match(html, /BECOMES MORE LIKELY IF/);
   assert.match(html, /THE READ CHANGES IF/);
+  assert.match(html, /ASTRO NOW/);
+  assert.match(html, /WHAT HAPPENED/);
+  assert.match(html, /WHERE ASTRO IS NOW/);
+  assert.match(html, /ASTRO PERFORMANCE/);
+  assert.match(html, /TP \/ GOAL/);
   assert.match(html, /OPEN &amp; CLOSE MAP/);
   assert.match(html, /LIVE ASTRO MAP/);
   assert.match(html, /ASTRO SIGNAL/);
@@ -65,7 +62,7 @@ test("server-renders the Astro Intelligence research terminal", async () => {
   assert.match(html, /CLOSE \/ INVALIDATE/);
   assert.match(html, /POSITION TIMELINE/);
   assert.match(html, /Grok connected/);
-  assert.match(html, /Open latest Astro post/i);
+  assert.match(html, /Open post/i);
   assert.match(
     html,
     /https:\/\/x\.com\/astronomer_zero\/status\/\d+/i,

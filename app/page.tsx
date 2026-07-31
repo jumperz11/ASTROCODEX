@@ -620,6 +620,89 @@ export default function Home() {
       )[0] ?? null,
     [forecast.scenarios],
   );
+  const targetPlan = useMemo(() => {
+    const byLabel = (needles: string[]) =>
+      forecast.levels.find((level) =>
+        needles.some((needle) => level.label.toLowerCase().includes(needle)),
+      );
+    const t1 = byLabel(["initial long trim", "first trim"]);
+    const t2 = byLabel(["hv liquidity", "fifth-win lock", "close 30%"]);
+    const nextTarget = byLabel(["safe house", "weekly open", "objective claimed"]);
+    const entry = byLabel(["long v chart entry", "public long area"]);
+    const longComplete =
+      forecast.execution.takeProfit.state.toLowerCase().includes("complete") ||
+      forecast.decision.position.toLowerCase().includes("residual sold");
+
+    return [
+      {
+        label: "ENTRY",
+        value: entry?.value || forecast.execution.entry.level,
+        state: "Historical",
+        tone: "past",
+      },
+      {
+        label: "T1",
+        value: t1?.value || "Not public",
+        state: "Hit · profit taken",
+        tone: "hit",
+      },
+      {
+        label: "T2",
+        value: t2?.value || forecast.execution.takeProfit.level,
+        state: "Hit · 30% closed",
+        tone: "hit",
+      },
+      {
+        label: "TP / GOAL",
+        value: nextTarget?.value || "Not public",
+        state: longComplete ? "Reached · long complete" : "Watching",
+        tone: longComplete ? "hit" : "watch",
+      },
+    ];
+  }, [forecast]);
+  const performanceSummary = useMemo(() => {
+    const shortMoveEvidence = forecast.evidence.find((item) =>
+      item.label.toLowerCase().includes("close short iv"),
+    );
+    const shortMove =
+      shortMoveEvidence?.detail.match(/\b\d+(?:\.\d+)?%\+/)?.[0] || "Not public";
+    const longClosed =
+      forecast.execution.takeProfit.state.toLowerCase().includes("complete") ||
+      forecast.decision.position.toLowerCase().includes("residual sold");
+
+    return {
+      streak: "5W",
+      shortMove,
+      longResult: longClosed ? "Profit locked" : forecast.execution.takeProfit.state,
+    };
+  }, [forecast]);
+  const plainDashboard = useMemo(() => {
+    const position = forecast.decision.position.toLowerCase();
+    const longDone =
+      position.includes("residual sold") ||
+      forecast.execution.takeProfit.state.toLowerCase().includes("complete");
+    const shortOpen = position.includes("short iii") && position.includes("open");
+    const partialsTaken =
+      forecast.execution.takeProfit.state.toLowerCase().includes("partial") ||
+      forecast.execution.takeProfit.state.toLowerCase().includes("profit");
+
+    return {
+      happened: longDone
+        ? "The long reached its goal. Astro sold the final 30%. That long trade is finished."
+        : partialsTaken
+          ? "The long hit T1 and T2. Astro took profit. A smaller piece may still be open."
+          : forecast.signal.plainSummary,
+      where: longDone && shortOpen
+        ? "Long V is closed. Short III is still open, but its exit price is not public."
+        : forecast.decision.position,
+      next: longDone && shortOpen
+        ? "Most likely: stay quiet and keep Short III. A new move needs a fresh post with levels."
+        : simpleNextMove.astro,
+      you: forecast.signal.state === "wait"
+        ? "No new move yet. Wait for a fresh post with an entry and targets."
+        : simpleNextMove.you,
+    };
+  }, [forecast, simpleNextMove]);
   const latestAstroEvidence = useMemo(() => {
     const direct = forecast.evidence.filter(
       (item) => item.type === "astro" && item.source,
@@ -768,142 +851,105 @@ export default function Home() {
               </span>
             </div>
 
-            <aside
-              className={`latest-update-flash ${
-                hasUnseenUpdate ? "new" : ""
-              }`}
-              aria-live="polite"
-            >
-              <div className="latest-update-copy">
-                <small>
-                  <i />
-                  {hasUnseenUpdate ? "NEW ASTRO UPDATE" : "LATEST ASTRO UPDATE"}
-                  <span>{timeLabel}</span>
-                </small>
-                <strong>
-                  {latestAstroEvidence?.label || forecast.headline}
-                </strong>
-                <p>
-                  {latestAstroEvidence?.detail ||
-                    "No newer direct Astro evidence has been accepted."}
-                </p>
-              </div>
-              <div className="latest-update-actions">
-                <a
-                  href={
-                    latestAstroEvidence?.source ||
-                    forecast.sources[0]?.url ||
-                    "https://x.com/astronomer_zero"
-                  }
-                  onClick={markCurrentUpdateSeen}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Open post ↗
-                </a>
-                {hasUnseenUpdate && (
-                  <button onClick={markCurrentUpdateSeen} type="button">
-                    Mark seen
-                  </button>
-                )}
-              </div>
-            </aside>
-
             <section
-              className={`opportunity-command ${opportunity.tone}`}
-              aria-label="Simple next move and opportunity status"
+              className={`astro-now-board ${opportunity.tone}`}
+              aria-label="Astro now, targets, and performance"
             >
               <header>
-                <span><i />ASTRO NEXT-MOVE MODEL</span>
+                <span><i />ASTRO NOW</span>
                 <small className={signalFreshness.tone}>
                   {signalFreshness.label}
                 </small>
               </header>
 
-              {predictedNextMove && (
-                <div className="prediction-lead">
-                  <div>
-                    <small>BEFORE HIS NEXT POST · MODEL FORECAST</small>
-                    <strong>{predictedNextMove.name}</strong>
-                    <p>{predictedNextMove.description}</p>
-                    <small className="prediction-basis">
-                      BASED ON ·{" "}
-                      {systemStatus.codexEntries > 0
-                        ? `${systemStatus.codexEntries.toLocaleString()} ARCHIVED ASTRO MESSAGES`
-                        : "ASTRO CODEX ARCHIVE"}
-                      {" "}· PUBLIC X SEQUENCE · LIVE BTC STRUCTURE
-                    </small>
-                  </div>
-                  <div className="prediction-probability">
-                    <strong>{predictedNextMove.probability}%</strong>
-                    <small>MODEL WEIGHT</small>
-                  </div>
-                  <div className="prediction-trigger">
-                    <small>THIS BECOMES MORE LIKELY IF</small>
-                    <strong>{predictedNextMove.trigger}</strong>
-                  </div>
-                </div>
-              )}
-
-              <div className="opportunity-command-grid">
-                <article className="opportunity-primary">
-                  <small>CONFIRMED SIGNAL</small>
+              <div className="astro-now-main">
+                <article className="astro-now-answer">
+                  <small>WHAT SHOULD I DO?</small>
                   <strong>{opportunity.label}</strong>
                   <p>{opportunity.summary}</p>
-                  <span>WHAT YOU DO</span>
-                  <em>{simpleNextMove.you}</em>
-                </article>
-                <article className="opportunity-position">
-                  <small>ASTRO POSITION</small>
-                  <strong>{forecast.decision.position}</strong>
-                  <p>{forecast.decision.status}</p>
                   <div>
-                    <span>READ CONFIDENCE</span>
-                    <b>{forecast.confidence}%</b>
+                    <span>IN SIMPLE WORDS</span>
+                    <b>{plainDashboard.you}</b>
                   </div>
                 </article>
+
+                <article className="astro-now-story">
+                  <div>
+                    <small>WHAT HAPPENED</small>
+                    <strong>{plainDashboard.happened}</strong>
+                  </div>
+                  <div>
+                    <small>WHERE ASTRO IS NOW</small>
+                    <strong>{plainDashboard.where}</strong>
+                    <p>{forecast.decision.status}</p>
+                  </div>
+                  <div>
+                    <small>WHAT HE MAY DO NEXT</small>
+                    <strong>{plainDashboard.next}</strong>
+                    {predictedNextMove && (
+                      <span>
+                        MODEL: {predictedNextMove.name} ·{" "}
+                        {predictedNextMove.probability}%
+                      </span>
+                    )}
+                  </div>
+                </article>
+
+                <aside className="astro-portfolio">
+                  <small>ASTRO PERFORMANCE</small>
+                  <strong>Public scorecard</strong>
+                  <div>
+                    <span><b>{performanceSummary.streak}</b>current Astro-stated streak</span>
+                    <span><b>{performanceSummary.shortMove}</b>documented Short IV price move</span>
+                    <span><b>{performanceSummary.longResult}</b>latest Long V result</span>
+                  </div>
+                  <p>
+                    Account profit and position size are not public. Success rate
+                    will use only closed plays we can verify from posts.
+                  </p>
+                  <button onClick={() => showView("history")}>Open track record</button>
+                </aside>
               </div>
 
-              <div className="opportunity-levels">
-                <article>
-                  <small>AREA</small>
-                  <strong>{forecast.execution.entry.level}</strong>
-                  <p>{forecast.execution.entry.state}</p>
-                </article>
-                <article>
-                  <small>ACTIVATES WHEN</small>
-                  <strong>{forecast.decision.lookingFor}</strong>
-                  <p>{forecast.execution.entry.condition}</p>
-                </article>
-                <article>
-                  <small>READ IS WRONG IF</small>
-                  <strong>{forecast.decision.risk}</strong>
-                  <p>{simpleNextMove.change}</p>
-                </article>
+              <div className="astro-target-ladder" aria-label="Astro target ladder">
+                {targetPlan.map((target) => (
+                  <article className={target.tone} key={target.label}>
+                    <small>{target.label}</small>
+                    <strong>{target.value}</strong>
+                    <span>{target.state}</span>
+                  </article>
+                ))}
               </div>
 
-              <footer>
-                <small>WHAT ASTRO MAY DO NEXT</small>
-                <p>{simpleNextMove.astro}</p>
+              <footer className={hasUnseenUpdate ? "new" : ""}>
+                <div>
+                  <small>
+                    {hasUnseenUpdate ? "NEW POST · WHAT CHANGED" : "LATEST POST"}
+                  </small>
+                  <strong>{latestAstroEvidence?.label || forecast.headline}</strong>
+                  <p>
+                    {latestAstroEvidence?.detail ||
+                      "No newer direct Astro evidence has been accepted."}
+                  </p>
+                </div>
+                <div>
+                  <a
+                    href={
+                      latestAstroEvidence?.source ||
+                      forecast.sources[0]?.url ||
+                      "https://x.com/astronomer_zero"
+                    }
+                    onClick={markCurrentUpdateSeen}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open post ↗
+                  </a>
+                  <button onClick={() => showView("evidence")}>Why?</button>
+                </div>
               </footer>
             </section>
 
-            <div className="position-actions">
-              <a
-                href={
-                  latestAstroEvidence?.source ||
-                  forecast.sources[0]?.url ||
-                  "https://x.com/astronomer_zero"
-                }
-                onClick={markCurrentUpdateSeen}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open latest Astro post ↗
-              </a>
-              <button onClick={() => showView("evidence")}>Why this read</button>
-              <button onClick={() => showView("history")}>Previous moves</button>
-            </div>
             {notice && <p className="notice">{notice}</p>}
           </section>
 
@@ -928,7 +974,7 @@ export default function Home() {
             predictionTrigger={
               predictedNextMove?.trigger || forecast.thesis.nextTrigger
             }
-            readerStep={simpleNextMove.you}
+            readerStep={plainDashboard.you}
           />
 
           <details className="current-analysis-details">
