@@ -66,6 +66,7 @@ type ZoneRect = ParsedLevel & {
 type LevelPurpose = "entry" | "target" | "invalidation" | "context";
 
 type HermesProjection = {
+  scoringVersion: 2;
   direction: "down_then_up" | "up_then_down" | "up" | "down" | "range";
   horizonHours: number;
   confidence: number;
@@ -80,14 +81,38 @@ type HermesProjection = {
     price: number | null;
     condition: string;
   };
+  behavior: {
+    action:
+      | "hold"
+      | "trim"
+      | "close"
+      | "flip_long"
+      | "flip_short"
+      | "readd"
+      | "silence"
+      | "post_update";
+    horizonHours: number;
+    condition: string;
+  };
 };
 
 type HermesAudit = {
   id: string;
-  status: "active" | "hit" | "wrong";
+  marketStatus:
+    | "active"
+    | "hit"
+    | "partial"
+    | "invalidated"
+    | "expired"
+    | "superseded";
+  official: boolean;
+  integrity: "valid" | "legacy" | "failed";
+  evaluationQuality: "complete" | "gap";
   hitCheckpoints: number;
   totalCheckpoints: number;
   outcomeReason: string | null;
+  behaviorAction: string | null;
+  behaviorStatus: "active" | "hit" | "wrong" | "unscored";
 };
 
 const timeframes = [
@@ -372,6 +397,11 @@ export default function LiveAstroChart({
   const [zoneRects, setZoneRects] = useState<ZoneRect[]>([]);
   const [overlayMode, setOverlayMode] = useState<OverlayMode>("focus");
   const [latestCandleTime, setLatestCandleTime] = useState<number | null>(null);
+  const hermesMapUnavailable =
+    hermesAudit?.integrity === "failed" ||
+    ["partial", "invalidated", "expired", "superseded"].includes(
+      hermesAudit?.marketStatus ?? "",
+    );
 
   const parsedLevels = useMemo(
     () =>
@@ -935,7 +965,7 @@ export default function LiveAstroChart({
       Boolean(projectionPlan);
     const hermesVisible =
       overlayMode === "hermes" &&
-      hermesAudit?.status !== "wrong" &&
+      !hermesMapUnavailable &&
       Boolean(hermesProjectionPlan);
     projectionSeries.applyOptions({
       visible: overlayMode === "hermes" ? hermesVisible : visible,
@@ -1021,7 +1051,7 @@ export default function LiveAstroChart({
     }
   }, [
     forecastTime,
-    hermesAudit?.status,
+    hermesMapUnavailable,
     hermesProjectionPlan,
     overlayMode,
     projectionPlan,
@@ -1365,7 +1395,7 @@ export default function LiveAstroChart({
           </div>
         )}
         {overlayMode === "hermes" &&
-          hermesAudit?.status !== "wrong" &&
+          !hermesMapUnavailable &&
           hermesProjectionPlan && (
           <>
             <div className="chart-hermes-hud">
@@ -1388,9 +1418,13 @@ export default function LiveAstroChart({
             </div>
           </>
         )}
-        {overlayMode === "hermes" && hermesAudit?.status === "wrong" && (
+        {overlayMode === "hermes" && hermesMapUnavailable && (
           <div className="chart-hermes-rebuilding">
-            <small>OLD MAP INVALIDATED</small>
+            <small>
+              {hermesAudit?.integrity === "failed"
+                ? "MAP INTEGRITY FAILED"
+                : `OLD MAP ${hermesAudit?.marketStatus.toUpperCase()}`}
+            </small>
             <strong>Hermes is rebuilding the path</strong>
             <span>{hermesAudit.outcomeReason || "The expected route failed."}</span>
           </div>
@@ -1412,18 +1446,26 @@ export default function LiveAstroChart({
             <button type="button" onClick={onOpenHermes}>Open full brain →</button>
           </header>
           {hermesAudit && (
-            <div className={`chart-hermes-audit ${hermesAudit.status}`}>
+            <div className={`chart-hermes-audit ${hermesAudit.marketStatus}`}>
               <span>
-                {hermesAudit.status === "active"
-                  ? "LIVE MAP"
-                  : hermesAudit.status === "hit"
-                    ? "PATH HIT"
-                    : "PATH WRONG · REBUILDING"}
+                {hermesAudit.evaluationQuality === "gap"
+                  ? "DATA GAP · EXCLUDED"
+                  : !hermesAudit.official
+                  ? "EXPERIMENTAL · NOT SCORED"
+                  : hermesAudit.marketStatus === "active"
+                    ? "OFFICIAL LIVE MAP"
+                    : hermesAudit.marketStatus === "hit"
+                      ? "OFFICIAL PATH HIT"
+                      : `${hermesAudit.marketStatus.toUpperCase()} · REBUILDING`}
               </span>
               <strong>
                 {hermesAudit.hitCheckpoints}/{hermesAudit.totalCheckpoints} checkpoints
               </strong>
-              <small>Every resolved map stays in the learning ledger.</small>
+              <small>
+                {hermesAudit.official
+                  ? `ASTRO ${hermesAudit.behaviorAction?.replaceAll("_", " ") ?? "behavior"} · ${hermesAudit.behaviorStatus}`
+                  : "Excluded from official score · v2 starts next map"}
+              </small>
             </div>
           )}
           <div className="chart-hermes-path">

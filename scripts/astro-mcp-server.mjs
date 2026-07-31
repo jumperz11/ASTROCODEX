@@ -413,6 +413,7 @@ const forecastSchema = z.object({
     failure: z.string().min(1),
     learningNote: z.string().min(1),
     projection: z.object({
+      scoringVersion: z.literal(2),
       direction: z.enum([
         "down_then_up",
         "up_then_down",
@@ -436,6 +437,20 @@ const forecastSchema = z.object({
         .max(4),
       invalidation: z.object({
         price: z.number().min(10000).max(250000).nullable(),
+        condition: z.string().min(1),
+      }),
+      behavior: z.object({
+        action: z.enum([
+          "hold",
+          "trim",
+          "close",
+          "flip_long",
+          "flip_short",
+          "readd",
+          "silence",
+          "post_update",
+        ]),
+        horizonHours: z.number().int().min(1).max(720),
         condition: z.string().min(1),
       }),
     }),

@@ -4,7 +4,9 @@ import { fileURLToPath } from "node:url";
 
 const scriptsDirectory = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(scriptsDirectory, "..");
-const forecastPath = join(projectRoot, "public", "forecast.json");
+const configuredForecastPath = process.env.ASTRO_FORECAST_PATH?.trim();
+const forecastPath =
+  configuredForecastPath || join(projectRoot, "public", "forecast.json");
 const embeddedForecastPath = join(projectRoot, "app", "forecast.json");
 
 export function validateForecast(report) {
@@ -144,6 +146,7 @@ export function validateForecast(report) {
     !projection ||
     typeof projection !== "object" ||
     Array.isArray(projection) ||
+    projection.scoringVersion !== 2 ||
     !projectionDirections.includes(projection.direction) ||
     !Number.isInteger(projection.horizonHours) ||
     projection.horizonHours < 24 ||
@@ -187,6 +190,27 @@ export function validateForecast(report) {
         projection.invalidation.price > 250_000))
   ) {
     throw new Error("Forecast Hermes invalidation is invalid.");
+  }
+  if (
+    !projection.behavior ||
+    typeof projection.behavior !== "object" ||
+    ![
+      "hold",
+      "trim",
+      "close",
+      "flip_long",
+      "flip_short",
+      "readd",
+      "silence",
+      "post_update",
+    ].includes(projection.behavior.action) ||
+    !Number.isInteger(projection.behavior.horizonHours) ||
+    projection.behavior.horizonHours < 1 ||
+    projection.behavior.horizonHours > 720 ||
+    typeof projection.behavior.condition !== "string" ||
+    !projection.behavior.condition.trim()
+  ) {
+    throw new Error("Forecast Hermes behavior prediction is invalid.");
   }
   if (
     !Array.isArray(report.thesisLevels) ||
@@ -365,7 +389,9 @@ export async function saveForecast(report) {
 
 export async function writeForecastSnapshots(report) {
   const serialized = `${JSON.stringify(report, null, 2)}\n`;
-  const destinations = [forecastPath, embeddedForecastPath];
+  const destinations = configuredForecastPath
+    ? [forecastPath]
+    : [forecastPath, embeddedForecastPath];
   await Promise.all(
     destinations.map(async (destination) => {
       const temporaryPath = `${destination}.tmp`;

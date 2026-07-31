@@ -143,8 +143,10 @@ Evidence discipline
   historical execution or phase behavior that changed or supported the read.
   Keep all eight fields compact enough for a dedicated dashboard tab.
 - Populate `hermes.projection` as the frozen, scoreable chart map. It must have
-  a 24-to-2160-hour horizon, model confidence, one directional sequence, two to
-  four ordered numeric checkpoints, and an invalidation condition. Use a
+  `scoringVersion: 2`, a 24-to-2160-hour horizon, model confidence, one
+  directional sequence, two to four ordered numeric checkpoints, an
+  invalidation condition, and one frozen `behavior` prediction for Astro’s next
+  observable public action. Use a
   numeric invalidation price when the evidence supports one; otherwise use
   `null` and explain the non-numeric failure condition. Checkpoint prices must
   come from direct Astro levels, verified market structure, or clearly labeled
@@ -153,6 +155,10 @@ Evidence discipline
   as price approaches it. Replace the live map only after material new evidence,
   a completed final checkpoint, invalidation, or horizon expiry. The VPS keeps
   both hits and failures in the audit ledger.
+- `behavior.action` must be exactly one of hold, trim, close, flip_long,
+  flip_short, readd, silence, or post_update. Give it its own 1-to-720-hour
+  horizon and a directly observable condition. Do not use private-intention
+  language. The behavior ledger is separate from the BTC path ledger.
 - Hermes may forecast a sequence such as hold → trim/close → later flip, but it
   may not skip the required confirmation between phases. A future plan remains
   conditional until Astro posts it directly.

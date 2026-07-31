@@ -4948,8 +4948,13 @@ summary:focus-visible {
   color: var(--green);
 }
 
-.chart-hermes-audit.wrong span {
+.chart-hermes-audit.invalidated span,
+.chart-hermes-audit.expired span {
   color: var(--red);
+}
+
+.chart-hermes-audit.partial span {
+  color: var(--amber);
 }
 
 .chart-hermes-path {
@@ -5390,6 +5395,31 @@ summary:focus-visible {
   gap: 18px;
 }
 
+.hermes-score-truth {
+  padding: 16px 18px;
+  display: grid;
+  grid-template-columns: minmax(180px, 0.45fr) minmax(0, 1.55fr);
+  gap: 20px;
+  align-items: center;
+  border: 1px solid rgba(142, 177, 255, 0.25);
+  background: rgba(122, 162, 255, 0.045);
+}
+
+.hermes-score-truth span {
+  color: #9ebaff;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.hermes-score-truth p {
+  margin: 0;
+  color: #adb3bd;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
 .hermes-map-ledger {
   display: grid;
   gap: 12px;
@@ -5406,8 +5436,17 @@ summary:focus-visible {
   box-shadow: inset 3px 0 0 var(--green);
 }
 
-.hermes-map-record.wrong {
+.hermes-map-record.invalidated,
+.hermes-map-record.expired {
   box-shadow: inset 3px 0 0 var(--red);
+}
+
+.hermes-map-record.partial {
+  box-shadow: inset 3px 0 0 var(--amber);
+}
+
+.hermes-map-record.superseded {
+  box-shadow: inset 3px 0 0 #697282;
 }
 
 .hermes-map-record > header {
@@ -5439,9 +5478,15 @@ summary:focus-visible {
   color: var(--green);
 }
 
-.hermes-map-record.wrong > header span {
+.hermes-map-record.invalidated > header span,
+.hermes-map-record.expired > header span {
   border-color: rgba(255, 107, 102, 0.4);
   color: var(--red);
+}
+
+.hermes-map-record.partial > header span {
+  border-color: rgba(255, 176, 0, 0.4);
+  color: var(--amber);
 }
 
 .hermes-map-record > header strong {
@@ -5522,6 +5567,48 @@ summary:focus-visible {
   color: #aeb4bd;
   font-size: 11px;
   line-height: 1.55;
+}
+
+.hermes-behavior-result {
+  margin-top: 14px;
+  padding: 12px 13px;
+  border: 1px solid var(--line);
+  background: #0d0f13;
+  box-shadow: inset 2px 0 0 #697282;
+}
+
+.hermes-behavior-result.hit {
+  box-shadow: inset 2px 0 0 var(--green);
+}
+
+.hermes-behavior-result.wrong {
+  box-shadow: inset 2px 0 0 var(--red);
+}
+
+.hermes-behavior-result small,
+.hermes-behavior-result strong,
+.hermes-behavior-result span {
+  display: block;
+}
+
+.hermes-behavior-result small {
+  color: var(--muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 7px;
+  letter-spacing: 0.08em;
+}
+
+.hermes-behavior-result strong {
+  margin-top: 6px;
+  color: var(--paper);
+  font-size: 10px;
+}
+
+.hermes-behavior-result span {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.45;
 }
 
 .play-record {
@@ -5878,6 +5965,11 @@ summary:focus-visible {
     grid-template-columns: 1fr;
     gap: 10px;
     padding: 16px;
+  }
+
+  .hermes-score-truth {
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
 
   .record-section-head {

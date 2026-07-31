@@ -252,6 +252,7 @@ test("forecast gate requires direct sources and balanced scenarios", () => {
       failure: "A new direct thesis supersedes this sequence.",
       learningNote: "Closest archive behavior favors waiting through an unresolved range.",
       projection: {
+        scoringVersion: 2,
         direction: "up",
         horizonHours: 168,
         confidence: 55,
@@ -274,6 +275,11 @@ test("forecast gate requires direct sources and balanced scenarios", () => {
         invalidation: {
           price: 62000,
           condition: "The range fails before confirmation.",
+        },
+        behavior: {
+          action: "post_update",
+          horizonHours: 72,
+          condition: "Astro publishes a direct structure update.",
         },
       },
     },

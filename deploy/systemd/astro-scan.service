@@ -11,6 +11,7 @@ WorkingDirectory=/opt/astro
 EnvironmentFile=/etc/astro-signal.env
 Environment=PATH=/home/astro/.grok/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Environment=ASTRO_STATE_DIR=/var/lib/astro-signal
+Environment=ASTRO_FORECAST_PATH=/var/lib/astro-signal/forecast.json
 Environment=ASTRO_CODEX_INDEX=/var/lib/astro-signal/codex-index.json
 Environment=ASTRO_CODEX_ARCHIVE=/var/lib/astro-signal/codex-archive
 Environment=ASTRO_GROK_MODEL=grok-4.5
@@ -22,7 +23,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
 ProtectHome=read-only
-ReadWritePaths=/home/astro/.grok /opt/astro/.astro /opt/astro/public /opt/astro/app
+ReadWritePaths=/home/astro/.grok /opt/astro/.astro
 ProtectKernelTunables=true
 ProtectControlGroups=true
 ProtectKernelModules=true

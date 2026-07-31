@@ -36,6 +36,7 @@ type SimpleSignal = {
 };
 
 type HermesProjection = {
+  scoringVersion: 2;
   direction: "down_then_up" | "up_then_down" | "up" | "down" | "range";
   horizonHours: number;
   confidence: number;
@@ -50,11 +51,33 @@ type HermesProjection = {
     price: number | null;
     condition: string;
   };
+  behavior: {
+    action:
+      | "hold"
+      | "trim"
+      | "close"
+      | "flip_long"
+      | "flip_short"
+      | "readd"
+      | "silence"
+      | "post_update";
+    horizonHours: number;
+    condition: string;
+  };
 };
 
 type HermesAudit = {
   id: string;
-  status: "active" | "hit" | "wrong";
+  marketStatus:
+    | "active"
+    | "hit"
+    | "partial"
+    | "invalidated"
+    | "expired"
+    | "superseded";
+  official: boolean;
+  integrity: "valid" | "legacy" | "failed";
+  evaluationQuality: "complete" | "gap";
   createdAt: string;
   resolvedAt: string | null;
   anchorPrice: number;
@@ -62,6 +85,8 @@ type HermesAudit = {
   hitCheckpoints: number;
   totalCheckpoints: number;
   outcomeReason: string | null;
+  behaviorAction: string | null;
+  behaviorStatus: "active" | "hit" | "wrong" | "unscored";
 };
 
 type Forecast = {
@@ -212,6 +237,7 @@ const initialForecast: Forecast = {
     learningNote:
       "Archive baseline: staged entry, gradual profit-taking, protected runner, then a confirmed transition.",
     projection: {
+      scoringVersion: 2,
       direction: "up",
       horizonHours: 168,
       confidence: 55,
@@ -234,6 +260,11 @@ const initialForecast: Forecast = {
       invalidation: {
         price: null,
         condition: "No public numeric invalidation is available.",
+      },
+      behavior: {
+        action: "post_update",
+        horizonHours: 72,
+        condition: "Astro publishes a fresh management or structure update.",
       },
     },
   },
@@ -1413,7 +1444,7 @@ export default function Home() {
               <small>EVIDENCE ALIGNMENT</small>
               <p>
                 {systemStatus.hermesAudit
-                  ? `${systemStatus.hermesAudit.status.toUpperCase()} MAP · ${systemStatus.hermesAudit.hitCheckpoints}/${systemStatus.hermesAudit.totalCheckpoints} CHECKPOINTS`
+                  ? `${systemStatus.hermesAudit.official ? systemStatus.hermesAudit.marketStatus.toUpperCase() : "EXPERIMENTAL"} MAP · ${systemStatus.hermesAudit.hitCheckpoints}/${systemStatus.hermesAudit.totalCheckpoints} CHECKPOINTS`
                   : "FIRST MAP PENDING"}{" "}
                 · {signalFreshness.label} · {timeLabel}
               </p>

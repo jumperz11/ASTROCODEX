@@ -72,6 +72,7 @@ const leadingProbability = Math.max(
 );
 
 const projection = {
+  scoringVersion: 2,
   direction,
   horizonHours: 336,
   confidence: Math.min(70, leadingProbability),
@@ -95,6 +96,13 @@ const projection = {
   invalidation: {
     price: null,
     condition: forecast.hermes.failure,
+  },
+  behavior: {
+    action: currentShort ? "hold" : "post_update",
+    horizonHours: 72,
+    condition: currentShort
+      ? "Astro continues to hold the residual short without adding."
+      : "Astro publishes a fresh direct management update.",
   },
 };
 

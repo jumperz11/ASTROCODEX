@@ -75,11 +75,25 @@ type HistoryPayload = {
   hermesPredictions?: HermesPrediction[];
   hermesStats?: {
     total: number;
+    experimental: number;
     active: number;
-    hits: number;
-    wrong: number;
-    resolved: number;
-    hitRate: number | null;
+    market: {
+      hits: number;
+      partial: number;
+      invalidated: number;
+      expired: number;
+      superseded: number;
+      resolved: number;
+      hitRate: number | null;
+      baselineHits: number;
+      baselineHitRate: number | null;
+    };
+    behavior: {
+      hits: number;
+      wrong: number;
+      resolved: number;
+      hitRate: number | null;
+    };
   };
   degraded?: boolean;
 };
@@ -88,7 +102,17 @@ type HermesPrediction = {
   id: string;
   createdAt: string;
   resolvedAt: string | null;
-  status: "active" | "hit" | "wrong";
+  marketStatus:
+    | "active"
+    | "hit"
+    | "partial"
+    | "invalidated"
+    | "expired"
+    | "superseded";
+  official: boolean;
+  integrity: "valid" | "legacy" | "failed";
+  evaluationQuality?: "complete" | "gap";
+  commitmentHash?: string;
   outcomeReason: string | null;
   anchorPrice: number;
   latestPrice: number;
@@ -98,12 +122,24 @@ type HermesPrediction = {
   horizonEndsAt: string;
   thesis: string;
   learningNote: string;
+  behavior: {
+    action: string;
+    horizonHours: number;
+    condition: string;
+  } | null;
+  behaviorOutcome: {
+    status: "active" | "hit" | "wrong" | "unscored";
+    reason: string | null;
+    matchedSource: string | null;
+  };
   checkpoints: Array<{
     label: string;
     price: number;
     kind: string;
     condition: string;
     hitAt: string | null;
+    baselinePrice?: number;
+    baselineHitAt?: string | null;
   }>;
 };
 
@@ -515,30 +551,51 @@ export default function AstroHistory() {
         <div className="hermes-ledger-view">
           <div className="record-score-grid">
             <article className="record-score primary">
-              <small>MAPS HIT</small>
-              <strong>{history.hermesStats?.hits ?? 0}</strong>
-              <span>Final checkpoint reached</span>
-            </article>
-            <article className="record-score">
-              <small>MAPS WRONG</small>
-              <strong>{history.hermesStats?.wrong ?? 0}</strong>
-              <span>Invalidated or expired</span>
-            </article>
-            <article className="record-score">
-              <small>ACTIVE</small>
-              <strong>{history.hermesStats?.active ?? 0}</strong>
-              <span>Still being measured</span>
-            </article>
-            <article className="record-score">
-              <small>HERMES HIT RATE</small>
+              <small>MARKET PATH</small>
               <strong className="record-rate">
-                {history.hermesStats?.hitRate === null ||
-                history.hermesStats?.hitRate === undefined
+                {history.hermesStats?.market.hitRate === null ||
+                history.hermesStats?.market.hitRate === undefined
                   ? "Too early"
-                  : `${history.hermesStats.hitRate}%`}
+                  : `${history.hermesStats.market.hitRate}%`}
               </strong>
-              <span>Resolved maps only</span>
+              <span>{history.hermesStats?.market.resolved ?? 0} official resolved maps</span>
             </article>
+            <article className="record-score">
+              <small>MATCHED BASELINE</small>
+              <strong className="record-rate">
+                {history.hermesStats?.market.baselineHitRate === null ||
+                history.hermesStats?.market.baselineHitRate === undefined
+                  ? "Too early"
+                  : `${history.hermesStats.market.baselineHitRate}%`}
+              </strong>
+              <span>Equal-distance opposite path</span>
+            </article>
+            <article className="record-score">
+              <small>ASTRO BEHAVIOR</small>
+              <strong className="record-rate">
+                {history.hermesStats?.behavior.hitRate === null ||
+                history.hermesStats?.behavior.hitRate === undefined
+                  ? "Too early"
+                  : `${history.hermesStats.behavior.hitRate}%`}
+              </strong>
+              <span>{history.hermesStats?.behavior.resolved ?? 0} directly resolved predictions</span>
+            </article>
+            <article className="record-score">
+              <small>OFFICIAL / EXPERIMENTAL</small>
+              <strong>{history.hermesStats?.active ?? 0}</strong>
+              <span>
+                Official active · {history.hermesStats?.experimental ?? 0} experimental excluded
+              </span>
+            </article>
+          </div>
+
+          <div className="hermes-score-truth">
+            <span>NO SCORE YET IS HONEST</span>
+            <p>
+              The current map is experimental. Official scoring begins with
+              scoring engine v2: immutable hashes, sequential checkpoints,
+              post-forecast candles, and a separate Astro-behavior result.
+            </p>
           </div>
 
           <div className="record-section-head">
@@ -551,9 +608,13 @@ export default function AstroHistory() {
 
           <div className="hermes-map-ledger">
             {[...(history.hermesPredictions ?? [])].reverse().map((map) => (
-              <article className={`hermes-map-record ${map.status}`} key={map.id}>
+              <article className={`hermes-map-record ${map.marketStatus}`} key={map.id}>
                 <header>
-                  <span>{map.status === "hit" ? "HIT" : map.status === "wrong" ? "WRONG" : "LIVE"}</span>
+                  <span>
+                    {map.official
+                      ? map.marketStatus.toUpperCase()
+                      : "EXPERIMENTAL"}
+                  </span>
                   <strong>{map.confidence}%</strong>
                   <time>{shortDate(map.createdAt)} → {shortDate(map.resolvedAt)}</time>
                 </header>
@@ -562,6 +623,10 @@ export default function AstroHistory() {
                   <span>ANCHOR {money(map.anchorPrice)}</span>
                   <span>{map.direction.replaceAll("_", " ").toUpperCase()}</span>
                   <span>{map.horizonHours}H HORIZON</span>
+                  <span>{map.integrity.toUpperCase()} INTEGRITY</span>
+                  {map.evaluationQuality === "gap" && (
+                    <span>DATA GAP · EXCLUDED</span>
+                  )}
                 </div>
                 <div className="hermes-map-checkpoints">
                   {map.checkpoints.map((checkpoint, index) => (
@@ -569,8 +634,27 @@ export default function AstroHistory() {
                       <small>{String(index + 1).padStart(2, "0")} · {checkpoint.kind}</small>
                       <strong>{checkpoint.label} · {money(checkpoint.price)}</strong>
                       <span>{checkpoint.hitAt ? `HIT ${shortDate(checkpoint.hitAt)}` : checkpoint.condition}</span>
+                      {checkpoint.baselinePrice && (
+                        <span>
+                          BASELINE {money(checkpoint.baselinePrice)}
+                          {checkpoint.baselineHitAt ? " · HIT" : ""}
+                        </span>
+                      )}
                     </div>
                   ))}
+                </div>
+                <div className={`hermes-behavior-result ${map.behaviorOutcome?.status ?? "unscored"}`}>
+                  <small>ASTRO BEHAVIOR · SEPARATE SCORE</small>
+                  <strong>
+                    {map.behavior
+                      ? `${map.behavior.action.replaceAll("_", " ").toUpperCase()} · ${map.behaviorOutcome.status.toUpperCase()}`
+                      : "UNSCORED LEGACY MAP"}
+                  </strong>
+                  <span>
+                    {map.behaviorOutcome?.reason ??
+                      map.behavior?.condition ??
+                      "No frozen behavior prediction."}
+                  </span>
                 </div>
                 <p>{map.outcomeReason || map.learningNote}</p>
               </article>

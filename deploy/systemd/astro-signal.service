@@ -11,6 +11,7 @@ WorkingDirectory=/opt/astro
 EnvironmentFile=/etc/astro-signal.env
 Environment=PATH=/home/astro/.grok/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Environment=ASTRO_STATE_DIR=/var/lib/astro-signal
+Environment=ASTRO_FORECAST_PATH=/var/lib/astro-signal/forecast.json
 ExecStart=/usr/bin/npm run astro:vps
 Restart=always
 RestartSec=5

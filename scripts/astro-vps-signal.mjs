@@ -6,7 +6,9 @@ import { fileURLToPath } from "node:url";
 
 const scriptsDirectory = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(scriptsDirectory, "..");
-const forecastPath = join(projectRoot, "public", "forecast.json");
+const forecastPath =
+  process.env.ASTRO_FORECAST_PATH?.trim() ||
+  join(projectRoot, "public", "forecast.json");
 const stateDirectory =
   process.env.ASTRO_STATE_DIR?.trim() || join(projectRoot, ".astro-runtime");
 const statePath = join(stateDirectory, "state.json");
@@ -161,7 +163,13 @@ const server = createServer(async (request, response) => {
           hermesAudit: latestHermesPrediction
             ? {
                 id: latestHermesPrediction.id,
-                status: latestHermesPrediction.status,
+                marketStatus:
+                  latestHermesPrediction.marketStatus ??
+                  latestHermesPrediction.status,
+                official: Boolean(latestHermesPrediction.official),
+                integrity: latestHermesPrediction.integrity ?? "legacy",
+                evaluationQuality:
+                  latestHermesPrediction.evaluationQuality ?? "complete",
                 createdAt: latestHermesPrediction.createdAt,
                 resolvedAt: latestHermesPrediction.resolvedAt ?? null,
                 anchorPrice: latestHermesPrediction.anchorPrice,
@@ -177,6 +185,10 @@ const server = createServer(async (request, response) => {
                   ? latestHermesPrediction.checkpoints.length
                   : 0,
                 outcomeReason: latestHermesPrediction.outcomeReason ?? null,
+                behaviorAction:
+                  latestHermesPrediction.behavior?.action ?? null,
+                behaviorStatus:
+                  latestHermesPrediction.behaviorOutcome?.status ?? "unscored",
               }
             : null,
           error: health.error,
