@@ -1653,7 +1653,7 @@ export default function LiveAstroChart({
       </details>
 
       <div className="chart-source-note">
-        <span>MARKET · Coinbase public BTC-USD feed</span>
+        <span>LIVE PRICE · REFERENCE ONLY</span>
         <span>SOLID · ASTRO CONFIRMED</span>
         <span>DOTTED · MODEL THESIS</span>
         <span>GHOST PATH · MODEL PREDICTION</span>

@@ -25,6 +25,84 @@ function latestOfficialPrediction(history) {
     .at(-1);
 }
 
+function directionFromText(value) {
+  const text = String(value || "").toLowerCase();
+  const hasLong = /\blong\b|\bbull(?:ish)?\b/.test(text);
+  const hasShort = /\bshort\b|\bbear(?:ish)?\b/.test(text);
+  if (hasLong && hasShort) return "mixed";
+  if (hasLong) return "long";
+  if (hasShort) return "short";
+  if (/\bwait\b|\bflat\b|\bneutral\b|\bno position\b/.test(text)) {
+    return "neutral";
+  }
+  return "unknown";
+}
+
+function astroDirection(forecast) {
+  const positionDirection = directionFromText(forecast?.decision?.position);
+  if (positionDirection !== "unknown") return positionDirection;
+  return directionFromText(forecast?.signal?.state);
+}
+
+function hermesDirection(prediction) {
+  const value = String(prediction?.direction || "")
+    .trim()
+    .toLowerCase();
+  if (
+    value === "up" ||
+    value === "long" ||
+    value === "bullish" ||
+    value.startsWith("up_then")
+  ) {
+    return "long";
+  }
+  if (
+    value === "down" ||
+    value === "short" ||
+    value === "bearish" ||
+    value.startsWith("down_then")
+  ) {
+    return "short";
+  }
+  if (value === "flat" || value === "neutral" || value === "sideways") {
+    return "neutral";
+  }
+  return directionFromText(prediction?.summary || prediction?.thesis);
+}
+
+function agreementRead(forecast, prediction) {
+  const astro = astroDirection(forecast);
+  const hermes = hermesDirection(prediction);
+  if (astro === "unknown" || hermes === "unknown") {
+    return {
+      state: "UNRESOLVED",
+      difference: "Not enough confirmed direction to compare them.",
+    };
+  }
+  if (astro === "mixed") {
+    return {
+      state: "PARTIAL",
+      difference: `Astro has long and short exposure; Hermes models ${hermes} first.`,
+    };
+  }
+  if (astro === hermes) {
+    return {
+      state: "AGREES",
+      difference: `Hermes starts in the same ${astro} direction as Astro.`,
+    };
+  }
+  if (astro === "neutral" || hermes === "neutral") {
+    return {
+      state: "PARTIAL",
+      difference: `Astro is ${astro}; Hermes starts ${hermes}.`,
+    };
+  }
+  return {
+    state: "CONFLICT",
+    difference: `Astro is ${astro}; Hermes expects ${hermes} first.`,
+  };
+}
+
 export function telegramSnapshot(forecast, history, market) {
   const evidence = latestDirectEvidence(forecast);
   const prediction = latestOfficialPrediction(history);
@@ -44,6 +122,7 @@ export function telegramSnapshot(forecast, history, market) {
   const signature = createHash("sha256")
     .update(JSON.stringify(signatureData))
     .digest("hex");
+  const agreement = agreementRead(forecast, prediction);
   const targetLines = checkpoints.map((checkpoint, index) => {
     const targetIndex = checkpoints
       .slice(0, index + 1)
@@ -57,21 +136,25 @@ export function telegramSnapshot(forecast, history, market) {
     )} · ${checkpoint.label}`;
   });
   const text = [
-    "📡 ASTRO INTELLIGENCE",
-    `BTC · ${formatPrice(market?.price)}`,
+    "🔔 ASTRO / HERMES UPDATE",
     "",
-    `ASTRO · ${(forecast?.signal?.state || "wait").toUpperCase()}`,
-    forecast?.decision?.position || "Position not public",
-    `TP · ${forecast?.execution?.takeProfit?.level || "Not public"}`,
-    `CLOSE · ${forecast?.execution?.exit?.level || "Not public"}`,
-    "",
-    `HERMES · ${(prediction?.marketStatus || "pending").toUpperCase()} · ${hitCount}/${checkpoints.length}`,
-    ...targetLines,
-    `WRONG IF · ${formatPrice(prediction?.invalidation?.price)}`,
-    "",
-    `OPPORTUNITY WATCH · ${
-      forecast?.signal?.readerStep || "Wait for direct evidence."
+    "ASTRO · CONFIRMED",
+    `POSITION · ${forecast?.decision?.position || "Not public"}`,
+    `TARGETS / TP · ${forecast?.execution?.takeProfit?.level || "Not public"}`,
+    `TP STATE · ${forecast?.execution?.takeProfit?.state || "Not public"}`,
+    `CLOSE · ${forecast?.execution?.exit?.state || "Not public"} · ${
+      forecast?.execution?.exit?.level || "Not public"
     }`,
+    "",
+    "HERMES · PREDICTION",
+    `PATH · ${(prediction?.direction || "Not resolved").toString().replaceAll("_", " ").toUpperCase()}`,
+    `CHECKPOINTS · ${hitCount}/${checkpoints.length} reached`,
+    ...targetLines,
+    "",
+    `AGREEMENT · ${agreement.state}`,
+    agreement.difference,
+    "",
+    `LIVE PRICE · ${formatPrice(market?.price)}`,
     evidence?.source ? `SOURCE · ${evidence.source}` : null,
     "",
     "Research alert only · no automatic trade.",

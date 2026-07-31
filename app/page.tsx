@@ -81,6 +81,8 @@ type HermesAudit = {
   evaluationQuality: "complete" | "gap";
   createdAt: string;
   resolvedAt: string | null;
+  direction: string | null;
+  summary: string | null;
   anchorPrice: number;
   latestPrice: number;
   hitCheckpoints: number;
@@ -943,6 +945,46 @@ export default function Home() {
       )[0] ?? null,
     [forecast.scenarios],
   );
+  const hermesAgreement = useMemo(() => {
+    const astroPosition = forecast.decision.position.toLowerCase();
+    const hasLong = /\blong\b/.test(astroPosition);
+    const hasShort = /\bshort\b/.test(astroPosition);
+    const direction = (systemStatus.hermesAudit?.direction || "").toLowerCase();
+    const hermesDirection = direction.startsWith("down")
+      ? "short"
+      : direction.startsWith("up")
+        ? "long"
+        : null;
+
+    if (!hermesDirection) {
+      return {
+        label: "UNRESOLVED",
+        detail: "Hermes has not frozen a directional first move.",
+      };
+    }
+    if (hasLong && hasShort) {
+      return {
+        label: "PARTIAL",
+        detail: `Astro has both books; Hermes models ${hermesDirection} first.`,
+      };
+    }
+    if ((hasLong && hermesDirection === "long") || (hasShort && hermesDirection === "short")) {
+      return {
+        label: "AGREES",
+        detail: `Same ${hermesDirection} first move.`,
+      };
+    }
+    if (hasLong || hasShort) {
+      return {
+        label: "CONFLICT",
+        detail: `Hermes expects ${hermesDirection} first.`,
+      };
+    }
+    return {
+      label: "UNRESOLVED",
+      detail: "Astro has no confirmed direction to compare.",
+    };
+  }, [forecast.decision.position, systemStatus.hermesAudit?.direction]);
   const strategyShelf = useMemo(
     () =>
       forecast.scenarios.map((scenario, index) => {
@@ -1372,6 +1414,20 @@ export default function Home() {
       {activeView === "desk" && (
         <div className="desk" id="top">
           <section className="quick-view">
+            <div className="analytics-heading">
+              <div>
+                <span>ASTRO COMMAND CENTER</span>
+                <h1>Read the move in seconds.</h1>
+                <p>
+                  Confirmed position, newest change, and the next condition that
+                  matters—without mixing Astro evidence with Hermes inference.
+                </p>
+              </div>
+              <button onClick={() => showView("chart")}>
+                Open live chart <i>↗</i>
+              </button>
+            </div>
+
             <div className="live-meta">
               <span>
                 <i
@@ -1429,6 +1485,36 @@ export default function Home() {
             </div>
 
             <section
+              className="analytics-kpi-grid"
+              aria-label="Current Astro analytics"
+            >
+              <article className="primary">
+                <small>LIVE POSITION</small>
+                <strong>{plainDashboard.where}</strong>
+                <span>Confirmed public book</span>
+              </article>
+              <article>
+                <small>LATEST ACTION</small>
+                <strong>{plainDashboard.happened}</strong>
+                <span>{timeLabel}</span>
+              </article>
+              <article>
+                <small>APPROVED SOURCES</small>
+                <strong>{systemStatus.telegramSources.length}/2 connected</strong>
+                <span>
+                  {systemStatus.telegramSourceStatus === "healthy"
+                    ? "Telegram caught up"
+                    : "Connection needs attention"}
+                </span>
+              </article>
+              <article>
+                <small>HERMES VS ASTRO</small>
+                <strong>{hermesAgreement.label}</strong>
+                <span>{hermesAgreement.detail}</span>
+              </article>
+            </section>
+
+            <section
               className={`astro-now-board ${opportunity.tone}`}
               aria-label="Astro now, targets, and performance"
             >
@@ -1460,7 +1546,7 @@ export default function Home() {
                     <strong>{forecast.thesis.nextTrigger}</strong>
                   </div>
                   <div>
-                    <small>READ IS WRONG IF</small>
+                    <small>WHAT CHANGES THIS</small>
                     <strong>{forecast.decision.risk}</strong>
                   </div>
                 </article>

@@ -215,6 +215,11 @@ const server = createServer(async (request, response) => {
                   latestHermesPrediction.evaluationQuality ?? "complete",
                 createdAt: latestHermesPrediction.createdAt,
                 resolvedAt: latestHermesPrediction.resolvedAt ?? null,
+                direction: latestHermesPrediction.direction ?? null,
+                summary:
+                  latestHermesPrediction.summary ??
+                  latestHermesPrediction.thesis ??
+                  null,
                 anchorPrice: latestHermesPrediction.anchorPrice,
                 latestPrice: latestHermesPrediction.latestPrice,
                 hitCheckpoints: Array.isArray(latestHermesPrediction.checkpoints)

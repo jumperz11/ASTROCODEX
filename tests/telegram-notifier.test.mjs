@@ -37,6 +37,7 @@ const history = {
       official: true,
       integrity: "valid",
       marketStatus: "active",
+      direction: "down_then_up",
       checkpoints: [
         {
           label: "Downside objective",
@@ -59,11 +60,56 @@ const history = {
 
 test("Telegram snapshot separates Astro and Hermes targets", () => {
   const snapshot = telegramSnapshot(forecast, history, { price: 62800 });
-  assert.match(snapshot.text, /ASTRO · WAIT/);
-  assert.match(snapshot.text, /HERMES · ACTIVE/);
+  assert.match(snapshot.text, /ASTRO · CONFIRMED/);
+  assert.match(snapshot.text, /POSITION · Short III still open/);
+  assert.match(snapshot.text, /TARGETS \/ TP · ~62.2k class/);
+  assert.match(snapshot.text, /CLOSE · Not public · Not public/);
+  assert.match(snapshot.text, /HERMES · PREDICTION/);
+  assert.match(snapshot.text, /PATH · DOWN THEN UP/);
   assert.match(snapshot.text, /T1 \$62,358/);
   assert.match(snapshot.text, /TP1 \$64,600/);
+  assert.match(snapshot.text, /AGREEMENT · AGREES/);
+  assert.match(snapshot.text, /LIVE PRICE · \$62,800/);
+  assert.doesNotMatch(snapshot.text, /OPPORTUNITY WATCH/);
+  assert.doesNotMatch(snapshot.text, /WRONG IF/);
   assert.match(snapshot.text, /no automatic trade/i);
+});
+
+test("Telegram snapshot marks a contrary Hermes path as conflict", () => {
+  const contraryHistory = {
+    hermesPredictions: [
+      {
+        ...history.hermesPredictions[0],
+        id: "map-2",
+        direction: "up",
+      },
+    ],
+  };
+  const snapshot = telegramSnapshot(forecast, contraryHistory, {
+    price: 62800,
+  });
+  assert.match(snapshot.text, /AGREEMENT · CONFLICT/);
+  assert.match(
+    snapshot.text,
+    /Astro is short; Hermes expects long first\./,
+  );
+});
+
+test("Telegram snapshot does not invent agreement without a Hermes direction", () => {
+  const unresolvedHistory = {
+    hermesPredictions: [
+      {
+        ...history.hermesPredictions[0],
+        id: "map-3",
+        direction: undefined,
+      },
+    ],
+  };
+  const snapshot = telegramSnapshot(forecast, unresolvedHistory, {
+    price: 62800,
+  });
+  assert.match(snapshot.text, /AGREEMENT · UNRESOLVED/);
+  assert.match(snapshot.text, /Not enough confirmed direction/);
 });
 
 test("Telegram notifier deduplicates identical state", async () => {
@@ -115,7 +161,7 @@ test("Telegram notifier sends once when lifecycle state changes", async () => {
   assert.equal(result.status, "sent");
   assert.equal(result.messageId, 99);
   assert.match(request.url, /sendMessage$/);
-  assert.match(request.options.body, /ASTRO INTELLIGENCE/);
+  assert.match(request.options.body, /ASTRO \/ HERMES UPDATE/);
   if (originalToken === undefined) delete process.env.TELEGRAM_BOT_TOKEN;
   else process.env.TELEGRAM_BOT_TOKEN = originalToken;
   if (originalChat === undefined) delete process.env.TELEGRAM_CHAT_ID;
