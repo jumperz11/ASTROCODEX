@@ -57,6 +57,7 @@ test("server-renders the Astro Intelligence research terminal", async () => {
   assert.match(html, /LIVE ASTRO MAP/);
   assert.match(html, /ASTRO SIGNAL/);
   assert.match(html, /Coinbase public BTC-USD feed/);
+  assert.match(html, /GHOST PATH · MODEL PREDICTION/);
   assert.match(html, /OPEN \/ ADD/);
   assert.match(html, /REDUCE \/ TAKE PROFIT/);
   assert.match(html, /CLOSE \/ INVALIDATE/);

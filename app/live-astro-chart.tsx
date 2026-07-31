@@ -9,6 +9,9 @@ import {
   IPriceLine,
   ISeriesApi,
   ISeriesMarkersPluginApi,
+  LineData,
+  LineSeries,
+  LineType,
   LineStyle,
   SeriesMarker,
   UTCTimestamp,
@@ -212,12 +215,16 @@ export default function LiveAstroChart({
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const projectionSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const projectionMarkersRef =
+    useRef<ISeriesMarkersPluginApi<UTCTimestamp> | null>(null);
   const markersRef =
     useRef<ISeriesMarkersPluginApi<UTCTimestamp> | null>(null);
   const currentCandleRef =
     useRef<CandlestickData<UTCTimestamp> | null>(null);
   const priceLinesRef = useRef<IPriceLine[]>([]);
   const updateZonesRef = useRef<() => void>(() => {});
+  const projectionFitKeyRef = useRef("");
   const [timeframe, setTimeframe] = useState(3600);
   const [price, setPrice] = useState<number | null>(null);
   const [feedState, setFeedState] = useState<FeedState>("loading");
@@ -347,6 +354,142 @@ export default function LiveAstroChart({
           : eventMarkers.slice(-4),
     [eventMarkers, overlayMode],
   );
+  const projectionPlan = useMemo(() => {
+    if (price === null) return null;
+
+    const combinedPrediction =
+      `${predictedMove} ${predictionSummary} ${predictionTrigger}`.toLowerCase();
+    const bias: "long" | "short" | "range" =
+      signalState === "short" ||
+      /\b(short|downside|dog|bear|reject|fomc)\b/.test(combinedPrediction)
+        ? "short"
+        : signalState === "long" ||
+            /\b(long|upside|extension|bull|reclaim)\b/.test(combinedPrediction)
+          ? "long"
+          : "range";
+
+    const snapshotAnchor =
+      parsedThesisLevels.find((level) =>
+        level.label.toLowerCase().includes("spot"),
+      )?.price ?? price;
+    const forecastTimestamp = Math.floor(new Date(forecastTime).getTime() / 1000);
+    const anchorTimestamp = Number.isFinite(forecastTimestamp)
+      ? Math.floor(forecastTimestamp / timeframe) * timeframe
+      : 0;
+
+    const reasonLevels = parsedThesisLevels.flatMap((level) =>
+      [...level.reason.toLowerCase().matchAll(/(\d+(?:\.\d+)?)k\b/g)].map(
+        (match) => Number(match[1]) * 1_000,
+      ),
+    );
+    const candidateLevels = [
+      ...parsedThesisLevels.map((level) => ({
+        price: level.price,
+        kind: level.thesisKind,
+      })),
+      ...parsedLevels.map((level) => ({
+        price: level.price,
+        kind:
+          level.kind === "risk"
+            ? ("downside" as const)
+            : level.kind === "trim"
+              ? ("upside" as const)
+              : ("watch" as const),
+      })),
+      ...reasonLevels.map((reasonPrice) => ({
+        price: reasonPrice,
+        kind: reasonPrice < snapshotAnchor ? "downside" : "upside",
+      })),
+    ].filter(
+      (level) =>
+        Number.isFinite(level.price) &&
+        level.price > snapshotAnchor * 0.8 &&
+        level.price < snapshotAnchor * 1.2,
+    );
+    const above = candidateLevels
+      .filter((level) => level.price > snapshotAnchor * 1.001)
+      .sort((left, right) => left.price - right.price);
+    const below = candidateLevels
+      .filter((level) => level.price < snapshotAnchor * 0.999)
+      .sort((left, right) => right.price - left.price);
+    const nearestWatchAbove = above.find((level) => level.kind === "watch");
+    const nearestWatchBelow = below.find((level) => level.kind === "watch");
+    const directionalTarget =
+      bias === "long"
+        ? above.find((level) => level.kind === "upside") ?? above[0]
+        : bias === "short"
+          ? [...below].reverse().find((level) => level.kind === "downside") ??
+            below.at(-1)
+          : nearestWatchAbove ?? nearestWatchBelow;
+
+    if (!directionalTarget) return null;
+
+    const waypoint =
+      bias === "short"
+        ? nearestWatchAbove
+        : bias === "long"
+          ? nearestWatchBelow
+          : undefined;
+    const targetPrice = directionalTarget.price;
+    const points: LineData<UTCTimestamp>[] = [
+      {
+        time: anchorTimestamp as UTCTimestamp,
+        value: snapshotAnchor,
+      },
+    ];
+
+    if (waypoint) {
+      points.push(
+        {
+          time: (anchorTimestamp + timeframe * 2) as UTCTimestamp,
+          value: snapshotAnchor + (waypoint.price - snapshotAnchor) * 0.55,
+        },
+        {
+          time: (anchorTimestamp + timeframe * 4) as UTCTimestamp,
+          value: waypoint.price,
+        },
+        {
+          time: (anchorTimestamp + timeframe * 7) as UTCTimestamp,
+          value: waypoint.price + (targetPrice - waypoint.price) * 0.58,
+        },
+      );
+    } else {
+      points.push(
+        {
+          time: (anchorTimestamp + timeframe * 3) as UTCTimestamp,
+          value: snapshotAnchor + (targetPrice - snapshotAnchor) * 0.42,
+        },
+        {
+          time: (anchorTimestamp + timeframe * 6) as UTCTimestamp,
+          value: snapshotAnchor + (targetPrice - snapshotAnchor) * 0.72,
+        },
+      );
+    }
+
+    points.push({
+      time: (anchorTimestamp + timeframe * 10) as UTCTimestamp,
+      value: targetPrice,
+    });
+
+    return {
+      bias,
+      points,
+      targetPrice,
+      anchorTimestamp,
+      confidence: predictedProbability,
+    };
+  }, [
+    forecastTime,
+    parsedLevels,
+    parsedThesisLevels,
+    predictedMove,
+    predictedProbability,
+    predictionSummary,
+    predictionTrigger,
+    price,
+    signalState,
+    timeframe,
+  ]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -420,20 +563,73 @@ export default function LiveAstroChart({
     const markers = createSeriesMarkers(series, [], {
       autoScale: false,
     });
+    const projectionSeries = chart.addSeries(LineSeries, {
+      color: "rgba(122, 162, 255, 0.48)",
+      lineWidth: 2,
+      lineStyle: LineStyle.Dashed,
+      lineType: LineType.Curved,
+      crosshairMarkerVisible: false,
+      lastValueVisible: false,
+      priceLineVisible: false,
+      title: "MODEL PATH",
+    });
+    const projectionMarkers = createSeriesMarkers(projectionSeries, [], {
+      autoScale: false,
+    });
 
     chartRef.current = chart;
     seriesRef.current = series;
     markersRef.current = markers;
+    projectionSeriesRef.current = projectionSeries;
+    projectionMarkersRef.current = projectionMarkers;
 
     return () => {
       markers.detach();
+      projectionMarkers.detach();
       priceLinesRef.current = [];
       markersRef.current = null;
+      projectionMarkersRef.current = null;
+      projectionSeriesRef.current = null;
       seriesRef.current = null;
       chartRef.current = null;
       chart.remove();
     };
   }, []);
+
+  useEffect(() => {
+    const projectionSeries = projectionSeriesRef.current;
+    const projectionMarkers = projectionMarkersRef.current;
+    if (!projectionSeries || !projectionMarkers) return;
+
+    const visible = overlayMode !== "astro" && Boolean(projectionPlan);
+    projectionSeries.applyOptions({ visible });
+    if (!projectionPlan) {
+      projectionSeries.setData([]);
+      projectionMarkers.setMarkers([]);
+      return;
+    }
+
+    projectionSeries.setData(projectionPlan.points);
+    projectionMarkers.setMarkers([
+      {
+        color: "rgba(122, 162, 255, 0.72)",
+        id: `model-path-${forecastTime}-${timeframe}`,
+        position:
+          projectionPlan.bias === "short" ? "belowBar" : "aboveBar",
+        shape: "circle",
+        size: 0.7,
+        text: `MODEL ${projectionPlan.confidence}%`,
+        time: projectionPlan.points.at(-1)!.time,
+      },
+    ]);
+    const fitKey = `${forecastTime}-${timeframe}`;
+    if (projectionFitKeyRef.current !== fitKey) {
+      projectionFitKeyRef.current = fitKey;
+      window.requestAnimationFrame(() => {
+        chartRef.current?.timeScale().fitContent();
+      });
+    }
+  }, [forecastTime, overlayMode, projectionPlan, timeframe]);
 
   useEffect(() => {
     const series = seriesRef.current;
@@ -750,6 +946,22 @@ export default function LiveAstroChart({
             </div>
           </div>
         )}
+        {projectionPlan && overlayMode !== "astro" && (
+          <div className={`chart-projection-key ${projectionPlan.bias}`}>
+            <small>MODEL PATH · {projectionPlan.confidence}%</small>
+            <strong>
+              {projectionPlan.bias === "short"
+                ? "RETEST → LOWER"
+                : projectionPlan.bias === "long"
+                  ? "HOLD → HIGHER"
+                  : "RANGE → WATCH"}
+            </strong>
+            <span>
+              TARGET {formatPrice(projectionPlan.targetPrice)} · ANCHORED{" "}
+              {forecastLabel}
+            </span>
+          </div>
+        )}
         {feedState === "error" && (
           <div className="chart-feed-error">
             Live market data is temporarily unavailable. Astro’s validated map remains below.
@@ -866,6 +1078,7 @@ export default function LiveAstroChart({
         <span>MARKET · Coinbase public BTC-USD feed</span>
         <span>SOLID · ASTRO CONFIRMED</span>
         <span>DOTTED · MODEL THESIS</span>
+        <span>GHOST PATH · MODEL PREDICTION</span>
         <span>READ · {forecastLabel}</span>
       </div>
     </section>

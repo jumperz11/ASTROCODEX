@@ -3703,6 +3703,55 @@ summary:focus-visible {
   color: var(--red);
 }
 
+.chart-projection-key {
+  position: absolute;
+  z-index: 4;
+  right: 88px;
+  bottom: 13px;
+  padding: 9px 11px;
+  border: 1px solid rgba(122, 162, 255, 0.22);
+  background: rgba(10, 11, 13, 0.78);
+  box-shadow: inset 2px 0 0 rgba(122, 162, 255, 0.65);
+  backdrop-filter: blur(9px);
+  pointer-events: none;
+}
+
+.chart-projection-key small,
+.chart-projection-key strong,
+.chart-projection-key span {
+  display: block;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  text-transform: uppercase;
+}
+
+.chart-projection-key small {
+  color: #9ebaff;
+  font-size: 7px;
+  letter-spacing: 0.09em;
+}
+
+.chart-projection-key strong {
+  margin-top: 5px;
+  color: var(--paper);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.chart-projection-key span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 6px;
+  letter-spacing: 0.05em;
+}
+
+.chart-projection-key.short {
+  box-shadow: inset 2px 0 0 rgba(255, 107, 102, 0.72);
+}
+
+.chart-projection-key.long {
+  box-shadow: inset 2px 0 0 rgba(82, 230, 167, 0.72);
+}
+
 .chart-signal-pill,
 .next-level-pill {
   position: absolute;
@@ -4409,6 +4458,34 @@ summary:focus-visible {
 
   .chart-focus-plan > div:first-child strong {
     font-size: 13px;
+  }
+
+  .chart-projection-key {
+    right: 66px;
+    bottom: 9px;
+    left: 8px;
+    padding: 7px 9px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 3px 8px;
+    align-items: baseline;
+  }
+
+  .chart-projection-key strong {
+    margin-top: 0;
+    overflow: hidden;
+    font-size: 8px;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .chart-projection-key span {
+    grid-column: 1 / -1;
+    margin-top: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .chart-decision-strip {
