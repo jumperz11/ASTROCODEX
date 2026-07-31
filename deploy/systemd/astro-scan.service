@@ -15,7 +15,7 @@ Environment=ASTRO_CODEX_INDEX=/var/lib/astro-signal/codex-index.json
 Environment=ASTRO_CODEX_ARCHIVE=/var/lib/astro-signal/codex-archive
 Environment=ASTRO_GROK_MODEL=grok-4.5
 ExecStart=/usr/bin/npm run astro:vps:scan
-TimeoutStartSec=120
+TimeoutStartSec=240
 StateDirectory=astro-signal
 StateDirectoryMode=0700
 NoNewPrivileges=true
