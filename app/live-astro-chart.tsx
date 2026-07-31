@@ -34,6 +34,7 @@ type ThesisLevel = {
 };
 
 type ParsedLevel = AstroLevel & {
+  completed: boolean;
   high: number;
   low: number;
   price: number;
@@ -51,6 +52,7 @@ type SignalState =
   | "conflict";
 
 type AstroEvent = {
+  detail?: string;
   label: string;
   source?: string;
   time?: string;
@@ -61,6 +63,8 @@ type ZoneRect = ParsedLevel & {
   top: number;
 };
 
+type LevelPurpose = "entry" | "target" | "invalidation" | "context";
+
 const timeframes = [
   { label: "15M", seconds: 900 },
   { label: "1H", seconds: 3600 },
@@ -69,28 +73,100 @@ const timeframes = [
 ] as const;
 
 function parseLevel(level: AstroLevel): ParsedLevel | null {
-  const normalized = level.value.toLowerCase().replaceAll(",", "");
-  const values = [...normalized.matchAll(/\d+(?:\.\d+)?/g)].map((match) =>
-    Number(match[0]),
-  );
+  const normalized = level.value
+    .toLowerCase()
+    .replaceAll(",", "")
+    .replace(/\d+(?:\.\d+)?%/g, "");
+  const values = [...normalized.matchAll(/\d+(?:\.\d+)?/g)]
+    .map((match) => Number(match[0]))
+    .filter((value) => Number.isFinite(value));
   if (!values.length || values.some((value) => !Number.isFinite(value))) {
     return null;
   }
 
   const usesThousands = normalized.includes("k");
-  const prices = values.map((value) =>
-    usesThousands && value < 1_000 ? value * 1_000 : value,
-  );
-  const low = Math.min(...prices);
-  const high = Math.max(...prices);
+  const prices = values
+    .map((value) => (usesThousands && value < 1_000 ? value * 1_000 : value))
+    .filter((value) => value >= 10_000 && value <= 250_000);
+  if (!prices.length) return null;
+
+  const approximateObjective =
+    /(?:≈|about|objective|drawdown)/i.test(level.value) &&
+    prices.length > 1 &&
+    Math.max(...prices) - Math.min(...prices) > 2_000;
+  const selectedPrices = approximateObjective ? [prices.at(-1)!] : prices;
+  const low = Math.min(...selectedPrices);
+  const high = Math.max(...selectedPrices);
 
   return {
     ...level,
+    completed: false,
     low,
     high,
     price: (low + high) / 2,
     shortLabel: compactLabel(level.label),
   };
+}
+
+function eventPrices(event: AstroEvent) {
+  const text = `${event.label} ${event.detail ?? ""}`.replaceAll(",", "");
+  return [...text.matchAll(/\b(\d{2,3}(?:\.\d+)?)k\b|\b(\d{5,6})\b/gi)]
+    .map((match) =>
+      match[1] ? Number(match[1]) * 1_000 : Number(match[2]),
+    )
+    .filter((value) => Number.isFinite(value));
+}
+
+function levelWasCompleted(level: ParsedLevel, events: AstroEvent[]) {
+  if (level.kind !== "trim") return false;
+  return events.some((event) => {
+    const text = `${event.label} ${event.detail ?? ""}`.toLowerCase();
+    if (!/\btrim\b|take profit|\btp\b|\block\b|piece is gone|fully closed/.test(text)) {
+      return false;
+    }
+    return eventPrices(event).some(
+      (eventPrice) => Math.abs(eventPrice - level.price) <= 150,
+    );
+  });
+}
+
+function levelPurpose(level: ParsedLevel): LevelPurpose {
+  const text = `${level.label} ${level.value}`.toLowerCase();
+  if (level.completed) return "context";
+  if (
+    /\bwrong\b|invalidat|read breaks|failure/.test(text) &&
+    !/historical|virtual/.test(text)
+  ) {
+    return "invalidation";
+  }
+  if (
+    /target|objective|drawdown/.test(text) &&
+    !/historical|tapped|claimed|complete/.test(text)
+  ) {
+    return "target";
+  }
+  if (
+    level.kind === "trim" &&
+    !/historical|tapped|claimed|complete|taken/.test(text)
+  ) {
+    return "target";
+  }
+  if (
+    level.kind === "entry" &&
+    /active|still open|holding/.test(text) &&
+    !/historical|planned|virtual|residual|not public/.test(text)
+  ) {
+    return "entry";
+  }
+  return "context";
+}
+
+function focusLineLabel(level: ParsedLevel) {
+  const purpose = levelPurpose(level);
+  if (purpose === "entry") return "ENTRY";
+  if (purpose === "target") return "TARGET";
+  if (purpose === "invalidation") return "INVALID";
+  return levelRole(level, null);
 }
 
 function compactLabel(label: string) {
@@ -231,13 +307,18 @@ export default function LiveAstroChart({
   const [feedNote, setFeedNote] = useState("Loading Coinbase candles…");
   const [zoneRects, setZoneRects] = useState<ZoneRect[]>([]);
   const [overlayMode, setOverlayMode] = useState<OverlayMode>("focus");
+  const [latestCandleTime, setLatestCandleTime] = useState<number | null>(null);
 
   const parsedLevels = useMemo(
     () =>
       levels
         .map(parseLevel)
-        .filter((level): level is ParsedLevel => level !== null),
-    [levels],
+        .filter((level): level is ParsedLevel => level !== null)
+        .map((level) => ({
+          ...level,
+          completed: levelWasCompleted(level, events),
+        })),
+    [events, levels],
   );
   const parsedThesisLevels = useMemo(
     () =>
@@ -285,40 +366,63 @@ export default function LiveAstroChart({
   );
   const nextAstroLevel = useMemo(() => {
     if (price === null) return null;
-    const next = parsedLevels
-      .filter((level) => level.kind === "trim" && level.price > price + 5)
-      .sort((left, right) => left.price - right.price)[0];
+    const directional = parsedLevels
+      .filter((level) => levelPurpose(level) === "target")
+      .filter((level) =>
+        signalState === "short"
+          ? level.price < price - 5
+          : signalState === "long"
+            ? level.price > price + 5
+            : true,
+      )
+      .sort(
+        (left, right) =>
+          Math.abs(left.price - price) - Math.abs(right.price - price),
+      );
+    const fallback = parsedLevels
+      .filter((level) => levelPurpose(level) === "target")
+      .sort(
+        (left, right) =>
+          Math.abs(left.price - price) - Math.abs(right.price - price),
+      );
+    const next = directional[0] ?? fallback[0];
     if (!next) return null;
     return {
       ...next,
-      distance: ((next.price - price) / price) * 100,
+      distance: (Math.abs(next.price - price) / price) * 100,
     };
-  }, [parsedLevels, price]);
+  }, [parsedLevels, price, signalState]);
   const focusAstroLevels = useMemo(() => {
-    if (price === null) return parsedLevels.slice(0, 2);
+    if (price === null) return [];
 
-    const nearestEntry = [...parsedLevels]
-      .filter((level) => level.kind === "entry")
+    const nearestEntry = parsedLevels
+      .filter((level) => levelPurpose(level) === "entry")
       .sort(
         (left, right) =>
           Math.abs(left.price - price) - Math.abs(right.price - price),
       )[0];
-    const nextTarget = [...parsedLevels]
-      .filter((level) => level.kind === "trim" && level.price > price + 5)
-      .sort((left, right) => left.price - right.price)[0];
-    const nearestRisk = [...parsedLevels]
-      .filter((level) => level.kind === "risk")
+    const target = parsedLevels
+      .filter((level) => levelPurpose(level) === "target")
+      .filter((level) =>
+        signalState === "short"
+          ? level.price < price
+          : signalState === "long"
+            ? level.price > price
+            : true,
+      )
       .sort(
         (left, right) =>
           Math.abs(left.price - price) - Math.abs(right.price - price),
       )[0];
-    const nearestFallback = [...parsedLevels].sort(
-      (left, right) =>
-        Math.abs(left.price - price) - Math.abs(right.price - price),
-    );
-
-    const selected = [nextTarget, nearestEntry, nearestRisk, ...nearestFallback]
+    const invalidation = parsedLevels
+      .filter((level) => levelPurpose(level) === "invalidation")
+      .sort(
+        (left, right) =>
+          Math.abs(left.price - price) - Math.abs(right.price - price),
+      )[0];
+    const selected = [target, nearestEntry, invalidation]
       .filter((level): level is ParsedLevel => Boolean(level))
+      .filter((level) => Math.abs(level.price - price) / price <= 0.1)
       .filter(
         (level, index, all) =>
           all.findIndex(
@@ -327,8 +431,8 @@ export default function LiveAstroChart({
           ) === index,
       );
 
-    return selected.slice(0, 2);
-  }, [parsedLevels, price]);
+    return selected.slice(0, 3);
+  }, [parsedLevels, price, signalState]);
   const visibleAstroLevels = useMemo(
     () =>
       overlayMode === "focus"
@@ -368,37 +472,41 @@ export default function LiveAstroChart({
           ? "long"
           : "range";
 
-    const snapshotAnchor =
-      parsedThesisLevels.find((level) =>
-        level.label.toLowerCase().includes("spot"),
-      )?.price ?? price;
-    const forecastTimestamp = Math.floor(new Date(forecastTime).getTime() / 1000);
-    const anchorTimestamp = Number.isFinite(forecastTimestamp)
-      ? Math.floor(forecastTimestamp / timeframe) * timeframe
-      : 0;
+    const snapshotAnchor = price;
+    const forecastTimestamp = Math.floor(
+      new Date(forecastTime).getTime() / 1000,
+    );
+    const anchorTimestamp =
+      latestCandleTime ??
+      (Number.isFinite(forecastTimestamp)
+        ? Math.floor(forecastTimestamp / timeframe) * timeframe
+        : 0);
 
     const reasonLevels = parsedThesisLevels.flatMap((level) =>
       [...level.reason.toLowerCase().matchAll(/(\d+(?:\.\d+)?)k\b/g)].map(
         (match) => Number(match[1]) * 1_000,
       ),
     );
+    const confirmedTargets = parsedLevels
+      .filter((level) => levelPurpose(level) === "target")
+      .map((level) => ({
+        price: level.price,
+        kind: level.price < snapshotAnchor
+          ? ("downside" as const)
+          : ("upside" as const),
+        confirmed: true,
+      }));
     const candidateLevels = [
+      ...confirmedTargets,
       ...parsedThesisLevels.map((level) => ({
         price: level.price,
         kind: level.thesisKind,
-      })),
-      ...parsedLevels.map((level) => ({
-        price: level.price,
-        kind:
-          level.kind === "risk"
-            ? ("downside" as const)
-            : level.kind === "trim"
-              ? ("upside" as const)
-              : ("watch" as const),
+        confirmed: false,
       })),
       ...reasonLevels.map((reasonPrice) => ({
         price: reasonPrice,
         kind: reasonPrice < snapshotAnchor ? "downside" : "upside",
+        confirmed: false,
       })),
     ].filter(
       (level) =>
@@ -416,10 +524,13 @@ export default function LiveAstroChart({
     const nearestWatchBelow = below.find((level) => level.kind === "watch");
     const directionalTarget =
       bias === "long"
-        ? above.find((level) => level.kind === "upside") ?? above[0]
+        ? above.find((level) => level.confirmed) ??
+          above.find((level) => level.kind === "upside") ??
+          above[0]
         : bias === "short"
-          ? [...below].reverse().find((level) => level.kind === "downside") ??
-            below.at(-1)
+          ? below.find((level) => level.confirmed) ??
+            below.find((level) => level.kind === "downside") ??
+            below[0]
           : nearestWatchAbove ?? nearestWatchBelow;
 
     if (!directionalTarget) return null;
@@ -480,6 +591,7 @@ export default function LiveAstroChart({
     };
   }, [
     forecastTime,
+    latestCandleTime,
     parsedLevels,
     parsedThesisLevels,
     predictedMove,
@@ -526,7 +638,7 @@ export default function LiveAstroChart({
         borderColor: "rgba(255,255,255,0.09)",
         timeVisible: true,
         secondsVisible: false,
-        rightOffset: 7,
+        rightOffset: 12,
         barSpacing: 8,
         minBarSpacing: 3,
       },
@@ -564,8 +676,8 @@ export default function LiveAstroChart({
       autoScale: false,
     });
     const projectionSeries = chart.addSeries(LineSeries, {
-      color: "rgba(122, 162, 255, 0.48)",
-      lineWidth: 2,
+      color: "rgba(122, 162, 255, 0.58)",
+      lineWidth: 3,
       lineStyle: LineStyle.Dashed,
       lineType: LineType.Curved,
       crosshairMarkerVisible: false,
@@ -602,7 +714,15 @@ export default function LiveAstroChart({
     if (!projectionSeries || !projectionMarkers) return;
 
     const visible = overlayMode !== "astro" && Boolean(projectionPlan);
-    projectionSeries.applyOptions({ visible });
+    projectionSeries.applyOptions({
+      visible,
+      color:
+        projectionPlan?.bias === "short"
+          ? "rgba(255, 107, 102, 0.62)"
+          : projectionPlan?.bias === "long"
+            ? "rgba(82, 230, 167, 0.62)"
+            : "rgba(122, 162, 255, 0.58)",
+    });
     if (!projectionPlan) {
       projectionSeries.setData([]);
       projectionMarkers.setMarkers([]);
@@ -647,7 +767,10 @@ export default function LiveAstroChart({
           lineWidth: 2,
           lineStyle: LineStyle.Dashed,
           axisLabelVisible: true,
-          title: `${levelRole(level, price)} · ${level.shortLabel}`,
+          title:
+            overlayMode === "focus"
+              ? focusLineLabel(level)
+              : `${levelRole(level, price)} · ${level.shortLabel}`,
         }),
       ),
       ...visibleThesisLevels.map((level) =>
@@ -661,7 +784,7 @@ export default function LiveAstroChart({
         }),
       ),
     ];
-  }, [price, visibleAstroLevels, visibleThesisLevels]);
+  }, [overlayMode, price, visibleAstroLevels, visibleThesisLevels]);
 
   useEffect(() => {
     markersRef.current?.setMarkers(visibleEventMarkers);
@@ -745,6 +868,11 @@ export default function LiveAstroChart({
 
         series.setData(candles);
         currentCandleRef.current = candles.at(-1) ?? null;
+        setLatestCandleTime(
+          currentCandleRef.current
+            ? Number(currentCandleRef.current.time)
+            : null,
+        );
         setPrice(currentCandleRef.current?.close ?? null);
         chart.timeScale().fitContent();
         updateZonesRef.current();
@@ -806,6 +934,7 @@ export default function LiveAstroChart({
                   };
 
             currentCandleRef.current = nextCandle;
+            setLatestCandleTime(bucket);
             series.update(nextCandle);
             updateZonesRef.current();
             setPrice(nextPrice);
@@ -868,7 +997,7 @@ export default function LiveAstroChart({
         <div>
           <span className="eyebrow">LIVE ASTRO MAP</span>
           <h2>BTC / USD</h2>
-          <p>Only the levels that matter to the current read. Open Astro or Model for detail.</p>
+          <p>Live price, the active Astro map, and one clearly separated model path.</p>
         </div>
         <div className="live-quote" aria-live="polite">
           <span className={`feed-dot ${feedState}`} />
@@ -901,7 +1030,7 @@ export default function LiveAstroChart({
               onClick={() => setOverlayMode(mode)}
               type="button"
             >
-              {mode === "focus" ? "Focus" : mode === "astro" ? "Astro" : "Model"}
+              {mode === "focus" ? "Plan" : mode === "astro" ? "All Astro" : "Forecast"}
             </button>
           ))}
         </div>
@@ -923,43 +1052,28 @@ export default function LiveAstroChart({
           ))}
         </div>
         {overlayMode === "focus" && (
-          <div className={`chart-focus-plan ${signalState}`}>
-            <div>
-              <small>NOW</small>
+          <div className={`chart-focus-hud ${signalState}`}>
+            <div className="chart-hud-now">
+              <small>ASTRO NOW</small>
               <strong>{signalLabel(signalState)}</strong>
             </div>
-            <div>
-              <small>ASTRO NEXT · MODEL</small>
-              <strong>{predictedMove} · {predictedProbability}%</strong>
-            </div>
-            <div>
-              <small>WATCH PRICE</small>
-              <strong>
-                {nextAstroLevel
-                  ? `${nextAstroLevel.shortLabel} · ${formatPrice(nextAstroLevel.price)}`
-                  : "No confirmed target"}
-              </strong>
-            </div>
-            <div>
-              <small>READ CHANGES IF</small>
-              <strong>{riskText}</strong>
+            <div className="chart-hud-next">
+              <small>MODEL NEXT · {predictedProbability}%</small>
+              <strong>{predictedMove}</strong>
             </div>
           </div>
         )}
         {projectionPlan && overlayMode !== "astro" && (
           <div className={`chart-projection-key ${projectionPlan.bias}`}>
-            <small>MODEL PATH · {projectionPlan.confidence}%</small>
+            <small>MODEL PATH · NOT ASTRO</small>
             <strong>
               {projectionPlan.bias === "short"
-                ? "RETEST → LOWER"
+                ? `LOWER → ${formatPrice(projectionPlan.targetPrice)}`
                 : projectionPlan.bias === "long"
-                  ? "HOLD → HIGHER"
-                  : "RANGE → WATCH"}
+                  ? `HIGHER → ${formatPrice(projectionPlan.targetPrice)}`
+                  : `WATCH → ${formatPrice(projectionPlan.targetPrice)}`}
             </strong>
-            <span>
-              TARGET {formatPrice(projectionPlan.targetPrice)} · ANCHORED{" "}
-              {forecastLabel}
-            </span>
+            <span>{projectionPlan.confidence}% MODEL WEIGHT</span>
           </div>
         )}
         {feedState === "error" && (
@@ -975,31 +1089,31 @@ export default function LiveAstroChart({
       >
         <header>
           <div>
-            <small>WHAT THIS MEANS NOW</small>
+            <small>ASTRO SIGNAL</small>
             <strong>{signalLabel(signalState)}</strong>
           </div>
           <div>
-            <small>MODEL WEIGHT</small>
+            <small>NEXT-MOVE MODEL</small>
             <strong>{predictedProbability}%</strong>
           </div>
         </header>
 
         <article className="chart-mobile-prediction">
-          <small>MOST LIKELY ASTRO NEXT</small>
+          <small>EXPECTED NEXT</small>
           <strong>{predictedMove}</strong>
-          <p>{predictionSummary}</p>
+          <p>{readerStep}</p>
         </article>
 
         <div className="chart-mobile-brief-grid">
           <article>
-            <small>YOUR STEP</small>
-            <strong>{readerStep}</strong>
+            <small>LIVE PRICE</small>
+            <strong>{formatPrice(price)}</strong>
           </article>
           <article>
-            <small>WATCH PRICE</small>
+            <small>NEXT LEVEL</small>
             <strong>
               {nextAstroLevel
-                ? `${nextAstroLevel.shortLabel} · ${formatPrice(nextAstroLevel.price)}`
+                ? formatPrice(nextAstroLevel.price)
                 : "No confirmed target"}
             </strong>
             <span>
@@ -1011,12 +1125,12 @@ export default function LiveAstroChart({
         </div>
 
         <article className="chart-mobile-condition">
-          <small>BECOMES MORE LIKELY IF</small>
+          <small>CONFIRMS IF</small>
           <strong>{predictionTrigger}</strong>
         </article>
 
         <article className="chart-mobile-condition risk">
-          <small>THE READ CHANGES IF</small>
+          <small>WRONG / CHANGES IF</small>
           <strong>{riskText}</strong>
         </article>
       </section>
@@ -1038,7 +1152,7 @@ export default function LiveAstroChart({
             </>
           ) : (
             <>
-              <strong>No confirmed target above</strong>
+              <strong>No confirmed target</strong>
               <span>Wait for a new direct update</span>
             </>
           )}
