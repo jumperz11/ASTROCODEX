@@ -4331,6 +4331,13 @@ summary:focus-visible {
   font-weight: 800;
 }
 
+.chart-overlay-toggle button:last-child.active {
+  background:
+    linear-gradient(180deg, rgba(122, 162, 255, 0.13), rgba(196, 125, 255, 0.05));
+  box-shadow: inset 0 -2px 0 #8eb1ff;
+  color: #b9ccff;
+}
+
 .chart-overlay-toggle {
   display: flex;
   align-self: stretch;
@@ -4575,6 +4582,102 @@ summary:focus-visible {
 .chart-projection-key.long {
   border-color: rgba(82, 230, 167, 0.25);
   box-shadow: inset 2px 0 0 rgba(82, 230, 167, 0.72);
+}
+
+.chart-hermes-hud {
+  position: absolute;
+  z-index: 4;
+  top: 12px;
+  right: 88px;
+  left: 12px;
+  max-width: 540px;
+  padding: 11px 13px;
+  border: 1px solid rgba(142, 177, 255, 0.28);
+  background:
+    linear-gradient(135deg, rgba(18, 23, 37, 0.93), rgba(12, 13, 18, 0.86));
+  box-shadow:
+    inset 3px 0 0 #8eb1ff,
+    0 12px 35px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(12px);
+  pointer-events: none;
+}
+
+.chart-hermes-hud small,
+.chart-hermes-hud strong,
+.chart-hermes-hud span {
+  display: block;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  text-transform: uppercase;
+}
+
+.chart-hermes-hud small {
+  color: #9ebaff;
+  font-size: 7px;
+  letter-spacing: 0.1em;
+}
+
+.chart-hermes-hud strong {
+  margin-top: 7px;
+  color: var(--paper);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+.chart-hermes-hud strong i {
+  margin: 0 8px;
+  color: #677286;
+  font-style: normal;
+}
+
+.chart-hermes-hud span {
+  margin-top: 6px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 7px;
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chart-hermes-legend {
+  position: absolute;
+  z-index: 4;
+  right: 88px;
+  bottom: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid rgba(142, 177, 255, 0.18);
+  background: rgba(10, 11, 15, 0.82);
+  backdrop-filter: blur(9px);
+  pointer-events: none;
+}
+
+.chart-hermes-legend span,
+.chart-hermes-legend small {
+  color: var(--muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 6px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.chart-hermes-legend span {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  color: #b9ccff;
+}
+
+.chart-hermes-legend i {
+  width: 18px;
+  height: 0;
+  border-top: 2px solid #8eb1ff;
+}
+
+.chart-hermes-legend i.rail {
+  border-top: 1px dashed rgba(196, 125, 255, 0.7);
 }
 
 .chart-signal-pill,
@@ -5778,6 +5881,40 @@ summary:focus-visible {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .chart-hermes-hud {
+    top: 8px;
+    right: 66px;
+    left: 8px;
+    padding: 8px 9px;
+  }
+
+  .chart-hermes-hud strong {
+    margin-top: 5px;
+    font-size: 10px;
+  }
+
+  .chart-hermes-hud strong i {
+    margin: 0 4px;
+  }
+
+  .chart-hermes-hud span {
+    margin-top: 4px;
+    font-size: 6px;
+  }
+
+  .chart-hermes-legend {
+    right: 66px;
+    bottom: 8px;
+    left: 8px;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 7px 8px;
+  }
+
+  .chart-hermes-legend small {
+    display: none;
   }
 
   .chart-decision-strip {

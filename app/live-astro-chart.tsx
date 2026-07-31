@@ -117,6 +117,23 @@ function eventPrices(event: AstroEvent) {
     .filter((value) => Number.isFinite(value));
 }
 
+function pricesFromText(text: string) {
+  const normalized = text.replaceAll(",", "");
+  return [
+    ...normalized.matchAll(/\b(\d{2,3}(?:\.\d+)?)k\b|\b(\d{5,6})\b/gi),
+  ]
+    .map((match) =>
+      match[1] ? Number(match[1]) * 1_000 : Number(match[2]),
+    )
+    .filter(
+      (value, index, values) =>
+        Number.isFinite(value) &&
+        value >= 10_000 &&
+        value <= 250_000 &&
+        values.indexOf(value) === index,
+    );
+}
+
 function levelWasCompleted(level: ParsedLevel, events: AstroEvent[]) {
   if (level.kind !== "trim") return false;
   return events.some((event) => {
@@ -308,6 +325,8 @@ export default function LiveAstroChart({
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const projectionSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const hermesUpperSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const hermesLowerSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const projectionMarkersRef =
     useRef<ISeriesMarkersPluginApi<UTCTimestamp> | null>(null);
   const markersRef =
@@ -619,6 +638,107 @@ export default function LiveAstroChart({
     signalState,
     timeframe,
   ]);
+  const hermesProjectionPlan = useMemo(() => {
+    if (price === null) return null;
+
+    const forecastTimestamp = Math.floor(
+      new Date(forecastTime).getTime() / 1000,
+    );
+    const anchorTimestamp =
+      latestCandleTime ??
+      (Number.isFinite(forecastTimestamp)
+        ? Math.floor(forecastTimestamp / timeframe) * timeframe
+        : 0);
+    const hermesText =
+      `${hermesCurrentPhase} ${hermesNextPhase} ${hermesLongerMove} ${hermesConfirmation}`.toLowerCase();
+    const currentIsDown =
+      /\bshort\b|downside|lower|drawdown|sell/.test(
+        hermesCurrentPhase.toLowerCase(),
+      );
+    const longerIsUp =
+      /\blong\b|upside|higher|reclaim|new ath|bull/.test(
+        hermesLongerMove.toLowerCase(),
+      );
+    const mentioned = pricesFromText(hermesText).filter(
+      (value) => value > price * 0.78 && value < price * 1.24,
+    );
+    const modelPrices = parsedThesisLevels
+      .map((level) => level.price)
+      .filter((value) => value > price * 0.78 && value < price * 1.24);
+    const allPrices = [...mentioned, ...modelPrices].filter(
+      (value, index, values) => values.indexOf(value) === index,
+    );
+    const below = allPrices
+      .filter((value) => value < price * 0.999)
+      .sort((left, right) => right - left);
+    const above = allPrices
+      .filter((value) => value > price * 1.001)
+      .sort((left, right) => left - right);
+
+    const transitionPrice = currentIsDown
+      ? below.at(-1) ?? price * 0.975
+      : above[0] ?? price * 1.02;
+    const campaignTarget = longerIsUp
+      ? above.at(-1) ?? Math.max(price * 1.065, transitionPrice * 1.08)
+      : below.at(-1) ?? Math.min(price * 0.935, transitionPrice * 0.94);
+    const basePrice =
+      transitionPrice + (campaignTarget - transitionPrice) * 0.08;
+    const curvedPoints: LineData<UTCTimestamp>[] = [
+      { time: anchorTimestamp as UTCTimestamp, value: price },
+      {
+        time: (anchorTimestamp + timeframe * 2) as UTCTimestamp,
+        value: price + (transitionPrice - price) * 0.52,
+      },
+      {
+        time: (anchorTimestamp + timeframe * 5) as UTCTimestamp,
+        value: transitionPrice,
+      },
+      {
+        time: (anchorTimestamp + timeframe * 8) as UTCTimestamp,
+        value: basePrice,
+      },
+      {
+        time: (anchorTimestamp + timeframe * 13) as UTCTimestamp,
+        value: basePrice + (campaignTarget - basePrice) * 0.43,
+      },
+      {
+        time: (anchorTimestamp + timeframe * 20) as UTCTimestamp,
+        value: campaignTarget,
+      },
+    ];
+    const uncertainty = Math.max(price * 0.012, 600);
+    const branchPoints = (
+      direction: 1 | -1,
+    ): LineData<UTCTimestamp>[] =>
+      curvedPoints.map((point, index) => ({
+        time: point.time,
+        value:
+          point.value +
+          direction * uncertainty * Math.pow(index / (curvedPoints.length - 1), 1.35),
+      }));
+
+    return {
+      points: curvedPoints,
+      upper: branchPoints(1),
+      lower: branchPoints(-1),
+      transitionPrice,
+      campaignTarget,
+      currentIsDown,
+      longerIsUp,
+      confidence: predictedProbability,
+    };
+  }, [
+    forecastTime,
+    hermesConfirmation,
+    hermesCurrentPhase,
+    hermesLongerMove,
+    hermesNextPhase,
+    latestCandleTime,
+    parsedThesisLevels,
+    predictedProbability,
+    price,
+    timeframe,
+  ]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -702,6 +822,26 @@ export default function LiveAstroChart({
       priceLineVisible: false,
       title: "MODEL PATH",
     });
+    const hermesUpperSeries = chart.addSeries(LineSeries, {
+      color: "rgba(122, 162, 255, 0.20)",
+      lineWidth: 1,
+      lineStyle: LineStyle.Dashed,
+      lineType: LineType.Curved,
+      crosshairMarkerVisible: false,
+      lastValueVisible: false,
+      priceLineVisible: false,
+      visible: false,
+    });
+    const hermesLowerSeries = chart.addSeries(LineSeries, {
+      color: "rgba(196, 125, 255, 0.18)",
+      lineWidth: 1,
+      lineStyle: LineStyle.Dashed,
+      lineType: LineType.Curved,
+      crosshairMarkerVisible: false,
+      lastValueVisible: false,
+      priceLineVisible: false,
+      visible: false,
+    });
     const projectionMarkers = createSeriesMarkers(projectionSeries, [], {
       autoScale: false,
     });
@@ -710,6 +850,8 @@ export default function LiveAstroChart({
     seriesRef.current = series;
     markersRef.current = markers;
     projectionSeriesRef.current = projectionSeries;
+    hermesUpperSeriesRef.current = hermesUpperSeries;
+    hermesLowerSeriesRef.current = hermesLowerSeries;
     projectionMarkersRef.current = projectionMarkers;
 
     return () => {
@@ -719,6 +861,8 @@ export default function LiveAstroChart({
       markersRef.current = null;
       projectionMarkersRef.current = null;
       projectionSeriesRef.current = null;
+      hermesUpperSeriesRef.current = null;
+      hermesLowerSeriesRef.current = null;
       seriesRef.current = null;
       chartRef.current = null;
       chart.remove();
@@ -728,48 +872,109 @@ export default function LiveAstroChart({
   useEffect(() => {
     const projectionSeries = projectionSeriesRef.current;
     const projectionMarkers = projectionMarkersRef.current;
-    if (!projectionSeries || !projectionMarkers) return;
+    const hermesUpperSeries = hermesUpperSeriesRef.current;
+    const hermesLowerSeries = hermesLowerSeriesRef.current;
+    if (
+      !projectionSeries ||
+      !projectionMarkers ||
+      !hermesUpperSeries ||
+      !hermesLowerSeries
+    ) return;
 
     const visible =
       overlayMode !== "astro" &&
-      overlayMode !== "hermes" &&
       Boolean(projectionPlan);
+    const hermesVisible =
+      overlayMode === "hermes" && Boolean(hermesProjectionPlan);
     projectionSeries.applyOptions({
-      visible,
+      visible: overlayMode === "hermes" ? hermesVisible : visible,
       color:
-        projectionPlan?.bias === "short"
+        overlayMode === "hermes"
+          ? "rgba(142, 177, 255, 0.88)"
+          : projectionPlan?.bias === "short"
           ? "rgba(255, 107, 102, 0.62)"
           : projectionPlan?.bias === "long"
             ? "rgba(82, 230, 167, 0.62)"
             : "rgba(122, 162, 255, 0.58)",
+      lineStyle:
+        overlayMode === "hermes" ? LineStyle.Solid : LineStyle.Dashed,
+      lineWidth: overlayMode === "hermes" ? 4 : 3,
+      title: overlayMode === "hermes" ? "HERMES PATH" : "MODEL PATH",
     });
-    if (!projectionPlan) {
+    hermesUpperSeries.applyOptions({ visible: hermesVisible });
+    hermesLowerSeries.applyOptions({ visible: hermesVisible });
+
+    if (overlayMode === "hermes" && hermesProjectionPlan) {
+      projectionSeries.setData(hermesProjectionPlan.points);
+      hermesUpperSeries.setData(hermesProjectionPlan.upper);
+      hermesLowerSeries.setData(hermesProjectionPlan.lower);
+      projectionMarkers.setMarkers([
+        {
+          color: "#ffb000",
+          id: `hermes-transition-${forecastTime}`,
+          position: hermesProjectionPlan.currentIsDown ? "belowBar" : "aboveBar",
+          shape: "circle",
+          size: 1,
+          text: "1 · FINISH CURRENT",
+          time: hermesProjectionPlan.points[2].time,
+        },
+        {
+          color: "#f3f0e8",
+          id: `hermes-confirm-${forecastTime}`,
+          position: "aboveBar",
+          shape: "square",
+          size: 1,
+          text: "2 · WAIT CONFIRM",
+          time: hermesProjectionPlan.points[3].time,
+        },
+        {
+          color: hermesProjectionPlan.longerIsUp ? "#52e6a7" : "#ff6b66",
+          id: `hermes-campaign-${forecastTime}`,
+          position: hermesProjectionPlan.longerIsUp ? "aboveBar" : "belowBar",
+          shape: "arrowUp",
+          size: 1,
+          text: "3 · LONGER CAMPAIGN",
+          time: hermesProjectionPlan.points.at(-1)!.time,
+        },
+      ]);
+    } else if (!projectionPlan) {
       projectionSeries.setData([]);
       projectionMarkers.setMarkers([]);
+      hermesUpperSeries.setData([]);
+      hermesLowerSeries.setData([]);
       return;
+    } else {
+      projectionSeries.setData(projectionPlan.points);
+      hermesUpperSeries.setData([]);
+      hermesLowerSeries.setData([]);
+      projectionMarkers.setMarkers([
+        {
+          color: "rgba(122, 162, 255, 0.72)",
+          id: `model-path-${forecastTime}-${timeframe}`,
+          position:
+            projectionPlan.bias === "short" ? "belowBar" : "aboveBar",
+          shape: "circle",
+          size: 0.7,
+          text: `MODEL ${projectionPlan.confidence}%`,
+          time: projectionPlan.points.at(-1)!.time,
+        },
+      ]);
     }
 
-    projectionSeries.setData(projectionPlan.points);
-    projectionMarkers.setMarkers([
-      {
-        color: "rgba(122, 162, 255, 0.72)",
-        id: `model-path-${forecastTime}-${timeframe}`,
-        position:
-          projectionPlan.bias === "short" ? "belowBar" : "aboveBar",
-        shape: "circle",
-        size: 0.7,
-        text: `MODEL ${projectionPlan.confidence}%`,
-        time: projectionPlan.points.at(-1)!.time,
-      },
-    ]);
-    const fitKey = `${forecastTime}-${timeframe}`;
+    const fitKey = `${forecastTime}-${timeframe}-${overlayMode}`;
     if (projectionFitKeyRef.current !== fitKey) {
       projectionFitKeyRef.current = fitKey;
       window.requestAnimationFrame(() => {
         chartRef.current?.timeScale().fitContent();
       });
     }
-  }, [forecastTime, overlayMode, projectionPlan, timeframe]);
+  }, [
+    forecastTime,
+    hermesProjectionPlan,
+    overlayMode,
+    projectionPlan,
+    timeframe,
+  ]);
 
   useEffect(() => {
     const series = seriesRef.current;
@@ -1047,7 +1252,12 @@ export default function LiveAstroChart({
               aria-pressed={overlayMode === mode}
               className={overlayMode === mode ? "active" : ""}
               key={mode}
-              onClick={() => setOverlayMode(mode)}
+              onClick={() => {
+                setOverlayMode(mode);
+                if (mode === "hermes" && timeframe < 21_600) {
+                  setTimeframe(21_600);
+                }
+              }}
               type="button"
             >
               {mode === "focus"
@@ -1101,6 +1311,26 @@ export default function LiveAstroChart({
             </strong>
             <span>{projectionPlan.confidence}% MODEL WEIGHT</span>
           </div>
+        )}
+        {overlayMode === "hermes" && hermesProjectionPlan && (
+          <>
+            <div className="chart-hermes-hud">
+              <small>HERMES · PROBABILITY MAP</small>
+              <strong>
+                {hermesProjectionPlan.currentIsDown ? "FINISH ↓" : "BUILD ↑"}
+                <i>→</i>
+                CONFIRM
+                <i>→</i>
+                {hermesProjectionPlan.longerIsUp ? "CAMPAIGN ↑" : "CAMPAIGN ↓"}
+              </strong>
+              <span>{predictedProbability}% LEADING PATH · {hermesHorizon}</span>
+            </div>
+            <div className="chart-hermes-legend">
+              <span><i className="main" />Expected route</span>
+              <span><i className="rail" />Alternative range</span>
+              <small>Model inference · not Astro’s drawing</small>
+            </div>
+          </>
         )}
         {feedState === "error" && (
           <div className="chart-feed-error">
