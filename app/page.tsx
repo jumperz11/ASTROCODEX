@@ -1558,8 +1558,8 @@ export default function Home() {
               <small>02 · WHAT HERMES LEARNED</small>
               <strong>{forecast.hermes.learningNote}</strong>
               <span>
-                {(systemStatus.codexEntries || 5047).toLocaleString("en-US")} lessons ·{" "}
-                {(systemStatus.codexMedia || 495).toLocaleString("en-US")} charts
+                {(systemStatus.codexEntries || 13984).toLocaleString("en-US")} lessons ·{" "}
+                {(systemStatus.codexMedia || 877).toLocaleString("en-US")} charts
               </span>
             </article>
             <article className="market">
@@ -1645,16 +1645,16 @@ export default function Home() {
             <article>
               <small>SEARCHABLE LESSONS</small>
               <strong>
-                {(systemStatus.codexEntries || 5047).toLocaleString("en-US")}
+                {(systemStatus.codexEntries || 13984).toLocaleString("en-US")}
               </strong>
-              <span>messages and chart notes indexed</span>
+              <span>messages from both Telegram knowledge archives</span>
             </article>
             <article>
               <small>ARCHIVED CHARTS</small>
               <strong>
-                {(systemStatus.codexMedia || 495).toLocaleString("en-US")}
+                {(systemStatus.codexMedia || 877).toLocaleString("en-US")}
               </strong>
-              <span>images connected to their original context</span>
+              <span>charts connected to their group and original context</span>
             </article>
             <article>
               <small>LIVE STATUS</small>

@@ -15,6 +15,9 @@ Research task
      silence after a win/loss.
    Treat results only as historical framework and behavioral context, never
    current-position evidence. If the archive has no close analogue, say so.
+   The Codex contains multiple named Telegram sources. Preserve each result's
+   source label and distinguish the teaching archive from the position/update
+   group. Historical similarity does not prove a current trade.
 3. Search X for @astronomer_zero's newest relevant posts and connected threads.
 4. Inspect quoted posts and chart images when they materially affect the reading.
 5. Reconstruct the public sequence: thesis, position direction, entry or scale

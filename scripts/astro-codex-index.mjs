@@ -1,5 +1,6 @@
+import { createHash } from "node:crypto";
 import { readFile, readdir, writeFile } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 
 const entityMap = {
   amp: "&",
@@ -84,7 +85,12 @@ function cleanHtml(value) {
   ).trim();
 }
 
-export function parseTelegramHtml(html, sourceFile = "messages.html") {
+export function parseTelegramHtml(
+  html,
+  sourceFile = "messages.html",
+  mediaPrefix = "",
+  sourceName = "Astro Core Edge Codex",
+) {
   return html
     .split(/(?=<div class="message (?:default|service)[^"]*" id="message)/)
     .flatMap((block) => {
@@ -109,15 +115,17 @@ export function parseTelegramHtml(html, sourceFile = "messages.html") {
         .map((match) => decodeHtml(match[1]))
         .filter(
           (path) =>
-            /^(?:photos|video_files|voice_messages|files|audio_files)\//.test(
+            /^(?:photos|images|video_files|voice_messages|files|audio_files)\//.test(
               path,
             ) && !path.includes("_thumb."),
-        );
+        )
+        .map((path) => (mediaPrefix ? join(mediaPrefix, path) : path));
       if (!text && media.length === 0) return [];
       return [
         {
           id: Number(id),
           ref: `${sourceFile}#message${id}`,
+          source: sourceName,
           date,
           author,
           text: text || "[Media-only chart or attachment]",
@@ -127,28 +135,85 @@ export function parseTelegramHtml(html, sourceFile = "messages.html") {
     });
 }
 
+async function telegramSourceFiles(archiveDirectory, directory = archiveDirectory) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const absolutePath = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await telegramSourceFiles(archiveDirectory, absolutePath)));
+    } else if (/^messages\d*\.html$/i.test(entry.name)) {
+      files.push(relative(archiveDirectory, absolutePath));
+    }
+  }
+  return files;
+}
+
+function sourceFileNumber(name) {
+  return Number(basename(name).match(/\d+/)?.[0] ?? "1");
+}
+
+function messageFingerprint(message) {
+  return createHash("sha256")
+    .update(
+      [
+        message.date,
+        message.author,
+        message.text.replace(/\s+/g, " ").trim(),
+        message.media.map((path) => basename(path)).join(","),
+      ].join("\u0000"),
+    )
+    .digest("hex");
+}
+
 export async function buildCodexIndex(archiveDirectory) {
-  const sourceFiles = (await readdir(archiveDirectory))
-    .filter((name) => /^messages\d*\.html$/i.test(name))
+  const sourceFiles = (await telegramSourceFiles(archiveDirectory))
     .sort((left, right) => {
-      const number = (name) =>
-        Number(name.match(/\d+/)?.[0] ?? "1");
-      return number(left) - number(right);
+      const leftDirectory = dirname(left);
+      const rightDirectory = dirname(right);
+      return (
+        leftDirectory.localeCompare(rightDirectory) ||
+        sourceFileNumber(left) - sourceFileNumber(right)
+      );
     });
   const messages = [];
   for (const sourceFile of sourceFiles) {
     const html = await readFile(join(archiveDirectory, sourceFile), "utf8");
-    messages.push(...parseTelegramHtml(html, sourceFile));
+    const mediaPrefix = dirname(sourceFile) === "." ? "" : dirname(sourceFile);
+    const sourceName =
+      mediaPrefix || basename(archiveDirectory) || "Astro Telegram archive";
+    messages.push(
+      ...parseTelegramHtml(html, sourceFile, mediaPrefix, sourceName),
+    );
   }
-  const byId = new Map();
-  for (const message of messages) byId.set(message.id, message);
-  const entries = [...byId.values()].sort((left, right) => left.id - right.id);
+  const byFingerprint = new Map();
+  for (const message of messages) {
+    const fingerprint = messageFingerprint(message);
+    const existing = byFingerprint.get(fingerprint);
+    if (!existing) {
+      byFingerprint.set(fingerprint, {
+        ...message,
+        sources: [message.source],
+      });
+    } else if (!existing.sources.includes(message.source)) {
+      existing.sources.push(message.source);
+    }
+  }
+  const entries = [...byFingerprint.values()].sort(
+    (left, right) =>
+      left.source.localeCompare(right.source) || left.id - right.id,
+  );
+  const archiveSources = [
+    ...new Set(entries.flatMap((entry) => entry.sources)),
+  ].sort();
   return {
     version: 1,
     title: "Astro Core Edge Codex",
     builtAt: new Date().toISOString(),
     archive: basename(archiveDirectory),
+    archiveSources,
     sourceFiles,
+    duplicateCount: messages.length - entries.length,
     entryCount: entries.length,
     mediaCount: entries.reduce((total, entry) => total + entry.media.length, 0),
     entries,
@@ -174,7 +239,8 @@ export function searchCodex(index, query, limit = 6) {
 
   return entries
     .map((entry, position) => {
-      const haystack = `${entry.date} ${entry.text}`.toLowerCase();
+      const haystack =
+        `${entry.source} ${entry.sources?.join(" ") || ""} ${entry.date} ${entry.text}`.toLowerCase();
       let score = normalizedQuery.length > 5 && haystack.includes(normalizedQuery)
         ? 12
         : 0;
@@ -185,11 +251,16 @@ export function searchCodex(index, query, limit = 6) {
       if (score === 0) return null;
       const context = entries
         .slice(Math.max(0, position - 1), Math.min(entries.length, position + 2))
-        .map((item) => `[${item.ref} · ${item.date}]\n${item.text}`)
+        .map(
+          (item) =>
+            `[${item.source} · ${item.ref} · ${item.date}]\n${item.text}`,
+        )
         .join("\n\n");
       return {
         id: entry.id,
         ref: entry.ref,
+        source: entry.source,
+        sources: entry.sources,
         date: entry.date,
         score,
         media: entry.media,
