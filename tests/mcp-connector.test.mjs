@@ -242,6 +242,16 @@ test("forecast gate requires direct sources and balanced scenarios", () => {
       nextTrigger: "A direct structure update.",
       failure: "A new thesis supersedes this read.",
     },
+    hermes: {
+      horizon: "Days to weeks",
+      coreThesis: "The range must resolve before a larger campaign is active.",
+      currentPhase: "Waiting inside the range.",
+      nextPhase: "Confirm direction after the range resolves.",
+      longerMove: "Follow the confirmed higher-timeframe direction.",
+      confirmation: "A direct Astro structure update.",
+      failure: "A new direct thesis supersedes this sequence.",
+      learningNote: "Closest archive behavior favors waiting through an unresolved range.",
+    },
     thesisLevels: [
       {
         label: "Weekly open watch",
@@ -351,6 +361,10 @@ test("forecast gate requires direct sources and balanced scenarios", () => {
   assert.equal(accepted.mode, "live");
   assert.match(accepted.generatedAt, /^\d{4}-\d{2}-\d{2}T/);
 
+  assert.throws(
+    () => validateForecast({ ...valid, hermes: undefined }),
+    /missing Hermes longer-horizon thesis/,
+  );
   assert.throws(
     () =>
       validateForecast({

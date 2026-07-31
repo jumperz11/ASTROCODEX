@@ -107,6 +107,31 @@ export function validateForecast(report) {
       throw new Error(`Forecast thesis is missing ${field}.`);
     }
   }
+  const hermesFields = [
+    "horizon",
+    "coreThesis",
+    "currentPhase",
+    "nextPhase",
+    "longerMove",
+    "confirmation",
+    "failure",
+    "learningNote",
+  ];
+  if (
+    !report.hermes ||
+    typeof report.hermes !== "object" ||
+    Array.isArray(report.hermes)
+  ) {
+    throw new Error("Forecast is missing Hermes longer-horizon thesis.");
+  }
+  for (const field of hermesFields) {
+    if (
+      typeof report.hermes[field] !== "string" ||
+      !report.hermes[field].trim()
+    ) {
+      throw new Error(`Forecast Hermes thesis is missing ${field}.`);
+    }
+  }
   if (
     !Array.isArray(report.thesisLevels) ||
     report.thesisLevels.length < 1 ||

@@ -42,7 +42,7 @@ type ParsedLevel = AstroLevel & {
 };
 
 type FeedState = "loading" | "live" | "delayed" | "error";
-type OverlayMode = "focus" | "astro" | "model";
+type OverlayMode = "focus" | "astro" | "model" | "hermes";
 type SignalState =
   | "wait"
   | "long"
@@ -273,6 +273,13 @@ export default function LiveAstroChart({
   predictionSummary,
   predictionTrigger,
   readerStep,
+  hermesHorizon,
+  hermesCurrentPhase,
+  hermesNextPhase,
+  hermesLongerMove,
+  hermesConfirmation,
+  hermesFailure,
+  onOpenHermes,
 }: {
   events: AstroEvent[];
   freshnessLabel: string;
@@ -289,6 +296,13 @@ export default function LiveAstroChart({
   predictionSummary: string;
   predictionTrigger: string;
   readerStep: string;
+  hermesHorizon: string;
+  hermesCurrentPhase: string;
+  hermesNextPhase: string;
+  hermesLongerMove: string;
+  hermesConfirmation: string;
+  hermesFailure: string;
+  onOpenHermes: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -446,7 +460,7 @@ export default function LiveAstroChart({
   );
   const visibleThesisLevels = useMemo(
     () =>
-      overlayMode === "model"
+      overlayMode === "model" || overlayMode === "hermes"
         ? parsedThesisLevels
         : [],
     [overlayMode, parsedThesisLevels],
@@ -454,6 +468,7 @@ export default function LiveAstroChart({
   const visibleEventMarkers = useMemo(
     () =>
       overlayMode === "model"
+        || overlayMode === "hermes"
         ? []
         : overlayMode === "focus"
           ? eventMarkers.slice(-1)
@@ -715,7 +730,10 @@ export default function LiveAstroChart({
     const projectionMarkers = projectionMarkersRef.current;
     if (!projectionSeries || !projectionMarkers) return;
 
-    const visible = overlayMode !== "astro" && Boolean(projectionPlan);
+    const visible =
+      overlayMode !== "astro" &&
+      overlayMode !== "hermes" &&
+      Boolean(projectionPlan);
     projectionSeries.applyOptions({
       visible,
       color:
@@ -1024,7 +1042,7 @@ export default function LiveAstroChart({
           ))}
         </div>
         <div className="chart-overlay-toggle" aria-label="Chart information layer">
-          {(["focus", "astro", "model"] as const).map((mode) => (
+          {(["focus", "astro", "model", "hermes"] as const).map((mode) => (
             <button
               aria-pressed={overlayMode === mode}
               className={overlayMode === mode ? "active" : ""}
@@ -1032,7 +1050,13 @@ export default function LiveAstroChart({
               onClick={() => setOverlayMode(mode)}
               type="button"
             >
-              {mode === "focus" ? "Plan" : mode === "astro" ? "All Astro" : "Forecast"}
+              {mode === "focus"
+                ? "Plan"
+                : mode === "astro"
+                  ? "All Astro"
+                  : mode === "model"
+                    ? "Forecast"
+                    : "Hermes"}
             </button>
           ))}
         </div>
@@ -1065,7 +1089,7 @@ export default function LiveAstroChart({
             </div>
           </div>
         )}
-        {projectionPlan && overlayMode !== "astro" && (
+        {projectionPlan && overlayMode !== "astro" && overlayMode !== "hermes" && (
           <div className={`chart-projection-key ${projectionPlan.bias}`}>
             <small>MODEL PATH · NOT ASTRO</small>
             <strong>
@@ -1085,6 +1109,44 @@ export default function LiveAstroChart({
         )}
       </div>
 
+      {overlayMode === "hermes" ? (
+        <section className="chart-hermes-brief" aria-label="Hermes longer-horizon chart thesis">
+          <header>
+            <div>
+              <small>HERMES · LONGER VIEW</small>
+              <strong>{hermesHorizon}</strong>
+            </div>
+            <button type="button" onClick={onOpenHermes}>Open full brain →</button>
+          </header>
+          <div className="chart-hermes-path">
+            <article>
+              <small>NOW</small>
+              <strong>{hermesCurrentPhase}</strong>
+            </article>
+            <i>→</i>
+            <article>
+              <small>NEXT PHASE</small>
+              <strong>{hermesNextPhase}</strong>
+            </article>
+            <i>→</i>
+            <article>
+              <small>LONGER MOVE</small>
+              <strong>{hermesLongerMove}</strong>
+            </article>
+          </div>
+          <footer>
+            <div>
+              <small>CONFIRMATION</small>
+              <strong>{hermesConfirmation}</strong>
+            </div>
+            <div>
+              <small>WRONG IF</small>
+              <strong>{hermesFailure}</strong>
+            </div>
+          </footer>
+        </section>
+      ) : (
+        <>
       <section
         className={`chart-mobile-brief ${signalState}`}
         aria-label="What the chart means now"
@@ -1165,6 +1227,8 @@ export default function LiveAstroChart({
           <span>{thesisTrigger} · inference, not a quote</span>
         </div>
       </div>
+        </>
+      )}
 
       <details className="chart-levels-details">
         <summary>

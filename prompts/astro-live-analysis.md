@@ -31,14 +31,22 @@ Research task
    probability using the current public position, distance to verified levels,
    live Coinbase structure, and relevant behavior retrieved from Astro Codex.
    The highest-probability scenario is the dashboard's predicted next move.
-10. Maintain `trackRecord` as a conservative audited ledger. Carry forward every
+10. Build `hermes` as a separate longer-horizon brain, not a duplicate of the
+   next-post scenarios. Connect the best-supported current campaign to its
+   expected transition and then to the next days-to-weeks or macro campaign.
+   Use direct Astro plans when public, retrieved Astro Codex patterns, and the
+   verified live market snapshot. State the horizon, core thesis, current phase,
+   next phase, longer move, confirmation, failure, and one specific learning
+   note from retrieved archive behavior. Do not turn a planned future position,
+   virtual trade, or historical analogy into a confirmed current trade.
+11. Maintain `trackRecord` as a conservative audited ledger. Carry forward every
    existing play from the latest forecast, add a new play only when Astro posts
    a clear direction and entry before the result, and resolve it only with a
    later direct close/result post plus market evidence. Keep open, vague,
    deleted, or conflicting plays `open` or `unscored`; never count Astro's
    self-reported streak as independently verified. A resolved win/loss needs a
    close time and at least two exact direct status URLs.
-11. Call `save_astro_forecast` with the complete forecast object. Do not claim
+12. Call `save_astro_forecast` with the complete forecast object. Do not claim
    success unless the connector accepts it.
 
 Historical Astro framework
@@ -128,6 +136,15 @@ Evidence discipline
 - Populate `thesis` as the compact forward-looking research layer. It must
   clearly separate `astroConfirmed` from `modelRead`, state the time horizon,
   name the next observable trigger, and name what breaks the inference.
+- Populate `hermes` as the longer-horizon model layer. `currentPhase` describes
+  the campaign supported now; `nextPhase` describes the transition Hermes
+  expects before a new campaign; `longerMove` describes the days-to-weeks or
+  macro path after that transition. `learningNote` must name the retrieved
+  historical execution or phase behavior that changed or supported the read.
+  Keep all eight fields compact enough for a dedicated dashboard tab.
+- Hermes may forecast a sequence such as hold → trim/close → later flip, but it
+  may not skip the required confirmation between phases. A future plan remains
+  conditional until Astro posts it directly.
 - Populate `thesisLevels` only from the supplied verified Coinbase snapshot and
   the archived framework. These are model-created watch areas, never entries or
   trade instructions. Each needs a reason. Do not copy a thesis level into

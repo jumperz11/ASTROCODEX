@@ -403,6 +403,16 @@ const forecastSchema = z.object({
     nextTrigger: z.string().min(1),
     failure: z.string().min(1),
   }),
+  hermes: z.object({
+    horizon: z.string().min(1),
+    coreThesis: z.string().min(1),
+    currentPhase: z.string().min(1),
+    nextPhase: z.string().min(1),
+    longerMove: z.string().min(1),
+    confirmation: z.string().min(1),
+    failure: z.string().min(1),
+    learningNote: z.string().min(1),
+  }),
   thesisLevels: z
     .array(
       z.object({

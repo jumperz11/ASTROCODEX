@@ -68,6 +68,16 @@ type Forecast = {
     nextTrigger: string;
     failure: string;
   };
+  hermes: {
+    horizon: string;
+    coreThesis: string;
+    currentPhase: string;
+    nextPhase: string;
+    longerMove: string;
+    confirmation: string;
+    failure: string;
+    learningNote: string;
+  };
   thesisLevels: Array<{
     label: string;
     value: string;
@@ -158,6 +168,19 @@ const initialForecast: Forecast = {
       "Price reaction at the weekly open and a fresh direct Astro position update.",
     failure:
       "A direct full close, aggressive short re-add, or a new thesis that supersedes the dual-book read.",
+  },
+  hermes: {
+    horizon: "Days to weeks · updates with every accepted forecast",
+    coreThesis:
+      "Astro’s staged execution suggests the current position should be completed before a new campaign is treated as active.",
+    currentPhase: "Manage the existing position; do not treat its old entry as new.",
+    nextPhase: "Wait for a direct close, trim, or flip before changing campaigns.",
+    longerMove:
+      "After the current campaign resolves, use the higher-timeframe bias and fresh Astro levels to map the next move.",
+    confirmation: "A direct Astro management post with readable position levels.",
+    failure: "A new direct thesis that supersedes the current position sequence.",
+    learningNote:
+      "Archive baseline: staged entry, gradual profit-taking, protected runner, then a confirmed transition.",
   },
   thesisLevels: [
     {
@@ -285,6 +308,63 @@ function deriveSignal(report: Forecast): SimpleSignal {
 }
 
 function normalizeForecast(report: Forecast): Forecast {
+  const positionText =
+    `${report.decision?.position ?? report.stance} ${report.execution?.entry?.state ?? ""}`.toLowerCase();
+  const plannedLong = report.levels?.find((level) =>
+    /planned htf long|60k.?66k long/i.test(`${level.label} ${level.value}`),
+  );
+  const residualShort =
+    positionText.includes("short") &&
+    /\bhold\b|residual|still open|no add|no-add/.test(positionText);
+  const fallbackHermes: Forecast["hermes"] = residualShort
+    ? {
+        horizon: report.thesis?.horizon ?? "Days to weeks",
+        coreThesis:
+          "The downside campaign is near its public objective, but Astro’s last direct position still supports holding the remaining short without adding. The larger transition needs a public close first.",
+        currentPhase:
+          report.decision?.position ?? "Residual short held · no new add",
+        nextPhase:
+          "Finish or trim the remaining short, then wait for Astro to confirm the campaign is closed.",
+        longerMove: plannedLong
+          ? `After the short closes, the public plan points to higher-timeframe longs around ${plannedLong.value}. This is conditional, not active.`
+          : "After the short closes, rebuild the higher-timeframe long thesis from fresh direct levels.",
+        confirmation:
+          report.thesis?.nextTrigger ??
+          "A direct short-close or higher-timeframe long post",
+        failure:
+          report.thesis?.failure ??
+          report.invalidation ??
+          "Astro re-adds shorts or cancels the planned long transition.",
+        learningNote:
+          "Astro Codex favors completing the active campaign, realizing profit gradually, and requiring direct confirmation before treating a planned flip as active.",
+      }
+    : {
+        horizon: report.thesis?.horizon ?? "Days to weeks",
+        coreThesis:
+          report.thesis?.modelRead ??
+          report.nextMove ??
+          "Wait for the next evidence-backed phase change.",
+        currentPhase:
+          report.decision?.position ?? report.stance ?? "Position not public",
+        nextPhase:
+          report.decision?.playbookMove ??
+          report.nextMove ??
+          "Wait for a direct management update.",
+        longerMove:
+          report.nextMove ??
+          "The longer move remains uncertain until the current campaign resolves.",
+        confirmation:
+          report.thesis?.nextTrigger ??
+          report.waitFor ??
+          "Fresh direct Astro evidence",
+        failure:
+          report.thesis?.failure ??
+          report.invalidation ??
+          "A new direct thesis supersedes the model.",
+        learningNote:
+          "Derived from the current Astro Codex retrieval and archived staged-execution framework.",
+      };
+
   return {
     ...report,
     decision:
@@ -336,6 +416,7 @@ function normalizeForecast(report: Forecast): Forecast {
           report.invalidation ??
           "A new direct thesis supersedes this read.",
       },
+    hermes: report.hermes ?? fallbackHermes,
     thesisLevels: report.thesisLevels ?? [],
   };
 }
@@ -521,7 +602,7 @@ function PositionJourney({
 export default function Home() {
   const [forecast, setForecast] = useState<Forecast>(embeddedForecast);
   const [activeView, setActiveView] =
-    useState<"desk" | "history" | "evidence" | "playbook">("desk");
+    useState<"desk" | "hermes" | "history" | "evidence" | "playbook">("desk");
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
   const [lastUpdated, setLastUpdated] = useState("Validated Grok snapshot");
@@ -870,7 +951,9 @@ export default function Home() {
     }
   }
 
-  function showView(view: "desk" | "history" | "evidence" | "playbook") {
+  function showView(
+    view: "desk" | "hermes" | "history" | "evidence" | "playbook",
+  ) {
     setActiveView(view);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -896,6 +979,7 @@ export default function Home() {
 
         <nav aria-label="Primary navigation">
           <button className={activeView === "desk" ? "active" : ""} onClick={() => showView("desk")}>Now</button>
+          <button className={activeView === "hermes" ? "active" : ""} onClick={() => showView("hermes")}>Hermes</button>
           <button className={activeView === "history" ? "active" : ""} onClick={() => showView("history")}>History</button>
           <button className={activeView === "evidence" ? "active" : ""} onClick={() => showView("evidence")}>Evidence</button>
           <button className={activeView === "playbook" ? "active" : ""} onClick={() => showView("playbook")}>School</button>
@@ -1091,6 +1175,13 @@ export default function Home() {
               predictedNextMove?.trigger || forecast.thesis.nextTrigger
             }
             readerStep={plainDashboard.you}
+            hermesHorizon={forecast.hermes.horizon}
+            hermesCurrentPhase={forecast.hermes.currentPhase}
+            hermesNextPhase={forecast.hermes.nextPhase}
+            hermesLongerMove={forecast.hermes.longerMove}
+            hermesConfirmation={forecast.hermes.confirmation}
+            hermesFailure={forecast.hermes.failure}
+            onOpenHermes={() => showView("hermes")}
           />
 
           <details className="current-analysis-details">
@@ -1242,6 +1333,129 @@ export default function Home() {
         </div>
       )}
 
+      {activeView === "hermes" && (
+        <section className="hermes-view">
+          <div className="hermes-head">
+            <div>
+              <span className="eyebrow">HERMES BRAIN · LONGER-HORIZON MODEL</span>
+              <h1>What comes after the current move?</h1>
+              <p>
+                Hermes connects Astro’s newest public evidence, the full Astro
+                Codex archive, live market structure, and past forecast outcomes.
+                This is a changing thesis—not a confirmed Astro trade.
+              </p>
+            </div>
+            <div className="hermes-live-chip">
+              <span className={signalFreshness.tone}><i /> AUTO-UPDATING</span>
+              <strong>{forecast.confidence}%</strong>
+              <small>EVIDENCE ALIGNMENT</small>
+              <p>{signalFreshness.label} · {timeLabel}</p>
+            </div>
+          </div>
+
+          <section className="hermes-core">
+            <header>
+              <div>
+                <small>HERMES CORE THESIS</small>
+                <h2>{forecast.hermes.coreThesis}</h2>
+              </div>
+              <span>{forecast.hermes.horizon}</span>
+            </header>
+
+            <div className="hermes-path" aria-label="Hermes predicted phase path">
+              <article className="current">
+                <span>01</span>
+                <small>CURRENT PHASE</small>
+                <strong>{forecast.hermes.currentPhase}</strong>
+                <p>Best-supported public state now.</p>
+              </article>
+              <i>→</i>
+              <article className="next">
+                <span>02</span>
+                <small>EXPECTED TRANSITION</small>
+                <strong>{forecast.hermes.nextPhase}</strong>
+                <p>What Hermes expects before the larger move.</p>
+              </article>
+              <i>→</i>
+              <article className="longer">
+                <span>03</span>
+                <small>LONGER MOVE</small>
+                <strong>{forecast.hermes.longerMove}</strong>
+                <p>Days-to-weeks model path; inference only.</p>
+              </article>
+            </div>
+          </section>
+
+          <div className="hermes-scenarios">
+            <div className="hermes-section-title">
+              <div>
+                <small>NEXT OBSERVABLE ASTRO BEHAVIOR</small>
+                <h2>Three paths. One must earn confirmation.</h2>
+              </div>
+              <p>Probabilities refresh when evidence or meaningful market structure changes.</p>
+            </div>
+            <div className="hermes-scenario-grid">
+              {forecast.scenarios.map((scenario, index) => (
+                <article className={index === 0 ? "lead" : ""} key={scenario.name}>
+                  <header>
+                    <span>{String(index + 1).padStart(2, "0")}</span>
+                    <strong>{scenario.probability}%</strong>
+                  </header>
+                  <h3>{scenario.name}</h3>
+                  <div className="hermes-probability">
+                    <i style={{ width: `${scenario.probability}%` }} />
+                  </div>
+                  <p>{scenario.description}</p>
+                  <small>CONFIRMS IF · {scenario.trigger}</small>
+                </article>
+              ))}
+            </div>
+          </div>
+
+          <section className="hermes-proof">
+            <article className="direct">
+              <small>01 · ASTRO DIRECT</small>
+              <strong>{forecast.thesis.astroConfirmed}</strong>
+              <span>Public evidence only</span>
+            </article>
+            <article className="memory">
+              <small>02 · WHAT HERMES LEARNED</small>
+              <strong>{forecast.hermes.learningNote}</strong>
+              <span>
+                {(systemStatus.codexEntries || 5047).toLocaleString("en-US")} lessons ·{" "}
+                {(systemStatus.codexMedia || 495).toLocaleString("en-US")} charts
+              </span>
+            </article>
+            <article className="market">
+              <small>03 · MARKET / REGIME</small>
+              <strong>{forecast.thesis.regime}</strong>
+              <span>Model context—not an Astro quote</span>
+            </article>
+          </section>
+
+          <section className="hermes-gates">
+            <article>
+              <small>THESIS GETS STRONGER IF</small>
+              <strong>{forecast.hermes.confirmation}</strong>
+            </article>
+            <article className="failure">
+              <small>HERMES IS WRONG / MUST REBUILD IF</small>
+              <strong>{forecast.hermes.failure}</strong>
+            </article>
+          </section>
+
+          <div className="hermes-boundary">
+            <span>HOW IT UPDATES</span>
+            <p>
+              Every accepted VPS scan re-reads direct Astro posts, retrieves
+              matching Astro Codex behavior, checks live Coinbase structure, and
+              rebuilds this thesis. Silence or archive similarity can change a
+              probability, but cannot create a confirmed trade.
+            </p>
+          </div>
+        </section>
+      )}
+
       {activeView === "history" && <AstroHistory />}
 
       {activeView === "evidence" && (
@@ -1382,6 +1596,9 @@ export default function Home() {
       <nav className="mobile-nav" aria-label="Mobile navigation">
         <button className={activeView === "desk" ? "active" : ""} onClick={() => showView("desk")}>
           <span>●</span>Now
+        </button>
+        <button className={activeView === "hermes" ? "active" : ""} onClick={() => showView("hermes")}>
+          <span>◇</span>Hermes
         </button>
         <button className={activeView === "playbook" ? "active" : ""} onClick={() => showView("playbook")}>
           <span>⌁</span>School
