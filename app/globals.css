@@ -190,6 +190,43 @@ a {
   cursor: pointer;
 }
 
+.sound-alert-button {
+  min-height: 34px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.sound-alert-button i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #59616d;
+}
+
+.sound-alert-button b {
+  font-weight: 600;
+}
+
+.sound-alert-button.active {
+  border-color: rgba(82, 230, 167, 0.35);
+  color: var(--green);
+}
+
+.sound-alert-button.active i {
+  background: var(--green);
+  box-shadow: 0 0 10px rgba(82, 230, 167, 0.65);
+}
+
 .sync-button:disabled {
   opacity: 0.55;
   cursor: wait;
@@ -4467,6 +4504,16 @@ summary:focus-visible {
     min-width: 58px;
     min-height: 36px;
     padding: 8px 11px;
+  }
+
+  .sound-alert-button {
+    min-width: 38px;
+    min-height: 36px;
+    padding: 0 10px;
+  }
+
+  .sound-alert-button b {
+    display: none;
   }
 
   .quick-view {

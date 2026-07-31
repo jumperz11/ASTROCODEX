@@ -43,7 +43,8 @@ test("server-renders the Astro Intelligence research terminal", async () => {
   assert.match(html, /WHAT JUST HAPPENED/);
   assert.match(html, /WATCH THIS NEXT/);
   assert.match(html, /Watch Hermes live/);
-  assert.match(html, /TP \/ GOAL/);
+  assert.match(html, /POSITION/);
+  assert.match(html, /Alerts off/);
   assert.match(html, />Chart</);
   assert.match(html, />Live</);
   assert.match(html, />Journal</);

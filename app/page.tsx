@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import liveForecast from "./forecast.json";
 import AstroHistory from "./astro-history";
 import LiveAstroChart from "./live-astro-chart";
@@ -767,6 +767,59 @@ export default function Home() {
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [hasUnseenUpdate, setHasUnseenUpdate] = useState(false);
   const [openStrategy, setOpenStrategy] = useState<string | null>(null);
+  const [soundAlertsEnabled, setSoundAlertsEnabled] = useState(false);
+  const soundAlertsEnabledRef = useRef(false);
+  const lastObservedForecastRef = useRef<string | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+
+  const playAlertTone = useCallback(async () => {
+    const context = audioContextRef.current;
+    if (!context) return;
+    if (context.state === "suspended") {
+      await context.resume();
+    }
+    const start = context.currentTime;
+    [740, 988].forEach((frequency, index) => {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.value = frequency;
+      gain.gain.setValueAtTime(0.0001, start + index * 0.12);
+      gain.gain.exponentialRampToValueAtTime(
+        0.13,
+        start + index * 0.12 + 0.015,
+      );
+      gain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        start + index * 0.12 + 0.11,
+      );
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.start(start + index * 0.12);
+      oscillator.stop(start + index * 0.12 + 0.12);
+    });
+  }, []);
+
+  const announceForecastChange = useCallback(
+    async (nextForecast: Forecast) => {
+      if (!soundAlertsEnabledRef.current) return;
+      try {
+        await playAlertTone();
+      } catch {
+        // The visual update remains available if the browser suspends audio.
+      }
+      if (
+        typeof Notification !== "undefined" &&
+        Notification.permission === "granted"
+      ) {
+        new Notification("Astro Intelligence updated", {
+          body: `${nextForecast.decision.position} · ${nextForecast.signal.plainSummary}`,
+          tag: "astro-intelligence-forecast",
+        });
+      }
+    },
+    [playAlertTone],
+  );
 
   useEffect(() => {
     let active = true;
@@ -776,6 +829,15 @@ export default function Home() {
         const envelope = await fetchLiveSignal();
         if (!active) return;
         const normalized = normalizeForecast(envelope.forecast);
+        const previouslyObserved = lastObservedForecastRef.current;
+        lastObservedForecastRef.current = normalized.generatedAt;
+        if (
+          previouslyObserved &&
+          previouslyObserved !== normalized.generatedAt
+        ) {
+          setNotice("New accepted Astro update received.");
+          void announceForecastChange(normalized);
+        }
         setForecast((current) => {
           const seenForecast = window.localStorage.getItem(
             "astro-intel-seen-forecast",
@@ -848,7 +910,7 @@ export default function Home() {
       active = false;
       window.clearInterval(refresh);
     };
-  }, []);
+  }, [announceForecastChange]);
 
   useEffect(() => {
     const clock = window.setInterval(() => setClockNow(Date.now()), 60_000);
@@ -928,7 +990,9 @@ export default function Home() {
     const positionText =
       `${forecast.decision.position} ${forecast.execution.entry.state}`.toLowerCase();
     const holdingShort =
-      forecast.signal.state === "short" && positionText.includes("short");
+      positionText.includes("short") &&
+      /\b(open|held|hold|holding|residual|still)\b/.test(positionText) &&
+      !/\b(full(?:y)? closed|fully exited)\b/.test(positionText);
     if (holdingShort) {
       const shortEntry = byLabel(["short iii", "holding major short"]);
       const downsideTarget = byLabel(["7% drawdown", "active objective"]);
@@ -1009,11 +1073,21 @@ export default function Home() {
     const existingPositionOnly =
       /\bdone\b|no add|no-add|hold only|residual/.test(entryText);
     const holdingShort =
-      forecast.signal.state === "short" &&
-      (position.includes("short") || entryText.includes("short"));
+      (position.includes("short") || entryText.includes("short")) &&
+      /\b(open|held|hold|holding|residual|still)\b/.test(
+        `${position} ${entryText}`,
+      ) &&
+      !/\b(full(?:y)? closed|fully exited)\b/.test(
+        `${position} ${entryText}`,
+      );
     const holdingLong =
-      forecast.signal.state === "long" &&
-      (position.includes("long") || entryText.includes("long"));
+      (position.includes("long") || entryText.includes("long")) &&
+      /\b(open|held|hold|holding|residual|still)\b/.test(
+        `${position} ${entryText}`,
+      ) &&
+      !/\b(full(?:y)? closed|fully exited)\b/.test(
+        `${position} ${entryText}`,
+      );
     const longDone =
       position.includes("residual sold") ||
       forecast.execution.takeProfit.state.toLowerCase().includes("complete");
@@ -1021,10 +1095,16 @@ export default function Home() {
     const partialsTaken =
       forecast.execution.takeProfit.state.toLowerCase().includes("partial") ||
       forecast.execution.takeProfit.state.toLowerCase().includes("profit");
+    const oneThirdShortTrim =
+      /\b(?:1\/3|one third)\b/.test(
+        `${forecast.execution.takeProfit.state} ${forecast.execution.takeProfit.condition}`,
+      );
 
     return {
       happened: holdingShort
-        ? "Price reached the downside area Astro had been waiting for. He has not publicly closed the remaining short."
+        ? oneThirdShortTrim
+          ? "Astro took profit on one third of the remaining short. Short III is still partly open."
+          : "Astro has taken some short profit. Short III is still partly open."
         : holdingLong
           ? "Astro’s last confirmed position is still long. Any new entry needs a new direct post."
           : longDone
@@ -1128,6 +1208,14 @@ export default function Home() {
     try {
       const envelope = await fetchLiveSignal();
       const normalized = normalizeForecast(envelope.forecast);
+      const previouslyObserved = lastObservedForecastRef.current;
+      lastObservedForecastRef.current = normalized.generatedAt;
+      if (
+        previouslyObserved &&
+        previouslyObserved !== normalized.generatedAt
+      ) {
+        void announceForecastChange(normalized);
+      }
       setForecast((current) => {
         if (current.generatedAt !== normalized.generatedAt) {
           setHasUnseenUpdate(true);
@@ -1201,6 +1289,33 @@ export default function Home() {
     setHasUnseenUpdate(false);
   }
 
+  async function toggleSoundAlerts() {
+    if (soundAlertsEnabledRef.current) {
+      soundAlertsEnabledRef.current = false;
+      setSoundAlertsEnabled(false);
+      setNotice("Website sound alerts are off.");
+      return;
+    }
+    try {
+      audioContextRef.current ??= new AudioContext();
+      await audioContextRef.current.resume();
+      soundAlertsEnabledRef.current = true;
+      setSoundAlertsEnabled(true);
+      if (
+        typeof Notification !== "undefined" &&
+        Notification.permission === "default"
+      ) {
+        await Notification.requestPermission();
+      }
+      await playAlertTone();
+      setNotice("Sound alerts enabled for this browser session.");
+    } catch {
+      soundAlertsEnabledRef.current = false;
+      setSoundAlertsEnabled(false);
+      setNotice("This browser did not allow sound alerts.");
+    }
+  }
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -1235,6 +1350,19 @@ export default function Home() {
             }`}
           />
           <span>{systemStatus.degraded ? "Protected snapshot" : "Systems live"}</span>
+          <button
+            aria-pressed={soundAlertsEnabled}
+            className={`sound-alert-button ${soundAlertsEnabled ? "active" : ""}`}
+            onClick={() => void toggleSoundAlerts()}
+            title={
+              soundAlertsEnabled
+                ? "Turn website sound alerts off"
+                : "Enable sound for accepted Astro updates"
+            }
+          >
+            <i />
+            <b>{soundAlertsEnabled ? "Alerts on" : "Alerts off"}</b>
+          </button>
           <button className="sync-button" onClick={refreshForecast} disabled={loading}>
             {loading ? "Syncing…" : "Sync"}
           </button>
