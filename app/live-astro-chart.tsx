@@ -266,6 +266,7 @@ export default function LiveAstroChart({
   thesisTrigger,
   forecastTime,
   signalState,
+  signalHeadline,
   riskText,
   predictedMove,
   predictedProbability,
@@ -281,6 +282,7 @@ export default function LiveAstroChart({
   thesisTrigger: string;
   forecastTime: string;
   signalState: SignalState;
+  signalHeadline: string;
   riskText: string;
   predictedMove: string;
   predictedProbability: number;
@@ -1055,7 +1057,7 @@ export default function LiveAstroChart({
           <div className={`chart-focus-hud ${signalState}`}>
             <div className="chart-hud-now">
               <small>ASTRO NOW</small>
-              <strong>{signalLabel(signalState)}</strong>
+              <strong>{signalHeadline || signalLabel(signalState)}</strong>
             </div>
             <div className="chart-hud-next">
               <small>MODEL NEXT · {predictedProbability}%</small>
@@ -1090,7 +1092,7 @@ export default function LiveAstroChart({
         <header>
           <div>
             <small>ASTRO SIGNAL</small>
-            <strong>{signalLabel(signalState)}</strong>
+            <strong>{signalHeadline || signalLabel(signalState)}</strong>
           </div>
           <div>
             <small>NEXT-MOVE MODEL</small>
@@ -1138,7 +1140,7 @@ export default function LiveAstroChart({
       <div className="chart-decision-strip">
         <div className={`chart-decision-now ${signalState}`}>
           <small>ASTRO SIGNAL · NOW</small>
-          <strong>{signalLabel(signalState)}</strong>
+          <strong>{signalHeadline || signalLabel(signalState)}</strong>
           <span className={freshnessTone}>{freshnessLabel}</span>
         </div>
         <div>

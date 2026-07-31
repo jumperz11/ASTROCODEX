@@ -2388,6 +2388,55 @@ footer a {
   cursor: pointer;
 }
 
+.astro-read-logic {
+  display: grid;
+  grid-template-columns: 0.8fr 1.35fr 0.85fr;
+  border-bottom: 1px solid var(--line);
+  background: #0e1014;
+}
+
+.astro-read-logic article {
+  min-width: 0;
+  padding: 14px 17px 15px;
+  box-shadow: inset 0 2px 0 var(--green);
+}
+
+.astro-read-logic article + article {
+  border-left: 1px solid var(--line);
+}
+
+.astro-read-logic article:nth-child(2) {
+  box-shadow: inset 0 2px 0 #7aa2ff;
+}
+
+.astro-read-logic article.risk {
+  box-shadow: inset 0 2px 0 var(--red);
+}
+
+.astro-read-logic small,
+.astro-read-logic span {
+  display: block;
+  color: var(--muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.astro-read-logic strong {
+  display: block;
+  margin: 7px 0 6px;
+  color: var(--paper);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.astro-read-logic span {
+  color: #737b88;
+  letter-spacing: 0.04em;
+}
+
 .astro-target-ladder {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -3332,6 +3381,19 @@ summary:focus-visible {
     display: block;
     margin-bottom: 5px;
     font-size: 13px;
+  }
+
+  .astro-read-logic {
+    grid-template-columns: 1fr;
+  }
+
+  .astro-read-logic article {
+    padding: 13px 16px;
+  }
+
+  .astro-read-logic article + article {
+    border-top: 1px solid var(--line);
+    border-left: 0;
   }
 
   .astro-target-ladder {

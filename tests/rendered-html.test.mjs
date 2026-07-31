@@ -34,11 +34,11 @@ test("server-renders the Astro Intelligence research terminal", async () => {
   const html = await response.text();
   assert.match(html, /<title>Astro Intelligence<\/title>/i);
   assert.match(html, /ASTRO[\s\S]*INTELLIGENCE/);
-  assert.match(html, /WHERE ASTRO IS NOW/);
+  assert.match(html, /CURRENT ASTRO READ/);
   assert.match(html, />WAIT</);
   assert.match(html, /No fresh opportunity is confirmed yet/);
-  assert.match(html, /WHAT SHOULD I DO/);
-  assert.match(html, /WHAT HE MAY DO NEXT/);
+  assert.match(html, /FRESH ENTRY/);
+  assert.match(html, /LIKELY NEXT · MODEL, NOT ASTRO/);
   assert.match(html, /ASTRO NEXT · MODEL/);
   assert.match(html, /PREDICTED ASTRO NEXT/);
   assert.match(html, /NEXT LEVEL/);
@@ -48,8 +48,8 @@ test("server-renders the Astro Intelligence research terminal", async () => {
   assert.match(html, /CONFIRMS IF/);
   assert.match(html, /WRONG \/ CHANGES IF/);
   assert.match(html, /ASTRO NOW/);
-  assert.match(html, /WHAT HAPPENED/);
-  assert.match(html, /WHERE ASTRO IS NOW/);
+  assert.match(html, /WHAT ASTRO LAST CONFIRMED/);
+  assert.match(html, /POSITION NOW/);
   assert.match(html, /ASTRO PERFORMANCE/);
   assert.match(html, /TP \/ GOAL/);
   assert.match(html, /OPEN &amp; CLOSE MAP/);

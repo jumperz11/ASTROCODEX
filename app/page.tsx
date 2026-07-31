@@ -359,6 +359,10 @@ function getSimpleNextMove(forecast: Forecast) {
 }
 
 function getOpportunityStatus(forecast: Forecast) {
+  const entryText =
+    `${forecast.execution.entry.state} ${forecast.execution.entry.condition}`.toLowerCase();
+  const existingPositionOnly =
+    /\bdone\b|no add|no-add|hold only|residual/.test(entryText);
   const copy: Record<
     SignalState,
     { label: string; tone: string; summary: string }
@@ -369,14 +373,18 @@ function getOpportunityStatus(forecast: Forecast) {
       summary: "No fresh opportunity is confirmed yet.",
     },
     long: {
-      label: "LONG SETUP",
+      label: existingPositionOnly ? "HOLD LONG" : "LONG SETUP",
       tone: "long",
-      summary: "A fresh long setup is supported by a direct Astro update.",
+      summary: existingPositionOnly
+        ? "Existing position only. Astro has not confirmed a new long entry."
+        : "A fresh long setup is supported by a direct Astro update.",
     },
     short: {
-      label: "SHORT SETUP",
+      label: existingPositionOnly ? "HOLD SHORT" : "SHORT SETUP",
       tone: "short",
-      summary: "A fresh short setup is supported by a direct Astro update.",
+      summary: existingPositionOnly
+        ? "Existing position only. Astro’s last direct update said not to add."
+        : "A fresh short setup is supported by a direct Astro update.",
     },
     take_profit: {
       label: "LOCK PROFIT",
@@ -628,6 +636,48 @@ export default function Home() {
       forecast.levels.find((level) =>
         needles.some((needle) => level.label.toLowerCase().includes(needle)),
       );
+    const positionText =
+      `${forecast.decision.position} ${forecast.execution.entry.state}`.toLowerCase();
+    const holdingShort =
+      forecast.signal.state === "short" && positionText.includes("short");
+    if (holdingShort) {
+      const shortEntry = byLabel(["short iii", "holding major short"]);
+      const downsideTarget = byLabel(["7% drawdown", "active objective"]);
+      const plannedLong = byLabel(["planned htf long", "60k→66k"]);
+      const targetClass =
+        downsideTarget?.value.match(/≈\s*~?(\d{5,6})\s*class/i)?.[1];
+      const formattedTarget = targetClass
+        ? `~${(Number(targetClass) / 1_000).toFixed(1)}k area`
+        : downsideTarget?.value || "Not public";
+
+      return [
+        {
+          label: "POSITION",
+          value: shortEntry ? "~66.3k short" : "Existing short",
+          state: "Held · do not add",
+          tone: "past",
+        },
+        {
+          label: "DOWN TARGET",
+          value: formattedTarget,
+          state: "Market tagged · not closed",
+          tone: "hit",
+        },
+        {
+          label: "NEXT ACTION",
+          value: "Trim or close",
+          state: "Needs a direct Astro post",
+          tone: "watch",
+        },
+        {
+          label: "PLANNED FLIP",
+          value: plannedLong ? "60–66k longs" : "Not public",
+          state: "Only after short close",
+          tone: "watch",
+        },
+      ];
+    }
+
     const t1 = byLabel(["initial long trim", "first trim"]);
     const t2 = byLabel(["hv liquidity", "fifth-win lock", "close 30%"]);
     const nextTarget = byLabel(["safe house", "weekly open", "objective claimed"]);
@@ -681,6 +731,16 @@ export default function Home() {
   }, [forecast]);
   const plainDashboard = useMemo(() => {
     const position = forecast.decision.position.toLowerCase();
+    const entryText =
+      `${forecast.execution.entry.state} ${forecast.execution.entry.condition}`.toLowerCase();
+    const existingPositionOnly =
+      /\bdone\b|no add|no-add|hold only|residual/.test(entryText);
+    const holdingShort =
+      forecast.signal.state === "short" &&
+      (position.includes("short") || entryText.includes("short"));
+    const holdingLong =
+      forecast.signal.state === "long" &&
+      (position.includes("long") || entryText.includes("long"));
     const longDone =
       position.includes("residual sold") ||
       forecast.execution.takeProfit.state.toLowerCase().includes("complete");
@@ -690,22 +750,37 @@ export default function Home() {
       forecast.execution.takeProfit.state.toLowerCase().includes("profit");
 
     return {
-      happened: longDone
-        ? "The long reached its goal. Astro sold the final 30%. That long trade is finished."
+      happened: holdingShort
+        ? "Price reached the downside area Astro had been waiting for. He has not publicly closed the remaining short."
+        : holdingLong
+          ? "Astro’s last confirmed position is still long. Any new entry needs a new direct post."
+          : longDone
+            ? "The long reached its goal. Astro sold the final piece. That long trade is finished."
         : partialsTaken
           ? "The long hit T1 and T2. Astro took profit. A smaller piece may still be open."
           : forecast.signal.plainSummary,
-      where: longDone && shortOpen
+      where: holdingShort
+        ? "Remaining short still held · no new add"
+        : holdingLong
+          ? "Existing long still held · no fresh entry"
+          : longDone && shortOpen
         ? "Long V is closed. Short III is still open, but its exit price is not public."
         : forecast.decision.position,
-      next: longDone && shortOpen
+      next: predictedNextMove
+        ? `${predictedNextMove.name} · ${predictedNextMove.probability}% model`
+        : longDone && shortOpen
         ? "Most likely: stay quiet and keep Short III. A new move needs a fresh post with levels."
         : simpleNextMove.astro,
-      you: forecast.signal.state === "wait"
+      you: existingPositionOnly && holdingShort
+        ? "No fresh entry. Watch for Astro to trim, fully close, or announce the planned long."
+        : existingPositionOnly && holdingLong
+          ? "No fresh entry. Watch for Astro to trim, close, or publish a new setup."
+          : forecast.signal.state === "wait"
         ? "No new move yet. Wait for a fresh post with an entry and targets."
         : simpleNextMove.you,
+      freshEntry: existingPositionOnly ? "NO · EXISTING POSITION" : "YES · CHECK LATEST POST",
     };
-  }, [forecast, simpleNextMove]);
+  }, [forecast, predictedNextMove, simpleNextMove]);
   const latestAstroEvidence = useMemo(() => {
     const direct = forecast.evidence.filter(
       (item) => item.type === "astro" && item.source,
@@ -719,6 +794,28 @@ export default function Home() {
       })[0] ?? null
     );
   }, [forecast.evidence]);
+  const positionEvidence = useMemo(() => {
+    const direct = forecast.evidence.filter(
+      (item) => item.type === "astro" && item.source,
+    );
+    const relevantPattern =
+      forecast.signal.state === "short"
+        ? /hold.*short|short iii|close all shorts|too soon.*close|major short/i
+        : forecast.signal.state === "long"
+          ? /hold.*long|long v|close all longs|runner|major long/i
+          : /close|trim|entry|position|hold/i;
+    return (
+      [...direct]
+        .filter((item) =>
+          relevantPattern.test(`${item.label} ${item.detail}`),
+        )
+        .sort(
+          (left, right) =>
+            new Date(right.time || "").getTime() -
+            new Date(left.time || "").getTime(),
+        )[0] ?? latestAstroEvidence
+    );
+  }, [forecast.evidence, forecast.signal.state, latestAstroEvidence]);
   const signalFreshness = useMemo(() => {
     if (!signalCheckedAt) {
       return { label: "VPS CONNECTING", tone: "scheduled" };
@@ -867,34 +964,29 @@ export default function Home() {
 
               <div className="astro-now-main">
                 <article className="astro-now-answer">
-                  <small>WHAT SHOULD I DO?</small>
+                  <small>CURRENT ASTRO READ</small>
                   <strong>{opportunity.label}</strong>
                   <p>{opportunity.summary}</p>
                   <div>
-                    <span>IN SIMPLE WORDS</span>
+                    <span>FRESH ENTRY? · {plainDashboard.freshEntry}</span>
                     <b>{plainDashboard.you}</b>
                   </div>
                 </article>
 
                 <article className="astro-now-story">
                   <div>
-                    <small>WHAT HAPPENED</small>
+                    <small>WHAT ASTRO LAST CONFIRMED</small>
                     <strong>{plainDashboard.happened}</strong>
                   </div>
                   <div>
-                    <small>WHERE ASTRO IS NOW</small>
+                    <small>POSITION NOW</small>
                     <strong>{plainDashboard.where}</strong>
                     <p>{forecast.decision.status}</p>
                   </div>
                   <div>
-                    <small>WHAT HE MAY DO NEXT</small>
+                    <small>LIKELY NEXT · MODEL, NOT ASTRO</small>
                     <strong>{plainDashboard.next}</strong>
-                    {predictedNextMove && (
-                      <span>
-                        MODEL: {predictedNextMove.name} ·{" "}
-                        {predictedNextMove.probability}%
-                      </span>
-                    )}
+                    <span>Probability is a forecast, not a confirmed trade.</span>
                   </div>
                 </article>
 
@@ -912,6 +1004,26 @@ export default function Home() {
                   </p>
                   <button onClick={() => showView("history")}>Open track record</button>
                 </aside>
+              </div>
+
+              <div className="astro-read-logic" aria-label="Why the current Astro read is active">
+                <article>
+                  <small>DIRECT EVIDENCE</small>
+                  <strong>
+                    {positionEvidence?.label || "No newer direct post accepted"}
+                  </strong>
+                  <span>Astro post</span>
+                </article>
+                <article>
+                  <small>WAIT FOR</small>
+                  <strong>{forecast.thesis.nextTrigger}</strong>
+                  <span>Changes the next-move probability</span>
+                </article>
+                <article className="risk">
+                  <small>READ CHANGES IF</small>
+                  <strong>{forecast.decision.risk}</strong>
+                  <span>Do not keep the old read after this</span>
+                </article>
               </div>
 
               <div className="astro-target-ladder" aria-label="Astro target ladder">
@@ -967,6 +1079,7 @@ export default function Home() {
             thesisTrigger={forecast.thesis.nextTrigger}
             forecastTime={forecast.generatedAt}
             signalState={forecast.signal.state}
+            signalHeadline={opportunity.label}
             riskText={forecast.decision.risk}
             predictedMove={predictedNextMove?.name || "Insufficient inputs"}
             predictedProbability={predictedNextMove?.probability ?? 0}
