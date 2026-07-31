@@ -8,7 +8,9 @@ import { ensureConnectorCredentials } from "./connector-auth.mjs";
 const scriptsDirectory = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(scriptsDirectory, "..");
 const promptPath = join(projectRoot, "prompts", "astro-live-analysis.md");
-const forecastPath = join(projectRoot, "public", "forecast.json");
+const forecastPath =
+  process.env.ASTRO_FORECAST_PATH?.trim() ||
+  join(projectRoot, "public", "forecast.json");
 const question =
   process.argv.slice(2).join(" ").trim() ||
   "What is Astro likely thinking and doing next?";
