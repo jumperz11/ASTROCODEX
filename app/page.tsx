@@ -1710,12 +1710,12 @@ export default function Home() {
                     <small>ASTRO SCHOOL · SAVED PATTERNS</small>
                     <strong>Strategy Shelf</strong>
                   </div>
-                  <span>STUDY · 10M</span>
+                  <span>QUIET MODE</span>
                 </header>
                 <p>
-                  When Astro is quiet, Hermes searches the school again. It
-                  keeps only evidence-backed changes—similarity alone never
-                  creates a trade.
+                  Fresh Astro Telegram and X evidence always comes first. Only
+                  when live sources are caught up does Hermes search the school
+                  again.
                 </p>
                 <div className="strategy-list">
                   {strategyShelf.map((strategy) => {
