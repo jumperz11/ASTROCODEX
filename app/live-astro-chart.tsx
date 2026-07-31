@@ -231,18 +231,20 @@ function levelPurpose(level: ParsedLevel): LevelPurpose {
 function focusLineLabel(level: ParsedLevel) {
   const purpose = levelPurpose(level);
   if (purpose === "entry") return "ENTRY";
-  if (purpose === "target") return "TARGET";
+  if (purpose === "target") return level.shortLabel;
   if (purpose === "invalidation") return "INVALID";
   return levelRole(level, null);
 }
 
 function compactLabel(label: string) {
   const lowered = label.toLowerCase();
-  if (lowered.includes("weekly open")) return "WEEKLY OPEN";
+  if (lowered.includes("weekly open")) return "TP / GOAL · WEEKLY OPEN";
   if (lowered.includes("long v")) return "LONG V ENTRY";
   if (lowered.includes("short iv")) return "SHORT IV · CLOSED";
-  if (lowered.includes("initial long trim")) return "FIRST TRIM";
-  if (lowered.includes("hv liquidity")) return "TP · CLOSE 30%";
+  if (lowered.includes("initial long trim")) return "T1 · FIRST TRIM";
+  if (lowered.includes("hv liquidity")) return "T2 · CLOSE 30%";
+  if (/\btp\s*1\b/.test(lowered)) return "TP1";
+  if (/\btp\s*2\b/.test(lowered)) return "TP2";
   return label.split("(")[0].trim().slice(0, 22).toUpperCase();
 }
 
@@ -543,6 +545,31 @@ export default function LiveAstroChart({
         : [],
     [overlayMode, parsedThesisLevels],
   );
+  const visibleHermesCheckpoints = useMemo(() => {
+    if (overlayMode !== "hermes" || hermesMapUnavailable) return [];
+    let transition = 0;
+    let confirmation = 0;
+    let target = 0;
+    return (hermesProjection?.checkpoints || [])
+      .filter(
+        (checkpoint) =>
+          Number.isFinite(checkpoint.price) &&
+          checkpoint.price >= 10_000 &&
+          checkpoint.price <= 250_000,
+      )
+      .map((checkpoint) => {
+        if (checkpoint.kind === "target") {
+          target += 1;
+          return { ...checkpoint, chartLabel: `HERMES TP${target}` };
+        }
+        if (checkpoint.kind === "confirmation") {
+          confirmation += 1;
+          return { ...checkpoint, chartLabel: `HERMES C${confirmation}` };
+        }
+        transition += 1;
+        return { ...checkpoint, chartLabel: `HERMES T${transition}` };
+      });
+  }, [hermesMapUnavailable, hermesProjection, overlayMode]);
   const visibleEventMarkers = useMemo(
     () =>
       overlayMode === "model"
@@ -1090,8 +1117,29 @@ export default function LiveAstroChart({
           title: `MODEL · ${level.shortLabel}`,
         }),
       ),
+      ...visibleHermesCheckpoints.map((checkpoint) =>
+        series.createPriceLine({
+          price: checkpoint.price,
+          color:
+            checkpoint.kind === "target"
+              ? "#52e6a7"
+              : checkpoint.kind === "confirmation"
+                ? "#f3f0e8"
+                : "#8eb1ff",
+          lineWidth: checkpoint.kind === "target" ? 2 : 1,
+          lineStyle: LineStyle.Dotted,
+          axisLabelVisible: true,
+          title: checkpoint.chartLabel,
+        }),
+      ),
     ];
-  }, [overlayMode, price, visibleAstroLevels, visibleThesisLevels]);
+  }, [
+    overlayMode,
+    price,
+    visibleAstroLevels,
+    visibleHermesCheckpoints,
+    visibleThesisLevels,
+  ]);
 
   useEffect(() => {
     markersRef.current?.setMarkers(visibleEventMarkers);

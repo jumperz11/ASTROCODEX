@@ -67,6 +67,10 @@ function updateMessage(update) {
   );
 }
 
+function updateChat(update) {
+  return updateMessage(update)?.chat ?? update.my_chat_member?.chat ?? null;
+}
+
 function chatRecord(chat) {
   return {
     id: String(chat.id),
@@ -116,12 +120,14 @@ async function applyUpdates(state, updates) {
   for (const update of updates) {
     state.offset = Math.max(Number(state.offset || 0), update.update_id + 1);
     const message = updateMessage(update);
-    if (!message?.chat?.id) continue;
-    const chat = chatRecord(message.chat);
+    const sourceChat = updateChat(update);
+    if (!sourceChat?.id) continue;
+    const chat = chatRecord(sourceChat);
     discovered.set(chat.id, {
       ...discovered.get(chat.id),
       ...chat,
     });
+    if (!message) continue;
     if (
       chat.id === destinationChatId ||
       !allowedChats.has(chat.id)
@@ -185,6 +191,7 @@ while (!stopping) {
         "edited_message",
         "channel_post",
         "edited_channel_post",
+        "my_chat_member",
       ],
     });
     if (updates.length > 0) {
