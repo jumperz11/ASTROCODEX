@@ -20,6 +20,7 @@ type RemoteSignalEnvelope = {
   telegramSourceMessages?: unknown;
   telegramSourceMedia?: unknown;
   telegramSources?: unknown;
+  activity?: unknown;
   hermesAudit?: unknown;
 };
 
@@ -78,6 +79,7 @@ function response(
     telegramSourceMessages?: number;
     telegramSourceMedia?: number;
     telegramSources?: unknown[];
+    activity?: unknown[];
     hermesAudit?: unknown;
   },
 ) {
@@ -171,6 +173,7 @@ export async function GET() {
       telegramSources: Array.isArray(payload.telegramSources)
         ? payload.telegramSources
         : [],
+      activity: Array.isArray(payload.activity) ? payload.activity : [],
       hermesAudit:
         payload.hermesAudit &&
         typeof payload.hermesAudit === "object" &&

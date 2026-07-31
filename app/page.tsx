@@ -90,6 +90,15 @@ type HermesAudit = {
   behaviorStatus: "active" | "hit" | "wrong" | "unscored";
 };
 
+type HermesActivity = {
+  at: string;
+  runId?: string;
+  stage: "scan" | "inputs" | "hermes" | "decision" | "error";
+  status: "working" | "done" | "quiet" | "error";
+  title: string;
+  detail: string;
+};
+
 type Forecast = {
   generatedAt: string;
   mode: "live" | "demo";
@@ -573,6 +582,19 @@ function getOpportunityStatus(forecast: Forecast) {
   return copy[forecast.signal.state];
 }
 
+function relativeTime(value: string | null | undefined, now: number) {
+  const time = new Date(value || 0).getTime();
+  if (!Number.isFinite(time)) return "unknown";
+  const seconds = Math.max(0, Math.floor((now - time) / 1_000));
+  if (seconds < 10) return "now";
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
 const embeddedForecast =
   (liveForecast as Forecast).mode === "live"
     ? normalizeForecast(liveForecast as Forecast)
@@ -604,6 +626,7 @@ type LiveSignalEnvelope = {
     messageCount?: number;
     mediaCount?: number;
   }>;
+  activity?: HermesActivity[];
   hermesAudit?: HermesAudit | null;
 };
 
@@ -707,7 +730,7 @@ export default function Home() {
   const [forecast, setForecast] = useState<Forecast>(embeddedForecast);
   const [activeView, setActiveView] =
     useState<
-      "desk" | "positions" | "hermes" | "history" | "evidence" | "playbook"
+      "desk" | "live" | "positions" | "hermes" | "history" | "evidence" | "playbook"
     >("desk");
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
@@ -715,6 +738,7 @@ export default function Home() {
   const [signalCheckedAt, setSignalCheckedAt] = useState<string | null>(null);
   const [systemStatus, setSystemStatus] = useState({
     degraded: true,
+    pipelineStatus: "starting",
     model: null as string | null,
     codexEntries: 0,
     codexMedia: 0,
@@ -729,6 +753,7 @@ export default function Home() {
     telegramSourceMessages: 0,
     telegramSourceMedia: 0,
     telegramSources: [] as NonNullable<LiveSignalEnvelope["telegramSources"]>,
+    activity: [] as HermesActivity[],
     hermesAudit: null as HermesAudit | null,
   });
   const [clockNow, setClockNow] = useState(() => Date.now());
@@ -762,6 +787,7 @@ export default function Home() {
         setSignalCheckedAt(envelope.checkedAt);
         setSystemStatus({
           degraded: Boolean(envelope.degraded) || envelope.source !== "vps",
+          pipelineStatus: envelope.status ?? "unknown",
           model: envelope.model ?? null,
           codexEntries: Number(envelope.codexEntries || 0),
           codexMedia: Number(envelope.codexMedia || 0),
@@ -781,6 +807,7 @@ export default function Home() {
           telegramSources: Array.isArray(envelope.telegramSources)
             ? envelope.telegramSources
             : [],
+          activity: Array.isArray(envelope.activity) ? envelope.activity : [],
           hermesAudit: envelope.hermesAudit ?? null,
         });
         setLastUpdated(
@@ -927,22 +954,6 @@ export default function Home() {
       },
     ];
   }, [forecast]);
-  const performanceSummary = useMemo(() => {
-    const shortMoveEvidence = forecast.evidence.find((item) =>
-      item.label.toLowerCase().includes("close short iv"),
-    );
-    const shortMove =
-      shortMoveEvidence?.detail.match(/\b\d+(?:\.\d+)?%\+/)?.[0] || "Not public";
-    const longClosed =
-      forecast.execution.takeProfit.state.toLowerCase().includes("complete") ||
-      forecast.decision.position.toLowerCase().includes("residual sold");
-
-    return {
-      streak: "5W",
-      shortMove,
-      longResult: longClosed ? "Profit locked" : forecast.execution.takeProfit.state,
-    };
-  }, [forecast]);
   const plainDashboard = useMemo(() => {
     const position = forecast.decision.position.toLowerCase();
     const entryText =
@@ -1008,28 +1019,6 @@ export default function Home() {
       })[0] ?? null
     );
   }, [forecast.evidence]);
-  const positionEvidence = useMemo(() => {
-    const direct = forecast.evidence.filter(
-      (item) => item.type === "astro" && item.source,
-    );
-    const relevantPattern =
-      forecast.signal.state === "short"
-        ? /hold.*short|short iii|close all shorts|too soon.*close|major short/i
-        : forecast.signal.state === "long"
-          ? /hold.*long|long v|close all longs|runner|major long/i
-          : /close|trim|entry|position|hold/i;
-    return (
-      [...direct]
-        .filter((item) =>
-          relevantPattern.test(`${item.label} ${item.detail}`),
-        )
-        .sort(
-          (left, right) =>
-            new Date(right.time || "").getTime() -
-            new Date(left.time || "").getTime(),
-        )[0] ?? latestAstroEvidence
-    );
-  }, [forecast.evidence, forecast.signal.state, latestAstroEvidence]);
   const signalFreshness = useMemo(() => {
     if (!signalCheckedAt) {
       return { label: "VPS CONNECTING", tone: "scheduled" };
@@ -1047,6 +1036,43 @@ export default function Home() {
     }
     return { label: `LATE · ${ageMinutes}M AGO`, tone: "stale" };
   }, [clockNow, signalCheckedAt]);
+  const latestActivity = systemStatus.activity.at(-1) ?? null;
+  const liveState = useMemo(() => {
+    if (systemStatus.degraded || systemStatus.pipelineStatus === "error") {
+      return {
+        label: "NEEDS ATTENTION",
+        detail: latestActivity?.detail || "The live evidence connection is unavailable.",
+        tone: "error",
+      };
+    }
+    if (systemStatus.pipelineStatus === "analyzing") {
+      return {
+        label: "HERMES ANALYZING",
+        detail:
+          latestActivity?.detail ||
+          "Comparing accepted evidence with Astro history and market structure.",
+        tone: "working",
+      };
+    }
+    if (systemStatus.pipelineStatus === "checking") {
+      return {
+        label: "CHECKING SOURCES",
+        detail: latestActivity?.detail || "Reading approved sources and market data.",
+        tone: "working",
+      };
+    }
+    return {
+      label: "MONITORING",
+      detail:
+        latestActivity?.detail ||
+        "Waiting for new evidence or a material market trigger.",
+      tone: "quiet",
+    };
+  }, [
+    latestActivity,
+    systemStatus.degraded,
+    systemStatus.pipelineStatus,
+  ]);
 
   async function refreshForecast() {
     setLoading(true);
@@ -1063,6 +1089,7 @@ export default function Home() {
       setSignalCheckedAt(envelope.checkedAt);
       setSystemStatus({
         degraded: Boolean(envelope.degraded) || envelope.source !== "vps",
+        pipelineStatus: envelope.status ?? "unknown",
         model: envelope.model ?? null,
         codexEntries: Number(envelope.codexEntries || 0),
         codexMedia: Number(envelope.codexMedia || 0),
@@ -1082,6 +1109,7 @@ export default function Home() {
         telegramSources: Array.isArray(envelope.telegramSources)
           ? envelope.telegramSources
           : [],
+        activity: Array.isArray(envelope.activity) ? envelope.activity : [],
         hermesAudit: envelope.hermesAudit ?? null,
       });
       setLastUpdated(
@@ -1104,6 +1132,7 @@ export default function Home() {
   function showView(
     view:
       | "desk"
+      | "live"
       | "positions"
       | "hermes"
       | "history"
@@ -1135,6 +1164,7 @@ export default function Home() {
 
         <nav aria-label="Primary navigation">
           <button className={activeView === "desk" ? "active" : ""} onClick={() => showView("desk")}>Now</button>
+          <button className={activeView === "live" ? "active" : ""} onClick={() => showView("live")}>Live</button>
           <button className={activeView === "positions" ? "active" : ""} onClick={() => showView("positions")}>Positions</button>
           <button className={activeView === "hermes" ? "active" : ""} onClick={() => showView("hermes")}>Hermes</button>
           <button className={activeView === "history" ? "active" : ""} onClick={() => showView("history")}>History</button>
@@ -1248,66 +1278,36 @@ export default function Home() {
 
               <div className="astro-now-main">
                 <article className="astro-now-answer">
-                  <small>CURRENT ASTRO READ</small>
+                  <small>WHAT IS HAPPENING NOW?</small>
                   <strong>{opportunity.label}</strong>
                   <p>{opportunity.summary}</p>
                   <div>
-                    <span>FRESH ENTRY? · {plainDashboard.freshEntry}</span>
+                    <span>NEW ENTRY? · {plainDashboard.freshEntry}</span>
                     <b>{plainDashboard.you}</b>
                   </div>
                 </article>
 
-                <article className="astro-now-story">
+                <article className="astro-now-story compact">
                   <div>
-                    <small>WHAT ASTRO LAST CONFIRMED</small>
+                    <small>WHAT JUST HAPPENED</small>
                     <strong>{plainDashboard.happened}</strong>
                   </div>
                   <div>
-                    <small>POSITION NOW</small>
-                    <strong>{plainDashboard.where}</strong>
-                    <p>{forecast.decision.status}</p>
+                    <small>WATCH THIS NEXT</small>
+                    <strong>{forecast.thesis.nextTrigger}</strong>
                   </div>
                   <div>
-                    <small>LIKELY NEXT · MODEL, NOT ASTRO</small>
-                    <strong>{plainDashboard.next}</strong>
-                    <span>Probability is a forecast, not a confirmed trade.</span>
+                    <small>READ IS WRONG IF</small>
+                    <strong>{forecast.decision.risk}</strong>
                   </div>
                 </article>
 
-                <aside className="astro-portfolio">
-                  <small>ASTRO PERFORMANCE</small>
-                  <strong>Public scorecard</strong>
-                  <div>
-                    <span><b>{performanceSummary.streak}</b>current Astro-stated streak</span>
-                    <span><b>{performanceSummary.shortMove}</b>documented Short IV price move</span>
-                    <span><b>{performanceSummary.longResult}</b>latest Long V result</span>
-                  </div>
-                  <p>
-                    Account profit and position size are not public. Success rate
-                    will use only closed plays we can verify from posts.
-                  </p>
-                  <button onClick={() => showView("history")}>Open track record</button>
+                <aside className="astro-next-compact">
+                  <small>HERMES NEXT · MODEL</small>
+                  <strong>{plainDashboard.next}</strong>
+                  <p>Prediction only. It becomes real only after direct evidence.</p>
+                  <button onClick={() => showView("live")}>Watch Hermes live</button>
                 </aside>
-              </div>
-
-              <div className="astro-read-logic" aria-label="Why the current Astro read is active">
-                <article>
-                  <small>DIRECT EVIDENCE</small>
-                  <strong>
-                    {positionEvidence?.label || "No newer direct post accepted"}
-                  </strong>
-                  <span>Astro post</span>
-                </article>
-                <article>
-                  <small>WAIT FOR</small>
-                  <strong>{forecast.thesis.nextTrigger}</strong>
-                  <span>Changes the next-move probability</span>
-                </article>
-                <article className="risk">
-                  <small>READ CHANGES IF</small>
-                  <strong>{forecast.decision.risk}</strong>
-                  <span>Do not keep the old read after this</span>
-                </article>
               </div>
 
               <div className="astro-target-ladder" aria-label="Astro target ladder">
@@ -1533,6 +1533,159 @@ export default function Home() {
             </div>
           </details>
         </div>
+      )}
+
+      {activeView === "live" && (
+        <section className="hermes-console-view">
+          <header className="console-hero">
+            <div>
+              <span className="eyebrow">TRUTHFUL SYSTEM MONITOR</span>
+              <h1>Hermes Live</h1>
+              <p>
+                A real event feed from the VPS. It shows what the system checked
+                and decided—never hidden reasoning or invented thoughts.
+              </p>
+            </div>
+            <div className={`console-current ${liveState.tone}`}>
+              <span><i /> RIGHT NOW</span>
+              <strong>{liveState.label}</strong>
+              <p>{liveState.detail}</p>
+            </div>
+          </header>
+
+          <div className="console-facts" aria-label="Live system facts">
+            <article>
+              <small>SOURCES</small>
+              <strong>{systemStatus.telegramSources.length}/2</strong>
+              <span>
+                {systemStatus.telegramSourceStatus === "healthy"
+                  ? "Connected"
+                  : systemStatus.telegramSourceStatus}
+              </span>
+            </article>
+            <article>
+              <small>NEWEST POST</small>
+              <strong>
+                {relativeTime(systemStatus.telegramSourceNewestAt, clockNow)}
+              </strong>
+              <span>Accepted evidence</span>
+            </article>
+            <article>
+              <small>LAST HERMES READ</small>
+              <strong>
+                {relativeTime(
+                  systemStatus.telegramSourceLastAnalyzedAt,
+                  clockNow,
+                )}
+              </strong>
+              <span>
+                {systemStatus.telegramSourceAnalyzedNewestAt ===
+                systemStatus.telegramSourceNewestAt
+                  ? "Caught up"
+                  : "Update pending"}
+              </span>
+            </article>
+            <article>
+              <small>CURRENT RESULT</small>
+              <strong>{opportunity.label}</strong>
+              <span>{systemStatus.model?.replace("grok-", "Grok ") || "Model"}</span>
+            </article>
+          </div>
+
+          <div className="console-layout">
+            <section className="console-terminal" aria-label="Hermes activity console">
+              <header>
+                <div>
+                  <i />
+                  <i />
+                  <i />
+                  <span>astro@vps · live activity</span>
+                </div>
+                <small>AUTO REFRESH · 15S</small>
+              </header>
+              <div className="console-lines" aria-live="polite">
+                {systemStatus.activity.length ? (
+                  [...systemStatus.activity].reverse().map((event, index) => (
+                    <article
+                      className={event.status}
+                      key={`${event.at}-${event.stage}-${index}`}
+                    >
+                      <time>
+                        {new Date(event.at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })}
+                      </time>
+                      <span className="console-prompt">›</span>
+                      <div>
+                        <strong>{event.title}</strong>
+                        <p>{event.detail}</p>
+                      </div>
+                    </article>
+                  ))
+                ) : (
+                  <article className="quiet">
+                    <time>--:--:--</time>
+                    <span className="console-prompt">›</span>
+                    <div>
+                      <strong>Waiting for the next recorded scan</strong>
+                      <p>No activity event has been recorded yet.</p>
+                    </div>
+                  </article>
+                )}
+              </div>
+            </section>
+
+            <aside className="console-side">
+              <section>
+                <small>WHAT HERMES IS WATCHING</small>
+                <strong>{forecast.thesis.nextTrigger}</strong>
+                <p>This is the recorded trigger for reconsidering the read.</p>
+              </section>
+              <section className="risk">
+                <small>WHAT BREAKS THE READ</small>
+                <strong>{forecast.decision.risk}</strong>
+              </section>
+              <section>
+                <small>APPROVED INPUTS</small>
+                {systemStatus.telegramSources.map((source) => (
+                  <div className="console-source" key={source.id || source.title}>
+                    <i />
+                    <span>
+                      <strong>{source.title || "Astro source"}</strong>
+                      <small>
+                        {relativeTime(source.lastMessageAt, clockNow)} ·{" "}
+                        {source.messageCount || 0} messages
+                      </small>
+                    </span>
+                  </div>
+                ))}
+                <div className="console-source">
+                  <i />
+                  <span>
+                    <strong>Coinbase BTC-USD</strong>
+                    <small>Live market structure</small>
+                  </span>
+                </div>
+                <div className="console-source">
+                  <i />
+                  <span>
+                    <strong>Astro Codex</strong>
+                    <small>
+                      {systemStatus.codexEntries.toLocaleString()} memories
+                    </small>
+                  </span>
+                </div>
+              </section>
+            </aside>
+          </div>
+
+          <p className="console-boundary">
+            Hermes Live exposes operations and conclusions. It does not expose
+            private chain-of-thought, and it cannot know Astro’s private actions.
+          </p>
+        </section>
       )}
 
       {activeView === "positions" && (
@@ -1811,14 +1964,14 @@ export default function Home() {
         <button className={activeView === "desk" ? "active" : ""} onClick={() => showView("desk")}>
           <span>●</span>Now
         </button>
+        <button className={activeView === "live" ? "active" : ""} onClick={() => showView("live")}>
+          <span>›_</span>Live
+        </button>
         <button className={activeView === "positions" ? "active" : ""} onClick={() => showView("positions")}>
           <span>▤</span>Positions
         </button>
         <button className={activeView === "hermes" ? "active" : ""} onClick={() => showView("hermes")}>
           <span>◇</span>Hermes
-        </button>
-        <button className={activeView === "playbook" ? "active" : ""} onClick={() => showView("playbook")}>
-          <span>⌁</span>School
         </button>
         <button className={activeView === "history" ? "active" : ""} onClick={() => showView("history")}>
           <span>↺</span>History

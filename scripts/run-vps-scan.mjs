@@ -57,6 +57,17 @@ async function writeState(state) {
   await writeJsonAtomic(statePath, state);
 }
 
+function nextActivity(existing, event) {
+  const activity = Array.isArray(existing) ? existing : [];
+  return [
+    ...activity,
+    {
+      at: new Date().toISOString(),
+      ...event,
+    },
+  ].slice(-60);
+}
+
 function forecastSemanticHash(forecast) {
   if (!forecast || typeof forecast !== "object") return "missing";
   const { generatedAt: ignoredGeneratedAt, mode: ignoredMode, ...semantic } =
@@ -429,12 +440,20 @@ async function updateHistory({
 const previous = await readJson(statePath, {});
 const runId = randomUUID();
 const startedAt = new Date().toISOString();
+let activity = nextActivity(previous.activity, {
+  runId,
+  stage: "scan",
+  status: "working",
+  title: "Started a new evidence check",
+  detail: "Checking approved Astro sources, market data, and saved forecasts.",
+});
 await writeState({
   ...previous,
   runId,
   model: grokModel,
   status: "checking",
   startedAt,
+  activity,
   error: null,
 });
 
@@ -446,6 +465,13 @@ try {
   ]);
   const market = marketFeed.snapshot;
   const candles = marketFeed.candles;
+  activity = nextActivity(activity, {
+    runId,
+    stage: "inputs",
+    status: "done",
+    title: "Inputs verified",
+    detail: `${telegramSources.allowedChats.length}/2 Astro channels healthy · ${telegramSources.messageCount} recent messages · BTC $${Math.round(market.price).toLocaleString("en-US")}.`,
+  });
   const currentHistory = await readJson(historyPath, {});
   const currentTrackRecord =
     currentHistory?.trackRecord ?? (await readJson(trackRecordSeedPath, null));
@@ -493,6 +519,13 @@ try {
       market,
       previous: previous.telegram,
     });
+    activity = nextActivity(activity, {
+      runId,
+      stage: "decision",
+      status: "quiet",
+      title: "No material trigger",
+      detail: "No new Astro evidence or market change required a full Hermes rebuild.",
+    });
     await writeState({
       ...previous,
       runId,
@@ -519,6 +552,7 @@ try {
       },
       changed: false,
       agentRun: false,
+      activity,
       telegram,
       consecutiveFailures: 0,
       error: null,
@@ -535,6 +569,34 @@ try {
     );
     process.exit(0);
   }
+  activity = nextActivity(activity, {
+    runId,
+    stage: "hermes",
+    status: "working",
+    title: "Hermes is analyzing",
+    detail:
+      "Comparing the newest accepted evidence with Astro history, the active playbook, and live market structure.",
+  });
+  await writeState({
+    ...previous,
+    runId,
+    model: grokModel,
+    codex,
+    status: "analyzing",
+    startedAt,
+    telegramSource: {
+      status: telegramSources.status,
+      lastSuccessAt: telegramSources.lastSuccessAt,
+      newestAcceptedAt: telegramSources.newestAcceptedAt,
+      messageCount: telegramSources.messageCount,
+      mediaCount: telegramSources.mediaCount,
+      sources: telegramSources.allowedChats,
+      lastAnalyzedAt: previous.telegramSource?.lastAnalyzedAt ?? null,
+      analyzedNewestAt: previous.telegramSource?.analyzedNewestAt ?? null,
+    },
+    activity,
+    error: null,
+  });
   const beforeForecast = await readJson(forecastPath);
   const beforeHash = forecastSemanticHash(beforeForecast);
   const result = await runAgent(
@@ -575,6 +637,15 @@ try {
     market,
     previous: previous.telegram,
   });
+  activity = nextActivity(activity, {
+    runId,
+    stage: "decision",
+    status: changed ? "done" : "quiet",
+    title: changed ? "Forecast updated" : "Analysis complete · no change",
+    detail: changed
+      ? "New evidence materially changed the accepted dashboard read."
+      : "Hermes found no material reason to replace the accepted forecast.",
+  });
   await writeState({
     runId,
     model: grokModel,
@@ -602,6 +673,7 @@ try {
     changed,
     agentRun: true,
     lastAgentAt: finishedAt,
+    activity,
     telegram,
     consecutiveFailures: 0,
     error: null,
@@ -620,6 +692,13 @@ try {
   const finishedAt = new Date().toISOString();
   const message =
     error instanceof Error ? error.message : "Unknown Astro scan failure.";
+  activity = nextActivity(activity, {
+    runId,
+    stage: "error",
+    status: "error",
+    title: "Evidence check failed",
+    detail: message,
+  });
   await writeState({
     ...previous,
     runId,
@@ -629,6 +708,7 @@ try {
     finishedAt,
     checkedAt: previous.checkedAt ?? null,
     lastSuccessfulAt: previous.lastSuccessfulAt ?? null,
+    activity,
     consecutiveFailures: Number(previous.consecutiveFailures || 0) + 1,
     error: message,
   });
