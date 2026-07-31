@@ -130,6 +130,15 @@ function signalLabel(state: SignalState) {
   return labels[state];
 }
 
+function levelRole(level: ParsedLevel, currentPrice: number | null) {
+  if (level.kind === "risk") return "RISK";
+  if (level.kind === "entry") return "ASTRO ENTRY";
+  if (currentPrice !== null && level.price <= currentPrice + 5) {
+    return "TRIM / TAKEN";
+  }
+  return "NEXT TARGET";
+}
+
 function compactEventLabel(label: string) {
   const lowered = label.toLowerCase();
   if (lowered.includes("flip") || lowered.includes("close short")) return "FLIP";
@@ -178,6 +187,8 @@ export default function LiveAstroChart({
   thesisTrigger,
   forecastTime,
   signalState,
+  readerStep,
+  riskText,
 }: {
   events: AstroEvent[];
   freshnessLabel: string;
@@ -187,6 +198,8 @@ export default function LiveAstroChart({
   thesisTrigger: string;
   forecastTime: string;
   signalState: SignalState;
+  readerStep: string;
+  riskText: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -266,17 +279,41 @@ export default function LiveAstroChart({
       distance: ((next.price - price) / price) * 100,
     };
   }, [parsedLevels, price]);
-  const focusAstroLevels = useMemo(
-    () =>
-      [...parsedLevels]
-        .sort(
-          (left, right) =>
-            Math.abs(left.price - (price ?? left.price)) -
-            Math.abs(right.price - (price ?? right.price)),
-        )
-        .slice(0, 2),
-    [parsedLevels, price],
-  );
+  const focusAstroLevels = useMemo(() => {
+    if (price === null) return parsedLevels.slice(0, 2);
+
+    const nearestEntry = [...parsedLevels]
+      .filter((level) => level.kind === "entry")
+      .sort(
+        (left, right) =>
+          Math.abs(left.price - price) - Math.abs(right.price - price),
+      )[0];
+    const nextTarget = [...parsedLevels]
+      .filter((level) => level.kind === "trim" && level.price > price + 5)
+      .sort((left, right) => left.price - right.price)[0];
+    const nearestRisk = [...parsedLevels]
+      .filter((level) => level.kind === "risk")
+      .sort(
+        (left, right) =>
+          Math.abs(left.price - price) - Math.abs(right.price - price),
+      )[0];
+    const nearestFallback = [...parsedLevels].sort(
+      (left, right) =>
+        Math.abs(left.price - price) - Math.abs(right.price - price),
+    );
+
+    const selected = [nextTarget, nearestEntry, nearestRisk, ...nearestFallback]
+      .filter((level): level is ParsedLevel => Boolean(level))
+      .filter(
+        (level, index, all) =>
+          all.findIndex(
+            (candidate) =>
+              candidate.label === level.label && candidate.value === level.value,
+          ) === index,
+      );
+
+    return selected.slice(0, 2);
+  }, [parsedLevels, price]);
   const visibleAstroLevels = useMemo(
     () =>
       overlayMode === "focus"
@@ -406,7 +443,7 @@ export default function LiveAstroChart({
           lineWidth: 2,
           lineStyle: LineStyle.Dashed,
           axisLabelVisible: true,
-          title: `ASTRO · ${level.shortLabel}`,
+          title: `${levelRole(level, price)} · ${level.shortLabel}`,
         }),
       ),
       ...visibleThesisLevels.map((level) =>
@@ -420,7 +457,7 @@ export default function LiveAstroChart({
         }),
       ),
     ];
-  }, [visibleAstroLevels, visibleThesisLevels]);
+  }, [price, visibleAstroLevels, visibleThesisLevels]);
 
   useEffect(() => {
     markersRef.current?.setMarkers(visibleEventMarkers);
@@ -681,6 +718,30 @@ export default function LiveAstroChart({
             />
           ))}
         </div>
+        {overlayMode === "focus" && (
+          <div className={`chart-focus-plan ${signalState}`}>
+            <div>
+              <small>NOW</small>
+              <strong>{signalLabel(signalState)}</strong>
+            </div>
+            <div>
+              <small>YOUR MOVE</small>
+              <strong>{readerStep}</strong>
+            </div>
+            <div>
+              <small>WATCH PRICE</small>
+              <strong>
+                {nextAstroLevel
+                  ? `${nextAstroLevel.shortLabel} · ${formatPrice(nextAstroLevel.price)}`
+                  : "No confirmed target"}
+              </strong>
+            </div>
+            <div>
+              <small>READ CHANGES IF</small>
+              <strong>{riskText}</strong>
+            </div>
+          </div>
+        )}
         {feedState === "error" && (
           <div className="chart-feed-error">
             Live market data is temporarily unavailable. Astro’s validated map remains below.

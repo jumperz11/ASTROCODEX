@@ -43,6 +43,9 @@ test("server-renders the Astro Intelligence research terminal", async () => {
   assert.match(html, /OUR OPPORTUNITY/);
   assert.match(html, /ACTIVATES WHEN/);
   assert.match(html, /Previous moves/);
+  assert.match(html, /YOUR MOVE/);
+  assert.match(html, /WATCH PRICE/);
+  assert.match(html, /READ CHANGES IF/);
   assert.match(html, /OPEN &amp; CLOSE MAP/);
   assert.match(html, /LIVE ASTRO MAP/);
   assert.match(html, /ASTRO SIGNAL/);

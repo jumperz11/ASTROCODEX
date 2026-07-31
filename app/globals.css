@@ -3069,6 +3069,83 @@ summary:focus-visible {
   opacity: 0.72;
 }
 
+.chart-focus-plan {
+  position: absolute;
+  z-index: 4;
+  top: 12px;
+  right: 88px;
+  left: 12px;
+  display: grid;
+  grid-template-columns: 0.48fr 1.35fr 0.9fr 1fr;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  background: rgba(10, 11, 13, 0.9);
+  box-shadow: inset 3px 0 0 var(--amber);
+  backdrop-filter: blur(12px);
+  pointer-events: none;
+}
+
+.chart-focus-plan.long {
+  box-shadow: inset 3px 0 0 var(--green);
+}
+
+.chart-focus-plan.short,
+.chart-focus-plan.conflict {
+  box-shadow: inset 3px 0 0 var(--red);
+}
+
+.chart-focus-plan.exit {
+  box-shadow: inset 3px 0 0 var(--muted);
+}
+
+.chart-focus-plan > div {
+  min-width: 0;
+  padding: 10px 12px;
+  border-right: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.chart-focus-plan > div:last-child {
+  border-right: 0;
+}
+
+.chart-focus-plan small,
+.chart-focus-plan strong {
+  display: block;
+}
+
+.chart-focus-plan small {
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 7px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.chart-focus-plan strong {
+  overflow: hidden;
+  color: var(--paper);
+  font-size: 9px;
+  font-weight: 620;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chart-focus-plan > div:first-child strong {
+  color: var(--amber);
+  font-size: 16px;
+  letter-spacing: -0.035em;
+}
+
+.chart-focus-plan.long > div:first-child strong {
+  color: var(--green);
+}
+
+.chart-focus-plan.short > div:first-child strong,
+.chart-focus-plan.conflict > div:first-child strong {
+  color: var(--red);
+}
+
 .chart-signal-pill,
 .next-level-pill {
   position: absolute;
@@ -3732,6 +3809,40 @@ summary:focus-visible {
 
   .chart-zone-layer {
     right: 64px;
+  }
+
+  .chart-focus-plan {
+    top: 8px;
+    right: 66px;
+    left: 8px;
+    grid-template-columns: 0.62fr 1.38fr;
+  }
+
+  .chart-focus-plan > div {
+    min-height: 52px;
+    padding: 8px 9px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  }
+
+  .chart-focus-plan > div:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .chart-focus-plan > div:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+
+  .chart-focus-plan strong {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 8px;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .chart-focus-plan > div:first-child strong {
+    font-size: 15px;
   }
 
   .chart-decision-strip {

@@ -886,6 +886,8 @@ export default function Home() {
             thesisTrigger={forecast.thesis.nextTrigger}
             forecastTime={forecast.generatedAt}
             signalState={forecast.signal.state}
+            readerStep={simpleNextMove.you}
+            riskText={forecast.decision.risk}
           />
 
           <details className="current-analysis-details">
