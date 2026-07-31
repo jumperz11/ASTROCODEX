@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import QRCode from "qrcode";
 import { TelegramClient } from "teleproto";
