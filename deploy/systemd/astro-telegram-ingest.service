@@ -1,0 +1,30 @@
+[Unit]
+Description=Astro private Telegram source ingestion
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=astro
+Group=astro
+WorkingDirectory=/opt/astro
+EnvironmentFile=/etc/astro-signal.env
+Environment=ASTRO_STATE_DIR=/var/lib/astro-signal
+ExecStart=/usr/bin/node scripts/telegram-source-ingest.mjs
+Restart=always
+RestartSec=5
+StateDirectory=astro-signal
+StateDirectoryMode=0700
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+RestrictSUIDSGID=true
+LockPersonality=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

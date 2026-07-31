@@ -64,6 +64,8 @@ async function currentHealth() {
       codexEntries: Number(state.codex?.entries || 0),
       codexMedia: Number(state.codex?.media || 0),
       codexBuiltAt: state.codex?.builtAt ?? null,
+      telegramEnabled: Boolean(state.telegram?.enabled),
+      telegramStatus: state.telegram?.status ?? "disabled",
       consecutiveFailures: Number(state.consecutiveFailures || 0),
       error: state.error ?? null,
     };
@@ -81,6 +83,8 @@ async function currentHealth() {
       codexEntries: 0,
       codexMedia: 0,
       codexBuiltAt: null,
+      telegramEnabled: false,
+      telegramStatus: "disabled",
       consecutiveFailures: 0,
       error: "No completed VPS scan is available yet.",
     };
@@ -160,6 +164,8 @@ const server = createServer(async (request, response) => {
           codexEntries: health.codexEntries,
           codexMedia: health.codexMedia,
           codexBuiltAt: health.codexBuiltAt,
+          telegramEnabled: health.telegramEnabled,
+          telegramStatus: health.telegramStatus,
           hermesAudit: latestHermesPrediction
             ? {
                 id: latestHermesPrediction.id,

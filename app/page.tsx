@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import liveForecast from "./forecast.json";
 import AstroHistory from "./astro-history";
 import LiveAstroChart from "./live-astro-chart";
+import PositionsView from "./positions-view";
 
 type Evidence = {
   type: "astro" | "framework" | "inference";
@@ -587,6 +588,8 @@ type LiveSignalEnvelope = {
   model?: string | null;
   codexEntries?: number;
   codexMedia?: number;
+  telegramEnabled?: boolean;
+  telegramStatus?: string;
   hermesAudit?: HermesAudit | null;
 };
 
@@ -689,7 +692,9 @@ function PositionJourney({
 export default function Home() {
   const [forecast, setForecast] = useState<Forecast>(embeddedForecast);
   const [activeView, setActiveView] =
-    useState<"desk" | "hermes" | "history" | "evidence" | "playbook">("desk");
+    useState<
+      "desk" | "positions" | "hermes" | "history" | "evidence" | "playbook"
+    >("desk");
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
   const [lastUpdated, setLastUpdated] = useState("Validated Grok snapshot");
@@ -700,6 +705,8 @@ export default function Home() {
     codexEntries: 0,
     codexMedia: 0,
     runId: null as string | null,
+    telegramEnabled: false,
+    telegramStatus: "disabled",
     hermesAudit: null as HermesAudit | null,
   });
   const [clockNow, setClockNow] = useState(() => Date.now());
@@ -737,6 +744,8 @@ export default function Home() {
           codexEntries: Number(envelope.codexEntries || 0),
           codexMedia: Number(envelope.codexMedia || 0),
           runId: envelope.runId ?? null,
+          telegramEnabled: Boolean(envelope.telegramEnabled),
+          telegramStatus: envelope.telegramStatus ?? "disabled",
           hermesAudit: envelope.hermesAudit ?? null,
         });
         setLastUpdated(
@@ -1023,6 +1032,8 @@ export default function Home() {
         codexEntries: Number(envelope.codexEntries || 0),
         codexMedia: Number(envelope.codexMedia || 0),
         runId: envelope.runId ?? null,
+        telegramEnabled: Boolean(envelope.telegramEnabled),
+        telegramStatus: envelope.telegramStatus ?? "disabled",
         hermesAudit: envelope.hermesAudit ?? null,
       });
       setLastUpdated(
@@ -1043,7 +1054,13 @@ export default function Home() {
   }
 
   function showView(
-    view: "desk" | "hermes" | "history" | "evidence" | "playbook",
+    view:
+      | "desk"
+      | "positions"
+      | "hermes"
+      | "history"
+      | "evidence"
+      | "playbook",
   ) {
     setActiveView(view);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1070,6 +1087,7 @@ export default function Home() {
 
         <nav aria-label="Primary navigation">
           <button className={activeView === "desk" ? "active" : ""} onClick={() => showView("desk")}>Now</button>
+          <button className={activeView === "positions" ? "active" : ""} onClick={() => showView("positions")}>Positions</button>
           <button className={activeView === "hermes" ? "active" : ""} onClick={() => showView("hermes")}>Hermes</button>
           <button className={activeView === "history" ? "active" : ""} onClick={() => showView("history")}>History</button>
           <button className={activeView === "evidence" ? "active" : ""} onClick={() => showView("evidence")}>Evidence</button>
@@ -1123,6 +1141,19 @@ export default function Home() {
               </span>
               <span className={systemStatus.degraded ? "stale" : "live"}>
                 <i /> {systemStatus.degraded ? "Using safe snapshot" : "VPS connected"}
+              </span>
+              <span
+                className={
+                  systemStatus.telegramEnabled &&
+                  systemStatus.telegramStatus !== "error"
+                    ? "live"
+                    : "scheduled"
+                }
+              >
+                <i /> Telegram{" "}
+                {systemStatus.telegramEnabled
+                  ? systemStatus.telegramStatus
+                  : "setup pending"}
               </span>
             </div>
 
@@ -1426,6 +1457,13 @@ export default function Home() {
         </div>
       )}
 
+      {activeView === "positions" && (
+        <PositionsView
+          forecast={forecast}
+          hermesAudit={systemStatus.hermesAudit}
+        />
+      )}
+
       {activeView === "hermes" && (
         <section className="hermes-view">
           <div className="hermes-head">
@@ -1694,6 +1732,9 @@ export default function Home() {
       <nav className="mobile-nav" aria-label="Mobile navigation">
         <button className={activeView === "desk" ? "active" : ""} onClick={() => showView("desk")}>
           <span>●</span>Now
+        </button>
+        <button className={activeView === "positions" ? "active" : ""} onClick={() => showView("positions")}>
+          <span>▤</span>Positions
         </button>
         <button className={activeView === "hermes" ? "active" : ""} onClick={() => showView("hermes")}>
           <span>◇</span>Hermes

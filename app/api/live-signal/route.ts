@@ -10,6 +10,8 @@ type RemoteSignalEnvelope = {
   model?: unknown;
   codexEntries?: unknown;
   codexMedia?: unknown;
+  telegramEnabled?: unknown;
+  telegramStatus?: unknown;
   hermesAudit?: unknown;
 };
 
@@ -36,6 +38,8 @@ function response(
     model?: string | null;
     codexEntries?: number;
     codexMedia?: number;
+    telegramEnabled?: boolean;
+    telegramStatus?: string;
     hermesAudit?: unknown;
   },
 ) {
@@ -93,6 +97,11 @@ export async function GET() {
       codexMedia: Number.isInteger(payload.codexMedia)
         ? Number(payload.codexMedia)
         : 0,
+      telegramEnabled: payload.telegramEnabled === true,
+      telegramStatus:
+        typeof payload.telegramStatus === "string"
+          ? payload.telegramStatus
+          : "disabled",
       hermesAudit:
         payload.hermesAudit &&
         typeof payload.hermesAudit === "object" &&

@@ -4175,7 +4175,7 @@ summary:focus-visible {
     min-height: 69px;
     padding: 7px 12px calc(7px + env(safe-area-inset-bottom));
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     border-top: 1px solid var(--line);
     background: rgba(10, 11, 13, 0.94);
     backdrop-filter: blur(18px);
@@ -4231,6 +4231,341 @@ summary:focus-visible {
   color: var(--muted);
   font-size: 10px;
   line-height: 1.5;
+}
+
+.positions-view {
+  min-height: calc(100vh - 72px);
+  padding: 72px 4.5vw 90px;
+}
+
+.positions-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 40px;
+  align-items: end;
+  padding-bottom: 34px;
+  border-bottom: 1px solid var(--line);
+}
+
+.positions-intro h1 {
+  max-width: 820px;
+  margin: 15px 0 14px;
+  color: var(--text);
+  font-size: clamp(37px, 5vw, 72px);
+  font-weight: 500;
+  line-height: 0.96;
+  letter-spacing: -0.065em;
+}
+
+.positions-intro p {
+  max-width: 680px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.positions-price {
+  display: grid;
+  justify-items: end;
+  gap: 7px;
+}
+
+.positions-price small,
+.positions-price span,
+.position-book header span,
+.position-book-state small,
+.position-step span,
+.position-step small,
+.position-close-rule small,
+.position-opportunity small {
+  color: var(--muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.positions-price strong {
+  color: var(--text);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: clamp(32px, 4vw, 58px);
+  font-weight: 400;
+  letter-spacing: -0.06em;
+}
+
+.positions-price span {
+  color: var(--green);
+}
+
+.position-books {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 30px;
+  border: 1px solid var(--line);
+}
+
+.position-book {
+  min-width: 0;
+  background: var(--surface);
+}
+
+.position-book + .position-book {
+  border-left: 1px solid var(--line);
+}
+
+.position-book > header {
+  min-height: 112px;
+  padding: 24px;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.position-book header span {
+  color: var(--amber);
+}
+
+.hermes-book header span {
+  color: var(--blue);
+}
+
+.position-book h2 {
+  margin: 10px 0 0;
+  color: var(--text);
+  font-size: clamp(20px, 2vw, 30px);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+}
+
+.position-book header b {
+  height: max-content;
+  padding: 7px 9px;
+  border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent);
+  color: var(--amber);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 8px;
+  letter-spacing: 0.12em;
+}
+
+.hermes-book header b {
+  border-color: color-mix(in srgb, var(--blue) 55%, transparent);
+  color: var(--blue);
+}
+
+.position-book-state {
+  min-height: 133px;
+  padding: 23px 24px;
+  border-bottom: 1px solid var(--line);
+}
+
+.position-book-state strong {
+  display: block;
+  margin-top: 11px;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.position-book-state p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.position-ladder {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  border-bottom: 1px solid var(--line);
+}
+
+.position-step {
+  min-height: 130px;
+  padding: 19px 17px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-right: 1px solid var(--line);
+}
+
+.position-step:last-child {
+  border-right: 0;
+}
+
+.position-step > span {
+  color: var(--amber);
+}
+
+.hermes-book .position-step > span {
+  color: var(--blue);
+}
+
+.position-step strong {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.position-step small {
+  margin-top: auto;
+  line-height: 1.45;
+}
+
+.position-step.hit {
+  background: color-mix(in srgb, var(--green) 7%, transparent);
+}
+
+.position-step.hit strong,
+.position-step.hit small {
+  color: var(--green);
+}
+
+.position-step.close {
+  background: color-mix(in srgb, #f26b63 5%, transparent);
+}
+
+.position-step.close > span {
+  color: #f26b63;
+}
+
+.position-close-rule {
+  min-height: 170px;
+  padding: 24px;
+}
+
+.position-close-rule strong {
+  display: block;
+  margin-top: 13px;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.position-close-rule p {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.position-book > a {
+  display: block;
+  padding: 15px 24px;
+  border-top: 1px solid var(--line);
+  color: var(--amber);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  text-decoration: none;
+  letter-spacing: 0.05em;
+}
+
+.position-opportunity {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 0.8fr;
+  border: 1px solid var(--line);
+  border-top: 0;
+}
+
+.position-opportunity > div {
+  min-height: 126px;
+  padding: 22px 24px;
+}
+
+.position-opportunity > div + div {
+  border-left: 1px solid var(--line);
+}
+
+.position-opportunity strong {
+  display: block;
+  margin-top: 10px;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.position-opportunity span {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.position-opportunity .telegram-ready small,
+.position-opportunity .telegram-ready strong {
+  color: var(--green);
+}
+
+@media (max-width: 760px) {
+  .positions-view {
+    padding: 34px 15px 108px;
+  }
+
+  .positions-intro {
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+
+  .positions-intro h1 {
+    font-size: 41px;
+  }
+
+  .positions-price {
+    justify-items: start;
+  }
+
+  .position-books {
+    grid-template-columns: 1fr;
+  }
+
+  .position-book + .position-book {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .position-book > header,
+  .position-book-state,
+  .position-close-rule {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .position-ladder {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .position-step {
+    min-height: 116px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .position-step:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .position-opportunity {
+    grid-template-columns: 1fr;
+  }
+
+  .position-opportunity > div + div {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .mobile-nav {
+    padding-right: 5px;
+    padding-left: 5px;
+  }
+
+  .mobile-nav button {
+    font-size: 6px;
+  }
 }
 
 .live-quote {

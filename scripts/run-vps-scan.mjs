@@ -10,6 +10,7 @@ import {
   hermesLedgerSummary,
   supersedeActivePredictions,
 } from "./hermes-ledger.mjs";
+import { notifyTelegram } from "./telegram-notifier.mjs";
 
 const scriptsDirectory = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(scriptsDirectory, "..");
@@ -20,6 +21,9 @@ const stateDirectory =
   process.env.ASTRO_STATE_DIR?.trim() || join(projectRoot, ".astro-runtime");
 const statePath = join(stateDirectory, "state.json");
 const historyPath = join(stateDirectory, "history.json");
+const telegramSourcePath =
+  process.env.ASTRO_TELEGRAM_SOURCE_PATH?.trim() ||
+  join(stateDirectory, "telegram-source.json");
 const trackRecordSeedPath = join(projectRoot, "app", "track-record.json");
 const codexIndexPath =
   process.env.ASTRO_CODEX_INDEX?.trim() ||
@@ -84,6 +88,27 @@ function ledgerTriggerSignature(predictions) {
       behaviorStatus: prediction?.behaviorOutcome?.status ?? "unscored",
     })),
   );
+}
+
+async function telegramSourceSummary() {
+  const source = await readJson(telegramSourcePath, {});
+  const messages = Array.isArray(source?.messages) ? source.messages : [];
+  const discoveredChats = Array.isArray(source?.discoveredChats)
+    ? source.discoveredChats
+    : [];
+  return {
+    path: telegramSourcePath,
+    newestAcceptedAt: source?.newestAcceptedAt ?? null,
+    messageCount: messages.length,
+    mediaCount: messages.filter((message) => message?.mediaPath).length,
+    allowedChats: discoveredChats
+      .filter((chat) => chat?.allowed)
+      .map((chat) => ({
+        id: chat.id,
+        title: chat.title,
+        type: chat.type,
+      })),
+  };
 }
 
 async function fetchCandles(granularity) {
@@ -179,7 +204,7 @@ async function verifyCodexIndex() {
   };
 }
 
-function runAgent(market, trackRecord, hermesAudit) {
+function runAgent(market, trackRecord, hermesAudit, telegramSources) {
   return new Promise((resolve, reject) => {
     const { XAI_API_KEY: ignoredApiKey, ...oauthEnvironment } = process.env;
     void ignoredApiKey;
@@ -197,6 +222,11 @@ ${JSON.stringify(trackRecord)}
 
 Hermes prediction audit ledger (machine-scored; preserve failures and learn from them):
 ${JSON.stringify(hermesAudit)}
+
+Private Telegram source ledger (private direct context; never present as a public X quote):
+${JSON.stringify(telegramSources)}
+
+When messageCount is positive, read the JSON ledger at the supplied path and inspect recent allowlisted messages and referenced local chart media. Use them to improve Hermes scenarios, target mapping, and behavioral context. Do not reproduce paid message text in the saved public-facing summary. A Telegram-only claim may affect Hermes inference, but it cannot become public Astro evidence or create a confirmed public signal unless an exact public X status corroborates it.
 
 Use this snapshot only for the separate model thesis and thesisLevels. Keep Astro-confirmed levels in levels. Never present the market snapshot or model levels as Astro's words.`,
       ],
@@ -352,7 +382,7 @@ async function updateHistory({
   const hermesStats = hermesLedgerSummary(hermesPredictions);
 
   const seededTrackRecord = await readJson(trackRecordSeedPath);
-  await writeJsonAtomic(historyPath, {
+  const nextHistory = {
     updatedAt: checkedAt,
     daily: daily.slice(-365),
     plays: plays.slice(-500),
@@ -366,7 +396,9 @@ async function updateHistory({
     },
     trackRecord:
       forecast?.trackRecord ?? history.trackRecord ?? seededTrackRecord ?? null,
-  });
+  };
+  await writeJsonAtomic(historyPath, nextHistory);
+  return nextHistory;
 }
 
 const previous = await readJson(statePath, {});
@@ -382,9 +414,10 @@ await writeState({
 });
 
 try {
-  const [marketFeed, codex] = await Promise.all([
+  const [marketFeed, codex, telegramSources] = await Promise.all([
     verifyMarketFeed(),
     verifyCodexIndex(),
+    telegramSourceSummary(),
   ]);
   const market = marketFeed.snapshot;
   const candles = marketFeed.candles;
@@ -409,18 +442,31 @@ try {
   const materialPriceMove =
     Number.isFinite(previousMarketPrice) &&
     Math.abs(market.price - previousMarketPrice) / previousMarketPrice >= 0.0075;
+  const telegramChanged =
+    Boolean(telegramSources.newestAcceptedAt) &&
+    telegramSources.newestAcceptedAt !== previous.telegramSourceUpdatedAt;
   const existingForecast = await readJson(forecastPath);
   const shouldRunAgent =
-    agentDue || ledgerChanged || materialPriceMove || !existingForecast;
+    agentDue ||
+    ledgerChanged ||
+    materialPriceMove ||
+    telegramChanged ||
+    !existingForecast;
 
   if (!shouldRunAgent) {
     const finishedAt = new Date().toISOString();
-    await updateHistory({
+    const nextHistory = await updateHistory({
       checkedAt: finishedAt,
       changed: false,
       forecast: existingForecast,
       market,
       candles,
+    });
+    const telegram = await notifyTelegram({
+      forecast: existingForecast,
+      history: nextHistory,
+      market,
+      previous: previous.telegram,
     });
     await writeState({
       ...previous,
@@ -435,8 +481,10 @@ try {
       forecastGeneratedAt: existingForecast?.generatedAt ?? null,
       marketCandleAt: market.candleAt,
       marketPrice: market.price,
+      telegramSourceUpdatedAt: telegramSources.newestAcceptedAt,
       changed: false,
       agentRun: false,
+      telegram,
       consecutiveFailures: 0,
       error: null,
     });
@@ -454,7 +502,12 @@ try {
   }
   const beforeForecast = await readJson(forecastPath);
   const beforeHash = forecastSemanticHash(beforeForecast);
-  const result = await runAgent(market, currentTrackRecord, currentHermesAudit);
+  const result = await runAgent(
+    market,
+    currentTrackRecord,
+    currentHermesAudit,
+    telegramSources,
+  );
   const forecast = await readJson(forecastPath);
   const afterHash = forecastSemanticHash(forecast);
   const changed = afterHash !== beforeHash;
@@ -474,12 +527,18 @@ try {
   }
 
   const finishedAt = new Date().toISOString();
-  await updateHistory({
+  const nextHistory = await updateHistory({
     checkedAt: finishedAt,
     changed,
     forecast,
     market,
     candles,
+  });
+  const telegram = await notifyTelegram({
+    forecast,
+    history: nextHistory,
+    market,
+    previous: previous.telegram,
   });
   await writeState({
     runId,
@@ -494,9 +553,11 @@ try {
     forecastGeneratedAt: forecast?.generatedAt ?? null,
     marketCandleAt: market.candleAt,
     marketPrice: market.price,
+    telegramSourceUpdatedAt: telegramSources.newestAcceptedAt,
     changed,
     agentRun: true,
     lastAgentAt: finishedAt,
+    telegram,
     consecutiveFailures: 0,
     error: null,
   });

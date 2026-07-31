@@ -14,6 +14,7 @@ Environment=ASTRO_STATE_DIR=/var/lib/astro-signal
 Environment=ASTRO_FORECAST_PATH=/var/lib/astro-signal/forecast.json
 Environment=ASTRO_CODEX_INDEX=/var/lib/astro-signal/codex-index.json
 Environment=ASTRO_CODEX_ARCHIVE=/var/lib/astro-signal/codex-archive
+Environment=ASTRO_TELEGRAM_SOURCE_PATH=/var/lib/astro-signal/telegram-source.json
 Environment=ASTRO_GROK_MODEL=grok-4.5
 ExecStart=/usr/bin/npm run astro:vps:scan
 TimeoutStartSec=240
