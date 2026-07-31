@@ -200,6 +200,61 @@ export function validateForecast(report) {
     }
   }
 
+  if (report.trackRecord !== undefined) {
+    const trackRecord = report.trackRecord;
+    if (
+      !trackRecord ||
+      typeof trackRecord !== "object" ||
+      Array.isArray(trackRecord) ||
+      typeof trackRecord.reviewedAt !== "string" ||
+      !Number.isFinite(new Date(trackRecord.reviewedAt).getTime()) ||
+      typeof trackRecord.method !== "string" ||
+      !trackRecord.method.trim() ||
+      !trackRecord.astroClaim ||
+      typeof trackRecord.astroClaim.label !== "string" ||
+      typeof trackRecord.astroClaim.detail !== "string" ||
+      !Array.isArray(trackRecord.plays)
+    ) {
+      throw new Error("Forecast track record is invalid.");
+    }
+    const playIds = new Set();
+    for (const play of trackRecord.plays) {
+      const resolved = play?.status === "win" || play?.status === "loss";
+      if (
+        !play ||
+        typeof play !== "object" ||
+        typeof play.id !== "string" ||
+        !play.id.trim() ||
+        playIds.has(play.id) ||
+        typeof play.name !== "string" ||
+        !["LONG", "SHORT"].includes(play.direction) ||
+        !["win", "loss", "open", "unscored"].includes(play.status) ||
+        typeof play.openedAt !== "string" ||
+        !Number.isFinite(new Date(play.openedAt).getTime()) ||
+        (resolved &&
+          (typeof play.closedAt !== "string" ||
+            !Number.isFinite(new Date(play.closedAt).getTime()))) ||
+        (play.status === "open" && play.closedAt !== null) ||
+        ["entry", "targets", "result", "why"].some(
+          (field) => typeof play[field] !== "string" || !play[field].trim(),
+        ) ||
+        !Array.isArray(play.sources) ||
+        play.sources.length < (resolved ? 2 : 1) ||
+        play.sources.some(
+          (source) =>
+            typeof source?.label !== "string" ||
+            typeof source?.url !== "string" ||
+            !/^https:\/\/(?:www\.)?(?:x\.com|twitter\.com)\/astronomer_zero\/status\/\d+/.test(
+              source.url,
+            ),
+        )
+      ) {
+        throw new Error("Forecast contains an invalid audited play.");
+      }
+      playIds.add(play.id);
+    }
+  }
+
   for (const item of report.evidence) {
     if (
       item.type === "astro" &&

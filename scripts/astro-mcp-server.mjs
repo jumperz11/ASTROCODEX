@@ -264,6 +264,54 @@ const scenarioSchema = z.object({
   trigger: z.string().min(1),
 });
 
+const auditedPlaySchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    direction: z.enum(["LONG", "SHORT"]),
+    status: z.enum(["win", "loss", "open", "unscored"]),
+    openedAt: z.string().datetime(),
+    closedAt: z.string().datetime().nullable(),
+    entry: z.string().min(1),
+    targets: z.string().min(1),
+    result: z.string().min(1),
+    why: z.string().min(1),
+    sources: z
+      .array(
+        z.object({
+          label: z.string().min(1),
+          url: z
+            .string()
+            .url()
+            .regex(
+              /^https:\/\/(?:www\.)?(?:x\.com|twitter\.com)\/astronomer_zero\/status\/\d+/,
+            ),
+        }),
+      )
+      .min(1),
+  })
+  .superRefine((play, context) => {
+    const resolved = play.status === "win" || play.status === "loss";
+    if (resolved && !play.closedAt) {
+      context.addIssue({
+        code: "custom",
+        message: "A resolved audited play requires closedAt.",
+      });
+    }
+    if (resolved && play.sources.length < 2) {
+      context.addIssue({
+        code: "custom",
+        message: "A resolved audited play requires at least two direct sources.",
+      });
+    }
+    if (play.status === "open" && play.closedAt) {
+      context.addIssue({
+        code: "custom",
+        message: "An open audited play cannot have closedAt.",
+      });
+    }
+  });
+
 const forecastSchema = z.object({
   market: z.string().min(1),
   stance: z.string().min(1),
@@ -361,6 +409,17 @@ const forecastSchema = z.object({
       }),
     )
     .min(1),
+  trackRecord: z
+    .object({
+      reviewedAt: z.string().datetime(),
+      method: z.string().min(1),
+      astroClaim: z.object({
+        label: z.string().min(1),
+        detail: z.string().min(1),
+      }),
+      plays: z.array(auditedPlaySchema).max(200),
+    })
+    .optional(),
   caveat: z.string().min(1),
 });
 

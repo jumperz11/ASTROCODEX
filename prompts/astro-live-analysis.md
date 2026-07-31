@@ -31,7 +31,14 @@ Research task
    probability using the current public position, distance to verified levels,
    live Coinbase structure, and relevant behavior retrieved from Astro Codex.
    The highest-probability scenario is the dashboard's predicted next move.
-10. Call `save_astro_forecast` with the complete forecast object. Do not claim
+10. Maintain `trackRecord` as a conservative audited ledger. Carry forward every
+   existing play from the latest forecast, add a new play only when Astro posts
+   a clear direction and entry before the result, and resolve it only with a
+   later direct close/result post plus market evidence. Keep open, vague,
+   deleted, or conflicting plays `open` or `unscored`; never count Astro's
+   self-reported streak as independently verified. A resolved win/loss needs a
+   close time and at least two exact direct status URLs.
+11. Call `save_astro_forecast` with the complete forecast object. Do not claim
    success unless the connector accepts it.
 
 Historical Astro framework
@@ -79,6 +86,10 @@ Evidence discipline
 - Prediction scenarios may anticipate likely management behavior, but they
   cannot create a confirmed `long`, `short`, `take_profit`, or `exit` signal.
 - Confidence means strength of the evidence alignment, not probability of profit.
+- `trackRecord` is cumulative and evidence-gated. Never turn a thesis snapshot,
+  scenario change, target touch without a frozen entry, or Astro's own win claim
+  into a new verified play. Never remove an older record unless direct evidence
+  proves it was duplicated or invalid.
 - Do not issue buy or sell instructions. This is research, not financial advice.
 - Prefer uncertainty over invented precision.
 - Keep `decision.position`, `decision.status`, `decision.lookingFor`,

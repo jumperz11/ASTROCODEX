@@ -11,6 +11,7 @@ const stateDirectory =
   process.env.ASTRO_STATE_DIR?.trim() || join(projectRoot, ".astro-runtime");
 const statePath = join(stateDirectory, "state.json");
 const historyPath = join(stateDirectory, "history.json");
+const trackRecordSeedPath = join(projectRoot, "app", "track-record.json");
 const codexIndexPath =
   process.env.ASTRO_CODEX_INDEX?.trim() ||
   join(stateDirectory, "codex-index.json");
@@ -133,7 +134,7 @@ async function verifyCodexIndex() {
   };
 }
 
-function runAgent(market) {
+function runAgent(market, trackRecord) {
   return new Promise((resolve, reject) => {
     const { XAI_API_KEY: ignoredApiKey, ...oauthEnvironment } = process.env;
     void ignoredApiKey;
@@ -145,6 +146,9 @@ function runAgent(market) {
 
 Verified Coinbase BTC-USD market snapshot (machine-supplied, not Astro evidence):
 ${JSON.stringify(market)}
+
+Current audited track record (carry forward; change only with new direct evidence):
+${JSON.stringify(trackRecord)}
 
 Use this snapshot only for the separate model thesis and thesisLevels. Keep Astro-confirmed levels in levels. Never present the market snapshot or model levels as Astro's words.`,
       ],
@@ -223,10 +227,13 @@ async function updateHistory({ checkedAt, changed, forecast, market }) {
     });
   }
 
+  const seededTrackRecord = await readJson(trackRecordSeedPath);
   await writeJsonAtomic(historyPath, {
     updatedAt: checkedAt,
     daily: daily.slice(-365),
     plays: plays.slice(-500),
+    trackRecord:
+      forecast?.trackRecord ?? history.trackRecord ?? seededTrackRecord ?? null,
   });
 }
 
@@ -247,10 +254,13 @@ try {
     verifyMarketFeed(),
     verifyCodexIndex(),
   ]);
+  const currentHistory = await readJson(historyPath, {});
+  const currentTrackRecord =
+    currentHistory?.trackRecord ?? (await readJson(trackRecordSeedPath, null));
   const before = await stat(forecastPath)
     .then((value) => value.mtimeMs)
     .catch(() => 0);
-  const result = await runAgent(market);
+  const result = await runAgent(market, currentTrackRecord);
   const after = await stat(forecastPath)
     .then((value) => value.mtimeMs)
     .catch(() => 0);

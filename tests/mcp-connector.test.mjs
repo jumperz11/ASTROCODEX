@@ -312,6 +312,38 @@ test("forecast gate requires direct sources and balanced scenarios", () => {
         url: "https://x.com/astronomer_zero/status/2082560085994434700",
       },
     ],
+    trackRecord: {
+      reviewedAt: "2026-07-30T23:35:00.000Z",
+      method: "Only frozen, resolved public plays count.",
+      astroClaim: {
+        label: "Astro says 5 wins",
+        detail: "Self-reported and separate from the audited score.",
+      },
+      plays: [
+        {
+          id: "long-v",
+          name: "Long V",
+          direction: "LONG",
+          status: "win",
+          openedAt: "2026-07-29T20:13:00.000Z",
+          closedAt: "2026-07-30T23:35:00.000Z",
+          entry: "~63.45k",
+          targets: "64k then 64.7k",
+          result: "Right",
+          why: "Entry preceded the documented targets.",
+          sources: [
+            {
+              label: "Entry",
+              url: "https://x.com/astronomer_zero/status/2082560085994434700",
+            },
+            {
+              label: "Result",
+              url: "https://x.com/astronomer_zero/status/2082796525126856769",
+            },
+          ],
+        },
+      ],
+    },
     caveat: "Research only; not financial advice.",
   };
 
@@ -339,5 +371,21 @@ test("forecast gate requires direct sources and balanced scenarios", () => {
         signal: { ...valid.signal, state: "guess" },
       }),
     /signal state is invalid/,
+  );
+  assert.throws(
+    () =>
+      validateForecast({
+        ...valid,
+        trackRecord: {
+          ...valid.trackRecord,
+          plays: [
+            {
+              ...valid.trackRecord.plays[0],
+              closedAt: null,
+            },
+          ],
+        },
+      }),
+    /invalid audited play/,
   );
 });

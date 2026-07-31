@@ -1,0 +1,66 @@
+{
+  "reviewedAt": "2026-07-31T10:10:54.243Z",
+  "method": "A play counts only when a public direction and entry are frozen before the result, and a later public post or price record resolves the target or close. Claims without enough public detail stay unscored.",
+  "astroClaim": {
+    "label": "Astro says 5 wins",
+    "detail": "This is his public statement. It is shown for context, but it is not added to our audited total."
+  },
+  "plays": [
+    {
+      "id": "long-v-2026-07-29",
+      "name": "Long V",
+      "direction": "LONG",
+      "status": "win",
+      "openedAt": "2026-07-29T20:13:00.000Z",
+      "closedAt": "2026-07-30T23:35:00.000Z",
+      "entry": "~63.45–63.48k",
+      "targets": "64k trim → ~64.7k TP → ~65.5k safe house",
+      "result": "Right · profit targets were publicly reached",
+      "why": "The long was posted before the move. Later posts documented the 64k trim, the ~64.7k win lock, and the safe-house objective.",
+      "sources": [
+        {
+          "label": "Opened Long V",
+          "url": "https://x.com/astronomer_zero/status/2082560085994434700"
+        },
+        {
+          "label": "First trim at 64k",
+          "url": "https://x.com/astronomer_zero/status/2082599877545259450"
+        },
+        {
+          "label": "Win locked near 64.7k",
+          "url": "https://x.com/astronomer_zero/status/2082796525126856769"
+        },
+        {
+          "label": "Safe house reached",
+          "url": "https://x.com/astronomer_zero/status/2082973310657372215"
+        }
+      ]
+    },
+    {
+      "id": "short-iii-2026-07",
+      "name": "Short III",
+      "direction": "SHORT",
+      "status": "open",
+      "openedAt": "2026-07-01T00:00:00.000Z",
+      "closedAt": null,
+      "entry": "~66.3k",
+      "targets": "Some lower · 7% from 66,920 ≈ 62.2k class",
+      "result": "Open · not counted yet",
+      "why": "Astro says the 66k+ short remains open, he does not want to add, and it is too soon to close all. An open play cannot be called a win or loss.",
+      "sources": [
+        {
+          "label": "Short III still open",
+          "url": "https://x.com/astronomer_zero/status/2083123755803681029"
+        },
+        {
+          "label": "Hold 66k+ shorts",
+          "url": "https://x.com/astronomer_zero/status/2083130924980727816"
+        },
+        {
+          "label": "7% objective anchor",
+          "url": "https://x.com/astronomer_zero/status/2083126784162517412"
+        }
+      ]
+    }
+  ]
+}

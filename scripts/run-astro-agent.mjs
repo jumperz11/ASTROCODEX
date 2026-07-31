@@ -87,6 +87,8 @@ Connector workflow:
   position/execution sequence, and closest behavior around the active trigger.
 - Treat Codex results as framework memory, never evidence of a current position.
 - Use current public X evidence and exact direct status URLs.
+- Read the latest forecast's trackRecord, carry it forward, and update only plays
+  whose status is changed by new direct evidence. Do not score open or vague plays.
 - Call save_astro_forecast with the complete result.
 - If exact current evidence cannot be verified, do not save a forecast.
 - After the tool accepts the forecast, give a short human-readable summary.`;

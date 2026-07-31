@@ -4164,6 +4164,266 @@ summary:focus-visible {
   color: var(--ink);
 }
 
+.record-view {
+  display: grid;
+  gap: 18px;
+}
+
+.record-score-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--line);
+  background: var(--line);
+}
+
+.record-score {
+  min-height: 150px;
+  padding: 20px;
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+}
+
+.record-score.primary {
+  box-shadow: inset 0 3px 0 var(--green);
+}
+
+.record-score small,
+.record-truth-bar small,
+.record-section-head small,
+.play-record small,
+.play-record time,
+.score-method summary {
+  color: var(--muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 8px;
+  letter-spacing: 0.11em;
+}
+
+.record-score > strong {
+  margin-top: 16px;
+  color: var(--paper);
+  font-size: 45px;
+  font-weight: 500;
+  letter-spacing: -0.055em;
+}
+
+.record-score > strong.record-rate {
+  font-size: 27px;
+  letter-spacing: -0.035em;
+}
+
+.record-score > span {
+  margin-top: auto;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.record-truth-bar {
+  padding: 18px 20px;
+  border: 1px solid rgba(255, 176, 0, 0.3);
+  background: rgba(255, 176, 0, 0.055);
+  display: grid;
+  grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.3fr);
+  align-items: center;
+  gap: 24px;
+}
+
+.record-truth-bar strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--amber);
+  font-size: 18px;
+}
+
+.record-truth-bar p {
+  margin: 0;
+  color: #adb3bd;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.record-section-head {
+  margin-top: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 24px;
+}
+
+.record-section-head h2 {
+  margin: 8px 0 0;
+  font-size: clamp(27px, 4vw, 50px);
+  font-weight: 500;
+  letter-spacing: -0.05em;
+}
+
+.record-section-head p {
+  margin: 0;
+  color: var(--muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.play-ledger {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.play-record {
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: inset 0 3px 0 #5d6570;
+}
+
+.play-record.win {
+  box-shadow: inset 0 3px 0 var(--green);
+}
+
+.play-record.loss {
+  box-shadow: inset 0 3px 0 var(--red);
+}
+
+.play-record.open {
+  box-shadow: inset 0 3px 0 var(--amber);
+}
+
+.play-record > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+}
+
+.play-record > header > div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.outcome-pill {
+  padding: 6px 8px;
+  border: 1px solid #5d6570;
+  color: #b8bec7;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.outcome-pill.win {
+  border-color: rgba(82, 230, 167, 0.45);
+  background: rgba(82, 230, 167, 0.08);
+  color: var(--green);
+}
+
+.outcome-pill.loss {
+  border-color: rgba(255, 107, 102, 0.45);
+  background: rgba(255, 107, 102, 0.08);
+  color: var(--red);
+}
+
+.outcome-pill.open {
+  border-color: rgba(255, 176, 0, 0.45);
+  background: rgba(255, 176, 0, 0.08);
+  color: var(--amber);
+}
+
+.play-record h3 {
+  margin: 25px 0 4px;
+  font-size: 31px;
+  font-weight: 500;
+  letter-spacing: -0.045em;
+}
+
+.play-result {
+  color: #c9cfd7;
+  font-size: 13px;
+}
+
+.play-route {
+  margin-top: 21px;
+  padding: 15px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: minmax(100px, 0.65fr) auto minmax(0, 1.35fr);
+  align-items: center;
+  gap: 13px;
+}
+
+.play-route i {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.play-route strong {
+  display: block;
+  margin-top: 7px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.play-record > p {
+  min-height: 54px;
+  margin: 18px 0;
+  color: #aeb4bd;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.play-record > footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.play-record > footer a {
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  color: #b7bdc6;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 7px;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+}
+
+.play-record > footer a:hover {
+  border-color: var(--amber);
+  color: var(--paper);
+}
+
+.score-method {
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.score-method summary {
+  padding: 16px 18px;
+  color: #b5bbc4;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+.score-method p,
+.score-method ul {
+  margin: 0;
+  padding: 0 22px 18px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.score-method ul {
+  padding-left: 39px;
+}
+
 .history-workspace {
   display: grid;
   grid-template-columns: 270px minmax(0, 1fr);
@@ -4287,6 +4547,14 @@ summary:focus-visible {
 }
 
 @media (max-width: 900px) {
+  .record-score-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .play-ledger {
+    grid-template-columns: 1fr;
+  }
+
   .forward-thesis-grid,
   .history-thesis-grid {
     grid-template-columns: 1fr 1fr;
@@ -4311,6 +4579,85 @@ summary:focus-visible {
 }
 
 @media (max-width: 620px) {
+  .history-intro {
+    margin-bottom: 23px;
+  }
+
+  .history-intro h1 {
+    font-size: 43px;
+  }
+
+  .history-intro p {
+    font-size: 13px;
+  }
+
+  .history-switch {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .history-switch button {
+    min-height: 46px;
+    padding: 9px 5px;
+  }
+
+  .record-score {
+    min-height: 124px;
+    padding: 15px;
+  }
+
+  .record-score > strong {
+    margin-top: 11px;
+    font-size: 36px;
+  }
+
+  .record-score > strong.record-rate {
+    font-size: 20px;
+  }
+
+  .record-score > span {
+    font-size: 9px;
+  }
+
+  .record-truth-bar {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 16px;
+  }
+
+  .record-section-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .play-record {
+    padding: 18px 16px;
+  }
+
+  .play-record > header {
+    align-items: flex-start;
+  }
+
+  .play-record h3 {
+    margin-top: 20px;
+  }
+
+  .play-route {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .play-route i {
+    transform: rotate(90deg);
+    width: min-content;
+  }
+
+  .play-record > p {
+    min-height: 0;
+  }
+
   .forward-thesis-grid,
   .history-thesis-grid {
     grid-template-columns: 1fr;

@@ -93,3 +93,30 @@ test("live signal endpoint safely falls back to the validated bundle", async () 
   assert.equal(data.forecast.market, "BTC");
   assert.equal(data.forecast.mode, "live");
 });
+
+test("history endpoint keeps the audited scorecard available when VPS history is offline", async () => {
+  const app = await worker();
+  const response = await app.fetch(
+    new Request("http://localhost/api/live-history", {
+      headers: { accept: "application/json" },
+    }),
+    environment,
+    context,
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("cache-control") ?? "", /no-store/);
+
+  const data = await response.json();
+  assert.equal(data.trackRecord.plays[0].status, "win");
+  assert.equal(data.trackRecord.plays[1].status, "open");
+  assert.equal(
+    data.trackRecord.plays.filter((play) => play.status === "win").length,
+    1,
+  );
+  assert.equal(
+    data.trackRecord.plays.filter((play) => play.status === "loss").length,
+    0,
+  );
+  assert.equal(data.degraded, true);
+});

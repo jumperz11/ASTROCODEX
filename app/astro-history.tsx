@@ -71,8 +71,48 @@ type HistoryPayload = {
   updatedAt: string | null;
   daily: DailySnapshot[];
   plays: PlaySnapshot[];
+  trackRecord?: TrackRecord;
   degraded?: boolean;
 };
+
+type AuditedPlay = {
+  id: string;
+  name: string;
+  direction: "LONG" | "SHORT";
+  status: "win" | "loss" | "open" | "unscored";
+  openedAt: string;
+  closedAt: string | null;
+  entry: string;
+  targets: string;
+  result: string;
+  why: string;
+  sources: Array<{ label: string; url: string }>;
+};
+
+type TrackRecord = {
+  reviewedAt: string;
+  method: string;
+  astroClaim: { label: string; detail: string };
+  plays: AuditedPlay[];
+};
+
+function shortDate(value?: string | null) {
+  if (!value) return "Still open";
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(value));
+}
+
+function outcomeLabel(status: AuditedPlay["status"]) {
+  return {
+    win: "RIGHT",
+    loss: "WRONG",
+    open: "OPEN",
+    unscored: "NOT SCORED",
+  }[status];
+}
 
 function numericLevel(value: string) {
   const normalized = value.toLowerCase().replaceAll(",", "");
@@ -223,7 +263,7 @@ export default function AstroHistory() {
     daily: [],
     plays: [],
   });
-  const [mode, setMode] = useState<"days" | "plays">("days");
+  const [mode, setMode] = useState<"record" | "days" | "plays">("record");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -239,7 +279,9 @@ export default function AstroHistory() {
         const newest =
           mode === "days"
             ? payload.daily.at(-1)?.date
-            : payload.plays.at(-1)?.id;
+            : mode === "plays"
+              ? payload.plays.at(-1)?.id
+              : null;
         setSelectedId((current) => current ?? newest ?? null);
       } catch {
         // Keep the last successfully loaded VPS history.
@@ -264,14 +306,16 @@ export default function AstroHistory() {
             market: item.market,
             forecast: item.forecast,
           }))
-        : [...history.plays].reverse().map((item) => ({
+        : mode === "plays"
+          ? [...history.plays].reverse().map((item) => ({
             id: item.id,
             date: item.recordedAt.slice(0, 10),
             checkedAt: item.recordedAt,
             changed: true,
             market: item.market,
             forecast: item.forecast,
-          })),
+          }))
+          : [],
     [history.daily, history.plays, mode],
   );
   const selected = entries.find((item) => item.id === selectedId) ?? entries[0] ?? null;
@@ -285,7 +329,19 @@ export default function AstroHistory() {
       }
     : null;
 
-  function switchMode(next: "days" | "plays") {
+  const scored = history.trackRecord?.plays.filter(
+    (play) => play.status === "win" || play.status === "loss",
+  ) ?? [];
+  const wins = scored.filter((play) => play.status === "win").length;
+  const losses = scored.filter((play) => play.status === "loss").length;
+  const open = history.trackRecord?.plays.filter(
+    (play) => play.status === "open",
+  ).length ?? 0;
+  const winRate = scored.length >= 5
+    ? `${Math.round((wins / scored.length) * 100)}%`
+    : "Too early";
+
+  function switchMode(next: "record" | "days" | "plays") {
     setMode(next);
     setSelectedId(null);
   }
@@ -293,32 +349,132 @@ export default function AstroHistory() {
   return (
     <section className="history-view">
       <div className="history-intro">
-        <span className="eyebrow">ASTRO MEMORY</span>
-        <h1>Every day. Every thesis. Every change.</h1>
+        <span className="eyebrow">TRACK RECORD</span>
+        <h1>What was right. What is still open.</h1>
         <p>
-          Daily market snapshots and materially changed Astro reads are stored on
-          the VPS. Confirmed Astro levels stay separate from our forward model.
+          A clean, evidence-backed record. Open trades never count as wins, and
+          Astro&apos;s own claims stay separate from our verified score.
         </p>
       </div>
 
       <div className="history-switch" role="tablist" aria-label="History type">
         <button
+          className={mode === "record" ? "active" : ""}
+          onClick={() => switchMode("record")}
+        >
+          Results
+        </button>
+        <button
           className={mode === "days" ? "active" : ""}
           onClick={() => switchMode("days")}
         >
-          Daily charts
+          Day by day
         </button>
         <button
           className={mode === "plays" ? "active" : ""}
           onClick={() => switchMode("plays")}
         >
-          Astro play changes
+          Thesis changes
         </button>
       </div>
 
-      {!selected ? (
+      {mode === "record" ? (
+        <div className="record-view">
+          <div className="record-score-grid">
+            <article className="record-score primary">
+              <small>VERIFIED RIGHT</small>
+              <strong>{wins}</strong>
+              <span>Closed plays that passed our rules</span>
+            </article>
+            <article className="record-score">
+              <small>VERIFIED WRONG</small>
+              <strong>{losses}</strong>
+              <span>Closed plays that failed</span>
+            </article>
+            <article className="record-score">
+              <small>STILL OPEN</small>
+              <strong>{open}</strong>
+              <span>Not included in the score</span>
+            </article>
+            <article className="record-score">
+              <small>SUCCESS RATE</small>
+              <strong className="record-rate">{winRate}</strong>
+              <span>{scored.length}/5 minimum verified results</span>
+            </article>
+          </div>
+
+          <div className="record-truth-bar">
+            <div>
+              <small>ASTRO&apos;S PUBLIC CLAIM</small>
+              <strong>{history.trackRecord?.astroClaim.label ?? "Not loaded"}</strong>
+            </div>
+            <p>
+              {history.trackRecord?.astroClaim.detail ??
+                "His claimed streak is not part of our verified score."}
+            </p>
+          </div>
+
+          <div className="record-section-head">
+            <div>
+              <small>AUDITED PLAY LEDGER</small>
+              <h2>One play = one result</h2>
+            </div>
+            <p>Entry → targets → outcome → proof</p>
+          </div>
+
+          <div className="play-ledger">
+            {history.trackRecord?.plays.map((play) => (
+              <article className={`play-record ${play.status}`} key={play.id}>
+                <header>
+                  <div>
+                    <span className={`outcome-pill ${play.status}`}>
+                      {outcomeLabel(play.status)}
+                    </span>
+                    <small>{play.direction}</small>
+                  </div>
+                  <time>
+                    {shortDate(play.openedAt)} → {shortDate(play.closedAt)}
+                  </time>
+                </header>
+                <h3>{play.name}</h3>
+                <strong className="play-result">{play.result}</strong>
+                <div className="play-route">
+                  <div>
+                    <small>ENTRY</small>
+                    <strong>{play.entry}</strong>
+                  </div>
+                  <i aria-hidden="true">→</i>
+                  <div>
+                    <small>TARGETS / CLOSE</small>
+                    <strong>{play.targets}</strong>
+                  </div>
+                </div>
+                <p>{play.why}</p>
+                <footer>
+                  {play.sources.map((source) => (
+                    <a href={source.url} key={source.url} target="_blank" rel="noreferrer">
+                      {source.label} ↗
+                    </a>
+                  ))}
+                </footer>
+              </article>
+            ))}
+          </div>
+
+          <details className="score-method">
+            <summary>How we count a result</summary>
+            <p>{history.trackRecord?.method}</p>
+            <ul>
+              <li>The call must be public before the move.</li>
+              <li>Direction and entry must be clear enough to freeze.</li>
+              <li>A later post or market record must resolve it.</li>
+              <li>Open, deleted, vague, or conflicting calls stay unscored.</li>
+            </ul>
+          </details>
+        </div>
+      ) : !selected ? (
         <div className="history-empty">
-          <strong>History starts with the next VPS scan.</strong>
+          <strong>No saved snapshots yet.</strong>
           <p>The live system will add today automatically—nothing is stored on this device.</p>
         </div>
       ) : (
@@ -343,7 +499,9 @@ export default function AstroHistory() {
           <div className="history-main">
             <div className="history-day-head">
               <div>
-                <small>{selected.date} · VPS SNAPSHOT</small>
+                <small>
+                  {selected.date} · {mode === "days" ? "DAILY SNAPSHOT" : "THESIS CHANGE"}
+                </small>
                 <h2>{selected.forecast.decision?.position ?? "Position not public"}</h2>
                 <p>{selected.forecast.decision?.status}</p>
               </div>
