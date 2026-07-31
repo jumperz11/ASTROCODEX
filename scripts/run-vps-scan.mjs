@@ -241,7 +241,6 @@ async function updateHistory({ checkedAt, changed, forecast, market }) {
   );
   const projection = forecast?.hermes?.projection;
   if (
-    changed &&
     forecastId &&
     projection &&
     !hermesPredictions.some((item) => item?.id === forecastId)
