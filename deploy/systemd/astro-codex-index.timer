@@ -1,0 +1,11 @@
+[Unit]
+Description=Nightly Astro Codex archive learning pass
+
+[Timer]
+OnCalendar=*-*-* 02:15:00 UTC
+Persistent=true
+RandomizedDelaySec=10m
+Unit=astro-codex-index.service
+
+[Install]
+WantedBy=timers.target

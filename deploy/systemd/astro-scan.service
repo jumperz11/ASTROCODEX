@@ -12,6 +12,7 @@ EnvironmentFile=/etc/astro-signal.env
 Environment=PATH=/home/astro/.grok/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Environment=ASTRO_STATE_DIR=/var/lib/astro-signal
 Environment=ASTRO_CODEX_INDEX=/var/lib/astro-signal/codex-index.json
+Environment=ASTRO_CODEX_ARCHIVE=/var/lib/astro-signal/codex-archive
 Environment=ASTRO_GROK_MODEL=grok-4.5
 ExecStart=/usr/bin/npm run astro:vps:scan
 TimeoutStartSec=120

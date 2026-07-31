@@ -4,7 +4,7 @@ import {
   timingSafeEqual,
 } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
 import * as z from "zod/v4";
@@ -26,6 +26,8 @@ const playbookPath = join(projectRoot, "prompts", "astro-live-analysis.md");
 const codexIndexPath =
   process.env.ASTRO_CODEX_INDEX?.trim() ||
   join(projectRoot, ".astro", "codex-index.json");
+const codexArchivePath =
+  process.env.ASTRO_CODEX_ARCHIVE?.trim() || null;
 const host = "127.0.0.1";
 const port = Number.parseInt(process.env.ASTRO_MCP_PORT || "4318", 10);
 const ownerCode = process.env.ASTRO_OWNER_CODE;
@@ -49,6 +51,39 @@ function secureEquals(actual, expected) {
     actualBuffer.length === expectedBuffer.length &&
     timingSafeEqual(actualBuffer, expectedBuffer)
   );
+}
+
+async function closestCodexChart(results) {
+  if (!codexArchivePath) return null;
+  const archiveRoot = resolve(codexArchivePath);
+  for (const result of results) {
+    for (const relativePath of result.media ?? []) {
+      const absolutePath = resolve(archiveRoot, relativePath);
+      if (!absolutePath.startsWith(`${archiveRoot}/`)) continue;
+      const extension = extname(absolutePath).toLowerCase();
+      const mimeType =
+        extension === ".png"
+          ? "image/png"
+          : extension === ".webp"
+            ? "image/webp"
+            : extension === ".jpg" || extension === ".jpeg"
+              ? "image/jpeg"
+              : null;
+      if (!mimeType) continue;
+      try {
+        const data = await readFile(absolutePath);
+        if (data.length > 8_000_000) continue;
+        return {
+          type: "image",
+          data: data.toString("base64"),
+          mimeType,
+        };
+      } catch {
+        // Continue to the next safe image reference.
+      }
+    }
+  }
+  return null;
 }
 
 function escapeHtml(value) {
@@ -477,11 +512,16 @@ function createAstroServer() {
     async ({ query, limit }) => {
       try {
         const result = await searchCodexFile(codexIndexPath, query, limit ?? 6);
+        const chart = await closestCodexChart(result.results);
         return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+          content: [
+            { type: "text", text: JSON.stringify(result, null, 2) },
+            ...(chart ? [chart] : []),
+          ],
           structuredContent: {
             entryCount: result.entryCount,
             resultCount: result.results.length,
+            chartIncluded: Boolean(chart),
           },
         };
       } catch {

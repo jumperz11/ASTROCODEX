@@ -1,0 +1,24 @@
+[Unit]
+Description=Rebuild protected Astro Codex archive index
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=astro
+Group=astro
+WorkingDirectory=/opt/astro
+Environment=ASTRO_CODEX_ARCHIVE=/var/lib/astro-signal/codex-archive
+ExecStart=/usr/bin/npm run astro:codex:index -- /var/lib/astro-signal/codex-archive /var/lib/astro-signal/codex-index.json
+StateDirectory=astro-signal
+StateDirectoryMode=0700
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/astro-signal
+ProtectKernelTunables=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+RestrictSUIDSGID=true
+LockPersonality=true
+UMask=0077
