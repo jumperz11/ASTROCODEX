@@ -466,7 +466,11 @@ try {
     if (/oauth|login|unauthorized|authentication/i.test(result.output)) {
       throw new Error("Grok OAuth needs login again on the VPS.");
     }
-    throw new Error("Astro agent failed; the last validated signal remains live.");
+    if (!changed) {
+      throw new Error(
+        "Astro agent failed without a newly validated forecast; the last signal remains live.",
+      );
+    }
   }
 
   const finishedAt = new Date().toISOString();

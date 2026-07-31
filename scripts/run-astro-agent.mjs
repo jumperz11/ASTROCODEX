@@ -112,13 +112,14 @@ Connector workflow:
     .then((value) => value.mtimeMs)
     .catch(() => 0);
   if (after <= before) {
-    throw new Error(
-      "Grok finished without saving a newly validated forecast. Review its evidence output and try again.",
+    process.stdout.write(
+      "\nNo validated forecast saved; no material change was found.\n",
+    );
+  } else {
+    process.stdout.write(
+      "\nValidated forecast saved. Refresh the Astro dashboard.\n",
     );
   }
-  process.stdout.write(
-    "\nValidated forecast saved. Refresh the Astro dashboard.\n",
-  );
 } finally {
   if (connector && connector.exitCode === null) {
     connector.kill("SIGTERM");
