@@ -38,6 +38,8 @@ test("server-renders the Astro Intelligence research terminal", async () => {
   assert.match(html, /ASTRO NEXT-MOVE MODEL/);
   assert.match(html, /BEFORE HIS NEXT POST/);
   assert.match(html, /MODEL FORECAST/);
+  assert.match(html, /ASTRO CODEX ARCHIVE/);
+  assert.match(html, /PUBLIC X SEQUENCE/);
   assert.match(html, /WHAT YOU DO/);
   assert.match(html, />WAIT</);
   assert.match(html, /No fresh opportunity is confirmed yet/);

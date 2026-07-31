@@ -7,9 +7,14 @@ User question: {{QUESTION}}
 Research task
 
 1. Call `get_astro_playbook` from the `astro-intelligence` connector.
-2. Call `search_astro_codex` with the current setup, position terminology, and
-   the most important trigger from the latest accepted forecast. Treat results
-   only as historical framework context, never current-position evidence.
+2. Call `search_astro_codex` at least three times with focused queries:
+   - the closest historical market phase or structural setup;
+   - the closest position and execution sequence (entry, add, trim, runner,
+     close, or flip);
+   - the closest behavior around the current trigger, target, invalidation, or
+     silence after a win/loss.
+   Treat results only as historical framework and behavioral context, never
+   current-position evidence. If the archive has no close analogue, say so.
 3. Search X for @astronomer_zero's newest relevant posts and connected threads.
 4. Inspect quoted posts and chart images when they materially affect the reading.
 5. Reconstruct the public sequence: thesis, position direction, entry or scale
@@ -60,6 +65,13 @@ Evidence discipline
   state one concrete next observable Astro behavior, why it fits his current
   position and archived execution habits, and the specific market or public-post
   trigger that raises its probability.
+- Build every scenario from three explicitly separated inputs: current public X
+  evidence, relevant Astro Codex history, and the supplied live market snapshot.
+  Do not use generic trading habits when a retrieved archive example is
+  available.
+- Without a fresh direct Astro update, cap the leading scenario at 70% and keep
+  the confirmed signal at `wait`. Historical similarity raises or lowers a
+  model probability; it never proves a current position.
 - A model-only prediction may change before Astro posts when verified market
   movement crosses a relevant Astro-confirmed or model watch level, changes the
   leading scenario, or shifts a scenario weight by at least 10 points. Market

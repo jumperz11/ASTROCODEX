@@ -1778,6 +1778,13 @@ footer a {
   line-height: 1.5;
 }
 
+.prediction-lead .prediction-basis {
+  display: block;
+  margin-top: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 .prediction-probability {
   min-width: 112px;
   display: grid;

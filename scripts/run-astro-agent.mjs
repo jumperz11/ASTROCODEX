@@ -83,7 +83,8 @@ try {
 
 Connector workflow:
 - Call get_astro_playbook before forming the forecast.
-- Call search_astro_codex for historical context relevant to the current setup.
+- Call search_astro_codex at least three times: closest market phase, closest
+  position/execution sequence, and closest behavior around the active trigger.
 - Treat Codex results as framework memory, never evidence of a current position.
 - Use current public X evidence and exact direct status URLs.
 - Call save_astro_forecast with the complete result.

@@ -826,6 +826,13 @@ export default function Home() {
                     <small>BEFORE HIS NEXT POST · MODEL FORECAST</small>
                     <strong>{predictedNextMove.name}</strong>
                     <p>{predictedNextMove.description}</p>
+                    <small className="prediction-basis">
+                      BASED ON ·{" "}
+                      {systemStatus.codexEntries > 0
+                        ? `${systemStatus.codexEntries.toLocaleString()} ARCHIVED ASTRO MESSAGES`
+                        : "ASTRO CODEX ARCHIVE"}
+                      {" "}· PUBLIC X SEQUENCE · LIVE BTC STRUCTURE
+                    </small>
                   </div>
                   <div className="prediction-probability">
                     <strong>{predictedNextMove.probability}%</strong>
