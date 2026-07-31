@@ -2,6 +2,7 @@ import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import QRCode from "qrcode";
 import { TelegramClient, utils } from "teleproto";
 import { StringSession } from "teleproto/sessions/index.js";
 
@@ -116,6 +117,39 @@ async function login() {
   process.stdout.write(
     `Telegram user session saved securely for ${me?.username ? `@${me.username}` : "the signed-in account"}.\n`,
   );
+  await client.disconnect();
+}
+
+async function loginWithQr() {
+  await mkdir(stateDirectory, { recursive: true, mode: 0o700 });
+  const qrPath = join(stateDirectory, "telegram-login-qr.png");
+  const client = await connectedClient();
+  if (!(await client.checkAuthorization())) {
+    await client.signInUserWithQrCode(
+      { apiId, apiHash },
+      {
+        qrCode: async ({ token }) => {
+          const url = `tg://login?token=${token.toString("base64url")}`;
+          await QRCode.toFile(qrPath, url, {
+            errorCorrectionLevel: "M",
+            margin: 2,
+            width: 720,
+          });
+          process.stdout.write(`QR_READY ${qrPath}\n`);
+        },
+        password: async () => {
+          throw new Error(
+            "Telegram 2FA is enabled. Complete the console login so the password never leaves your VPS.",
+          );
+        },
+        onError: (error) => {
+          process.stderr.write(`${error.message}\n`);
+        },
+      },
+    );
+  }
+  await writeAtomic(sessionPath, `${client.session.save()}\n`);
+  process.stdout.write("TELEGRAM_SESSION_SAVED\n");
   await client.disconnect();
 }
 
@@ -276,6 +310,7 @@ async function ingest() {
 }
 
 if (mode === "login") await login();
+else if (mode === "login-qr") await loginWithQr();
 else if (mode === "list") await listDialogs();
 else if (mode === "ingest") await ingest();
 else throw new Error(`Unknown mode: ${mode}`);
