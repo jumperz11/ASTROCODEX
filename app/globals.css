@@ -1741,6 +1741,80 @@ footer a {
   color: var(--red);
 }
 
+.prediction-lead {
+  padding: 20px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px 24px;
+  border-bottom: 1px solid var(--line);
+  background:
+    linear-gradient(105deg, rgba(122, 162, 255, 0.1), transparent 68%),
+    rgba(255, 255, 255, 0.012);
+}
+
+.prediction-lead small {
+  color: #9ebaff;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 7px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.prediction-lead > div:first-child > strong {
+  display: block;
+  margin: 8px 0 7px;
+  color: var(--paper);
+  font-size: clamp(25px, 3vw, 40px);
+  font-weight: 520;
+  letter-spacing: -0.045em;
+  line-height: 1.03;
+}
+
+.prediction-lead p {
+  max-width: 850px;
+  margin: 0;
+  color: #b8bdc6;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.prediction-probability {
+  min-width: 112px;
+  display: grid;
+  align-content: center;
+  justify-items: end;
+}
+
+.prediction-probability strong {
+  color: #9ebaff;
+  font-size: clamp(38px, 4vw, 56px);
+  font-weight: 520;
+  letter-spacing: -0.055em;
+  line-height: 1;
+}
+
+.prediction-probability small {
+  margin-top: 6px;
+  color: var(--muted);
+}
+
+.prediction-trigger {
+  grid-column: 1 / -1;
+  padding-top: 12px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: baseline;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.prediction-trigger strong {
+  color: var(--paper);
+  font-size: 10px;
+  font-weight: 560;
+  line-height: 1.45;
+}
+
 .opportunity-command-grid {
   display: grid;
   grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
@@ -2577,6 +2651,28 @@ summary:focus-visible {
   .opportunity-command-grid,
   .opportunity-levels {
     grid-template-columns: 1fr;
+  }
+
+  .prediction-lead {
+    grid-template-columns: 1fr auto;
+    padding: 17px 16px;
+  }
+
+  .prediction-lead > div:first-child > strong {
+    font-size: 25px;
+  }
+
+  .prediction-probability {
+    min-width: 72px;
+  }
+
+  .prediction-probability strong {
+    font-size: 35px;
+  }
+
+  .prediction-trigger {
+    grid-template-columns: 1fr;
+    gap: 6px;
   }
 
   .opportunity-command-grid > article + article,

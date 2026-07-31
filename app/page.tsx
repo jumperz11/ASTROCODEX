@@ -613,6 +613,13 @@ export default function Home() {
     () => getOpportunityStatus(forecast),
     [forecast],
   );
+  const predictedNextMove = useMemo(
+    () =>
+      [...forecast.scenarios].sort(
+        (left, right) => right.probability - left.probability,
+      )[0] ?? null,
+    [forecast.scenarios],
+  );
   const latestAstroEvidence = useMemo(() => {
     const direct = forecast.evidence.filter(
       (item) => item.type === "astro" && item.source,
@@ -807,15 +814,33 @@ export default function Home() {
               aria-label="Simple next move and opportunity status"
             >
               <header>
-                <span><i />SIMPLE NEXT MOVE</span>
+                <span><i />ASTRO NEXT-MOVE MODEL</span>
                 <small className={signalFreshness.tone}>
                   {signalFreshness.label}
                 </small>
               </header>
 
+              {predictedNextMove && (
+                <div className="prediction-lead">
+                  <div>
+                    <small>BEFORE HIS NEXT POST · MODEL FORECAST</small>
+                    <strong>{predictedNextMove.name}</strong>
+                    <p>{predictedNextMove.description}</p>
+                  </div>
+                  <div className="prediction-probability">
+                    <strong>{predictedNextMove.probability}%</strong>
+                    <small>MODEL WEIGHT</small>
+                  </div>
+                  <div className="prediction-trigger">
+                    <small>THIS BECOMES MORE LIKELY IF</small>
+                    <strong>{predictedNextMove.trigger}</strong>
+                  </div>
+                </div>
+              )}
+
               <div className="opportunity-command-grid">
                 <article className="opportunity-primary">
-                  <small>OUR OPPORTUNITY</small>
+                  <small>CONFIRMED SIGNAL</small>
                   <strong>{opportunity.label}</strong>
                   <p>{opportunity.summary}</p>
                   <span>WHAT YOU DO</span>
@@ -886,8 +911,9 @@ export default function Home() {
             thesisTrigger={forecast.thesis.nextTrigger}
             forecastTime={forecast.generatedAt}
             signalState={forecast.signal.state}
-            readerStep={simpleNextMove.you}
             riskText={forecast.decision.risk}
+            predictedMove={predictedNextMove?.name || "Insufficient inputs"}
+            predictedProbability={predictedNextMove?.probability ?? 0}
           />
 
           <details className="current-analysis-details">

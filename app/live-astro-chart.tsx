@@ -187,8 +187,9 @@ export default function LiveAstroChart({
   thesisTrigger,
   forecastTime,
   signalState,
-  readerStep,
   riskText,
+  predictedMove,
+  predictedProbability,
 }: {
   events: AstroEvent[];
   freshnessLabel: string;
@@ -198,8 +199,9 @@ export default function LiveAstroChart({
   thesisTrigger: string;
   forecastTime: string;
   signalState: SignalState;
-  readerStep: string;
   riskText: string;
+  predictedMove: string;
+  predictedProbability: number;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -725,8 +727,8 @@ export default function LiveAstroChart({
               <strong>{signalLabel(signalState)}</strong>
             </div>
             <div>
-              <small>YOUR MOVE</small>
-              <strong>{readerStep}</strong>
+              <small>ASTRO NEXT · MODEL</small>
+              <strong>{predictedMove} · {predictedProbability}%</strong>
             </div>
             <div>
               <small>WATCH PRICE</small>
@@ -772,9 +774,9 @@ export default function LiveAstroChart({
           )}
         </div>
         <div className="chart-model-watch">
-          <small>MODEL WATCH</small>
-          <strong>{thesisTrigger}</strong>
-          <span>Inference · not an Astro quote</span>
+          <small>PREDICTED ASTRO NEXT · MODEL</small>
+          <strong>{predictedMove} · {predictedProbability}%</strong>
+          <span>{thesisTrigger} · inference, not a quote</span>
         </div>
       </div>
 
