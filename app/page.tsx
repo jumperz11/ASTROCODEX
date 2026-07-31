@@ -921,6 +921,14 @@ export default function Home() {
             riskText={forecast.decision.risk}
             predictedMove={predictedNextMove?.name || "Insufficient inputs"}
             predictedProbability={predictedNextMove?.probability ?? 0}
+            predictionSummary={
+              predictedNextMove?.description ||
+              "There is not enough evidence for a forward read yet."
+            }
+            predictionTrigger={
+              predictedNextMove?.trigger || forecast.thesis.nextTrigger
+            }
+            readerStep={simpleNextMove.you}
           />
 
           <details className="current-analysis-details">

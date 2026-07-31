@@ -51,6 +51,11 @@ test("server-renders the Astro Intelligence research terminal", async () => {
   assert.match(html, /PREDICTED ASTRO NEXT/);
   assert.match(html, /WATCH PRICE/);
   assert.match(html, /READ CHANGES IF/);
+  assert.match(html, /WHAT THIS MEANS NOW/);
+  assert.match(html, /MOST LIKELY ASTRO NEXT/);
+  assert.match(html, /YOUR STEP/);
+  assert.match(html, /BECOMES MORE LIKELY IF/);
+  assert.match(html, /THE READ CHANGES IF/);
   assert.match(html, /OPEN &amp; CLOSE MAP/);
   assert.match(html, /LIVE ASTRO MAP/);
   assert.match(html, /ASTRO SIGNAL/);

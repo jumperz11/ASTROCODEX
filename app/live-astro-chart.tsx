@@ -190,6 +190,9 @@ export default function LiveAstroChart({
   riskText,
   predictedMove,
   predictedProbability,
+  predictionSummary,
+  predictionTrigger,
+  readerStep,
 }: {
   events: AstroEvent[];
   freshnessLabel: string;
@@ -202,6 +205,9 @@ export default function LiveAstroChart({
   riskText: string;
   predictedMove: string;
   predictedProbability: number;
+  predictionSummary: string;
+  predictionTrigger: string;
+  readerStep: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -750,6 +756,58 @@ export default function LiveAstroChart({
           </div>
         )}
       </div>
+
+      <section
+        className={`chart-mobile-brief ${signalState}`}
+        aria-label="What the chart means now"
+      >
+        <header>
+          <div>
+            <small>WHAT THIS MEANS NOW</small>
+            <strong>{signalLabel(signalState)}</strong>
+          </div>
+          <div>
+            <small>MODEL WEIGHT</small>
+            <strong>{predictedProbability}%</strong>
+          </div>
+        </header>
+
+        <article className="chart-mobile-prediction">
+          <small>MOST LIKELY ASTRO NEXT</small>
+          <strong>{predictedMove}</strong>
+          <p>{predictionSummary}</p>
+        </article>
+
+        <div className="chart-mobile-brief-grid">
+          <article>
+            <small>YOUR STEP</small>
+            <strong>{readerStep}</strong>
+          </article>
+          <article>
+            <small>WATCH PRICE</small>
+            <strong>
+              {nextAstroLevel
+                ? `${nextAstroLevel.shortLabel} · ${formatPrice(nextAstroLevel.price)}`
+                : "No confirmed target"}
+            </strong>
+            <span>
+              {nextAstroLevel
+                ? `${nextAstroLevel.distance.toFixed(1)}% away`
+                : "Wait for direct evidence"}
+            </span>
+          </article>
+        </div>
+
+        <article className="chart-mobile-condition">
+          <small>BECOMES MORE LIKELY IF</small>
+          <strong>{predictionTrigger}</strong>
+        </article>
+
+        <article className="chart-mobile-condition risk">
+          <small>THE READ CHANGES IF</small>
+          <strong>{riskText}</strong>
+        </article>
+      </section>
 
       <div className="chart-decision-strip">
         <div className={`chart-decision-now ${signalState}`}>
