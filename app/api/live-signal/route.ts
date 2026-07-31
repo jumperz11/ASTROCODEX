@@ -9,6 +9,7 @@ type RemoteSignalEnvelope = {
   runId?: unknown;
   model?: unknown;
   codexEntries?: unknown;
+  codexMedia?: unknown;
 };
 
 function isForecast(value: unknown): value is Record<string, unknown> {
@@ -33,6 +34,7 @@ function response(
     runId?: string | null;
     model?: string | null;
     codexEntries?: number;
+    codexMedia?: number;
   },
 ) {
   return Response.json(
@@ -85,6 +87,9 @@ export async function GET() {
       model: typeof payload.model === "string" ? payload.model : null,
       codexEntries: Number.isInteger(payload.codexEntries)
         ? Number(payload.codexEntries)
+        : 0,
+      codexMedia: Number.isInteger(payload.codexMedia)
+        ? Number(payload.codexMedia)
         : 0,
     });
   } catch {

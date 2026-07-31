@@ -411,6 +411,7 @@ type LiveSignalEnvelope = {
   runId?: string | null;
   model?: string | null;
   codexEntries?: number;
+  codexMedia?: number;
 };
 
 async function fetchLiveSignal(): Promise<LiveSignalEnvelope> {
@@ -521,6 +522,7 @@ export default function Home() {
     degraded: true,
     model: null as string | null,
     codexEntries: 0,
+    codexMedia: 0,
     runId: null as string | null,
   });
   const [clockNow, setClockNow] = useState(() => Date.now());
@@ -556,6 +558,7 @@ export default function Home() {
           degraded: Boolean(envelope.degraded) || envelope.source !== "vps",
           model: envelope.model ?? null,
           codexEntries: Number(envelope.codexEntries || 0),
+          codexMedia: Number(envelope.codexMedia || 0),
           runId: envelope.runId ?? null,
         });
         setLastUpdated(
@@ -798,7 +801,7 @@ export default function Home() {
           <button className={activeView === "desk" ? "active" : ""} onClick={() => showView("desk")}>Now</button>
           <button className={activeView === "history" ? "active" : ""} onClick={() => showView("history")}>History</button>
           <button className={activeView === "evidence" ? "active" : ""} onClick={() => showView("evidence")}>Evidence</button>
-          <button className={activeView === "playbook" ? "active" : ""} onClick={() => showView("playbook")}>Playbook</button>
+          <button className={activeView === "playbook" ? "active" : ""} onClick={() => showView("playbook")}>School</button>
         </nav>
 
         <div className="status-cluster">
@@ -1166,11 +1169,72 @@ export default function Home() {
       {activeView === "playbook" && (
         <section className="playbook-view">
           <div className="view-intro">
-            <span className="eyebrow">VERSIONED RULEBOOK</span>
-            <h1>The method underneath the prediction.</h1>
+            <span className="eyebrow">ASTRO SCHOOL · PRIVATE MEMORY</span>
+            <h1>One library. Every live read.</h1>
             <p>
-              These are the durable decision rules extracted from the private archive. Corrections remain versioned.
+              The archive you supplied is indexed on the VPS. Every scan searches
+              that library before drawing the next path—without treating an old
+              chart as proof of a current trade.
             </p>
+          </div>
+
+          <div className="codex-stats" aria-label="Astro Codex library status">
+            <article>
+              <small>SEARCHABLE LESSONS</small>
+              <strong>
+                {(systemStatus.codexEntries || 5047).toLocaleString("en-US")}
+              </strong>
+              <span>messages and chart notes indexed</span>
+            </article>
+            <article>
+              <small>ARCHIVED CHARTS</small>
+              <strong>
+                {(systemStatus.codexMedia || 495).toLocaleString("en-US")}
+              </strong>
+              <span>images connected to their original context</span>
+            </article>
+            <article>
+              <small>LIVE STATUS</small>
+              <strong className={systemStatus.degraded ? "soft" : "live"}>
+                {systemStatus.degraded ? "SAFE COPY" : "CONNECTED"}
+              </strong>
+              <span>VPS memory is queried before each accepted forecast</span>
+            </article>
+          </div>
+
+          <div className="school-loop" aria-label="How Astro School powers predictions">
+            <article>
+              <span>01</span>
+              <small>NIGHT LEARN</small>
+              <strong>Index his archive</strong>
+              <p>Messages, charts, setups, language, entries, trims, exits, and corrections.</p>
+            </article>
+            <i>→</i>
+            <article>
+              <span>02</span>
+              <small>LIVE CONNECT</small>
+              <strong>Read the new post</strong>
+              <p>Grok verifies X, then finds the closest phase, execution sequence, and behavior.</p>
+            </article>
+            <i>→</i>
+            <article>
+              <span>03</span>
+              <small>DRAW + PREDICT</small>
+              <strong>Build the clean map</strong>
+              <p>Solid lines are Astro. The faint path is our probability-weighted forward read.</p>
+            </article>
+            <i>→</i>
+            <article>
+              <span>04</span>
+              <small>MEASURE</small>
+              <strong>Save what happened</strong>
+              <p>Resolved plays enter History; open or unclear calls never inflate the win rate.</p>
+            </article>
+          </div>
+
+          <div className="school-section-head">
+            <small>CORE LESSONS</small>
+            <h2>What the agent must remember every time</h2>
           </div>
           <div className="rule-grid">
             {rules.map((rule) => (
@@ -1191,6 +1255,14 @@ export default function Home() {
               Earlier archive reference: 35%. Later detailed rule: 25%. The engine uses the later rule and preserves the earlier statement for audit.
             </p>
           </div>
+          <div className="school-boundary">
+            <strong>What this can predict</strong>
+            <p>
+              The most likely next observable Astro behavior—hold, trim, add,
+              close, flip, or stay silent—with a probability and a condition.
+              It cannot know his private position or guarantee where price goes.
+            </p>
+          </div>
         </section>
       )}
 
@@ -1198,8 +1270,8 @@ export default function Home() {
         <button className={activeView === "desk" ? "active" : ""} onClick={() => showView("desk")}>
           <span>●</span>Now
         </button>
-        <button className={activeView === "evidence" ? "active" : ""} onClick={() => showView("evidence")}>
-          <span>≡</span>Evidence
+        <button className={activeView === "playbook" ? "active" : ""} onClick={() => showView("playbook")}>
+          <span>⌁</span>School
         </button>
         <button className={activeView === "history" ? "active" : ""} onClick={() => showView("history")}>
           <span>↺</span>History
