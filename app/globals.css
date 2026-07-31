@@ -4004,6 +4004,161 @@ footer a {
   line-height: 1.5;
 }
 
+.console-side > section.strategy-shelf {
+  padding: 0;
+  overflow: hidden;
+  box-shadow: inset 2px 0 0 var(--amber);
+}
+
+.strategy-shelf > header {
+  padding: 16px 17px 11px;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.strategy-shelf > header strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 19px;
+  font-weight: 570;
+}
+
+.strategy-shelf > header > span {
+  min-width: 27px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  color: var(--amber);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+}
+
+.console-side .strategy-shelf > p {
+  margin: 0;
+  padding: 0 17px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.strategy-list article + article {
+  border-top: 1px solid var(--line);
+}
+
+.strategy-list article > button {
+  width: 100%;
+  min-height: 82px;
+  padding: 13px 15px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--paper);
+  text-align: left;
+  cursor: pointer;
+}
+
+.strategy-list article > button:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.strategy-list article > button > span {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  color: var(--muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 7px;
+  letter-spacing: 0.09em;
+}
+
+.strategy-list article > button > span i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.strategy-list article.best > button > span {
+  color: var(--green);
+}
+
+.strategy-list article.partial > button > span {
+  color: var(--amber);
+}
+
+.strategy-list article.parked > button > span {
+  color: #646b76;
+}
+
+.strategy-list article > button > strong {
+  grid-column: 1;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.strategy-list article > button > small {
+  grid-column: 1;
+  color: var(--muted);
+  letter-spacing: 0;
+}
+
+.strategy-list article > button > b {
+  grid-column: 2;
+  grid-row: 1 / 4;
+  align-self: center;
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 400;
+}
+
+.strategy-detail {
+  padding: 0 15px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.055);
+  background: #0c0e12;
+}
+
+.strategy-detail > p {
+  margin: 0;
+  padding: 13px 0;
+  color: #c3c8d0;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.strategy-detail dl {
+  margin: 0;
+}
+
+.strategy-detail dl > div {
+  padding: 10px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.strategy-detail dt {
+  color: #7aa2ff;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 7px;
+  letter-spacing: 0.08em;
+}
+
+.strategy-detail dd {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.strategy-detail > span {
+  display: block;
+  margin-top: 8px;
+  color: #5f6672;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 7px;
+}
+
 .console-source {
   display: flex;
   gap: 10px;

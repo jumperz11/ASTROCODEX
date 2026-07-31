@@ -766,6 +766,7 @@ export default function Home() {
   });
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [hasUnseenUpdate, setHasUnseenUpdate] = useState(false);
+  const [openStrategy, setOpenStrategy] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -879,6 +880,45 @@ export default function Home() {
         (left, right) => right.probability - left.probability,
       )[0] ?? null,
     [forecast.scenarios],
+  );
+  const strategyShelf = useMemo(
+    () =>
+      forecast.scenarios.map((scenario, index) => {
+        const fit =
+          index === 0 && scenario.probability >= 45
+            ? "best"
+            : scenario.probability >= 25
+              ? "partial"
+              : "parked";
+        return {
+          id: `${scenario.name}-${index}`,
+          name: scenario.name,
+          probability: scenario.probability,
+          fit,
+          fitLabel:
+            fit === "best"
+              ? "BEST FIT"
+              : fit === "partial"
+                ? "PARTIAL"
+                : "NOT ACTIVE",
+          currentSetup:
+            fit === "best"
+              ? "Closest current research match. It is not a trade until direct evidence confirms it."
+              : fit === "partial"
+                ? "Some conditions match, but its required trigger has not happened."
+                : "Saved for comparison. Current evidence does not support activating it.",
+          summary: scenario.description,
+          trigger: scenario.trigger,
+          failure: forecast.decision.risk,
+          schoolLesson:
+            index === 0
+              ? forecast.hermes.learningNote
+              : index === 1
+                ? `${forecast.thesis.regime}. ${rules[1].body}`
+                : rules[4].body,
+        };
+      }),
+    [forecast],
   );
   const targetPlan = useMemo(() => {
     const byLabel = (needles: string[]) =>
@@ -1664,6 +1704,69 @@ export default function Home() {
             </section>
 
             <aside className="console-side">
+              <section className="strategy-shelf">
+                <header>
+                  <div>
+                    <small>ASTRO SCHOOL · SAVED PATTERNS</small>
+                    <strong>Strategy Shelf</strong>
+                  </div>
+                  <span>STUDY · 10M</span>
+                </header>
+                <p>
+                  When Astro is quiet, Hermes searches the school again. It
+                  keeps only evidence-backed changes—similarity alone never
+                  creates a trade.
+                </p>
+                <div className="strategy-list">
+                  {strategyShelf.map((strategy) => {
+                    const isOpen = openStrategy === strategy.id;
+                    return (
+                      <article className={strategy.fit} key={strategy.id}>
+                        <button
+                          aria-expanded={isOpen}
+                          onClick={() =>
+                            setOpenStrategy(isOpen ? null : strategy.id)
+                          }
+                        >
+                          <span>
+                            <i />
+                            {strategy.fitLabel}
+                          </span>
+                          <strong>{strategy.name}</strong>
+                          <small>{strategy.probability}% model fit</small>
+                          <b>{isOpen ? "−" : "+"}</b>
+                        </button>
+                        {isOpen && (
+                          <div className="strategy-detail">
+                            <p>{strategy.currentSetup}</p>
+                            <dl>
+                              <div>
+                                <dt>WHY IT FITS</dt>
+                                <dd>{strategy.summary}</dd>
+                              </div>
+                              <div>
+                                <dt>ACTIVATES IF</dt>
+                                <dd>{strategy.trigger}</dd>
+                              </div>
+                              <div>
+                                <dt>DOES NOT FIT IF</dt>
+                                <dd>{strategy.failure}</dd>
+                              </div>
+                              <div>
+                                <dt>SCHOOL LESSON</dt>
+                                <dd>{strategy.schoolLesson}</dd>
+                              </div>
+                            </dl>
+                            <span>
+                              Saved with forecast · {timeLabel}
+                            </span>
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
               <section>
                 <small>WHAT HERMES IS WATCHING</small>
                 <strong>{forecast.thesis.nextTrigger}</strong>
