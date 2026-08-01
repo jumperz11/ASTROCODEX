@@ -147,7 +147,7 @@ function compactX(source) {
 async function codexExists() {
   try {
     await access(
-      process.env.ASTRO_CODEX_BIN?.trim() || "/usr/local/bin/codex",
+      process.env.ASTRO_CODEX_BIN?.trim() || "/usr/bin/codex",
     );
     return true;
   } catch {
@@ -391,7 +391,7 @@ if (deepSeekResult.available) {
   lightRemaining = deepSeekResult.budget.remaining;
 } else {
   const codexBin =
-    process.env.ASTRO_CODEX_BIN?.trim() || "/usr/local/bin/codex";
+    process.env.ASTRO_CODEX_BIN?.trim() || "/usr/bin/codex";
   if (!(await codexExists())) {
     process.stdout.write(
       `${JSON.stringify({
@@ -492,7 +492,7 @@ if (!gate.material) {
 }
 
 const codexBin =
-  process.env.ASTRO_CODEX_BIN?.trim() || "/usr/local/bin/codex";
+  process.env.ASTRO_CODEX_BIN?.trim() || "/usr/bin/codex";
 if (!(await codexExists())) {
   process.stdout.write(
     `${JSON.stringify({

@@ -16,7 +16,7 @@ Environment=ASTRO_CODEX_INDEX=/var/lib/astro-signal/codex-index.json
 Environment=ASTRO_CODEX_ARCHIVE=/var/lib/astro-signal/codex-archive
 Environment=ASTRO_TELEGRAM_SOURCE_PATH=/var/lib/astro-signal/telegram-source.json
 Environment=ASTRO_X_SOURCE_PATH=/var/lib/astro-signal/x-source.json
-Environment=ASTRO_CODEX_BIN=/usr/local/bin/codex
+Environment=ASTRO_CODEX_BIN=/usr/bin/codex
 Environment=ASTRO_DEEPSEEK_DAILY_CAP=100
 Environment=ASTRO_LUNA_LIGHT_DAILY_CAP=8
 Environment=ASTRO_LUNA_MEDIUM_DAILY_CAP=5
