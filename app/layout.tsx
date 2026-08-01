@@ -19,6 +19,9 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: "Astro Intelligence",
     description,
+    icons: {
+      icon: "/favicon.svg",
+    },
     openGraph: {
       title: "Astro Intelligence",
       description:
