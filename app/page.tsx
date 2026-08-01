@@ -770,6 +770,7 @@ export default function Home() {
   const [hasUnseenUpdate, setHasUnseenUpdate] = useState(false);
   const [openStrategy, setOpenStrategy] = useState<string | null>(null);
   const [soundAlertsEnabled, setSoundAlertsEnabled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const soundAlertsEnabledRef = useRef(false);
   const lastObservedForecastRef = useRef<string | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -1176,6 +1177,10 @@ export default function Home() {
       freshEntry: existingPositionOnly ? "NO · EXISTING POSITION" : "YES · CHECK LATEST POST",
     };
   }, [forecast, predictedNextMove, simpleNextMove]);
+  const focusTargets = useMemo(() => {
+    const active = targetPlan.filter((target) => target.tone === "watch");
+    return (active.length ? active : targetPlan.slice(-2)).slice(0, 2);
+  }, [targetPlan]);
   const latestAstroEvidence = useMemo(() => {
     const direct = forecast.evidence.filter(
       (item) => item.type === "astro" && item.source,
@@ -1320,6 +1325,7 @@ export default function Home() {
       | "playbook",
   ) {
     setActiveView(view);
+    setMenuOpen(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -1360,38 +1366,56 @@ export default function Home() {
 
   return (
     <main className="app-shell">
-      <header className="topbar">
-        <a className="brand" href="#top" aria-label="Astro Intelligence home">
-          <span className="brand-mark"><i /><i /><i /></span>
-          <span>
-            <strong>ASTRO</strong>
-            <small>INTELLIGENCE</small>
-          </span>
-        </a>
+      <button
+        aria-expanded={menuOpen}
+        aria-label={menuOpen ? "Close menu" : "Open menu"}
+        className="menu-trigger"
+        onClick={() => setMenuOpen((open) => !open)}
+      >
+        <span><i /><i /><i /></span>
+        <b>{menuOpen ? "Close" : "Menu"}</b>
+      </button>
 
-        <nav aria-label="Primary navigation">
-          <button className={activeView === "desk" ? "active" : ""} onClick={() => showView("desk")}>Now</button>
-          <button className={activeView === "chart" ? "active" : ""} onClick={() => showView("chart")}>Chart</button>
-          <button className={activeView === "live" ? "active" : ""} onClick={() => showView("live")}>Live</button>
+      {menuOpen && (
+        <button
+          aria-label="Close navigation"
+          className="menu-backdrop"
+          onClick={() => setMenuOpen(false)}
+        />
+      )}
+
+      <aside className={`app-menu ${menuOpen ? "open" : ""}`} aria-hidden={!menuOpen}>
+        <div className="app-menu-head">
+          <a className="brand" href="#top" onClick={() => showView("desk")}>
+            <span className="brand-mark"><i /><i /><i /></span>
+            <span><strong>ASTRO</strong><small>INTELLIGENCE</small></span>
+          </a>
+          <button aria-label="Close menu" onClick={() => setMenuOpen(false)}>×</button>
+        </div>
+
+        <nav aria-label="Main menu">
+          <button className={activeView === "desk" ? "active" : ""} onClick={() => showView("desk")}>
+            <span>01</span><strong>Now</strong><small>Astro + Hermes</small>
+          </button>
+          <button className={activeView === "chart" ? "active" : ""} onClick={() => showView("chart")}>
+            <span>02</span><strong>Chart</strong><small>Price + levels</small>
+          </button>
+          <button className={activeView === "live" ? "active" : ""} onClick={() => showView("live")}>
+            <span>03</span><strong>Live</strong><small>What Hermes is doing</small>
+          </button>
           <button
-            className={
-              ["journal", "positions", "hermes", "history", "evidence", "playbook"].includes(activeView)
-                ? "active"
-                : ""
-            }
+            className={["journal", "positions", "hermes", "history", "evidence", "playbook"].includes(activeView) ? "active" : ""}
             onClick={() => showView("journal")}
           >
-            Journal
+            <span>04</span><strong>History</strong><small>Past moves + school</small>
           </button>
         </nav>
 
-        <div className="status-cluster">
-          <span
-            className={`connection-dot ${
-              systemStatus.degraded ? "stale" : forecast.mode
-            }`}
-          />
-          <span>{systemStatus.degraded ? "Protected snapshot" : "Systems live"}</span>
+        <div className="app-menu-status">
+          <p>
+            <i className={`connection-dot ${systemStatus.degraded ? "stale" : forecast.mode}`} />
+            {systemStatus.degraded ? "Protected snapshot" : "Systems live"}
+          </p>
           <button
             aria-pressed={soundAlertsEnabled}
             className={`sound-alert-button ${soundAlertsEnabled ? "active" : ""}`}
@@ -1409,215 +1433,86 @@ export default function Home() {
             {loading ? "Syncing…" : "Sync"}
           </button>
         </div>
-      </header>
+      </aside>
 
       {activeView === "desk" && (
         <div className="desk" id="top">
           <section className="quick-view">
-            <div className="analytics-heading">
+            <div className="simple-heading">
               <div>
-                <span>ASTRO COMMAND CENTER</span>
-                <h1>Read the move in seconds.</h1>
-                <p>
-                  Confirmed position, newest change, and the next condition that
-                  matters—without mixing Astro evidence with Hermes inference.
-                </p>
+                <span>RIGHT NOW</span>
+                <h1>Astro at a glance.</h1>
               </div>
-              <button onClick={() => showView("chart")}>
-                Open live chart <i>↗</i>
-              </button>
-            </div>
-
-            <div className="live-meta">
-              <span>
-                <i
-                  className={`connection-dot ${
-                    systemStatus.degraded ? "stale" : forecast.mode
-                  }`}
-                />
-                Grok connected · evidence gated
-                {systemStatus.model
-                  ? ` · ${systemStatus.model.replace("grok-", "Grok ")}`
-                  : ""}
-              </span>
-              <span>{lastUpdated} · {timeLabel}</span>
-            </div>
-
-            <div
-              className="system-health-strip"
-              aria-label="System connection status"
-              title={systemStatus.runId ? `Latest scan ${systemStatus.runId}` : undefined}
-            >
-              <span className={signalFreshness.tone}>
-                <i /> {signalFreshness.label}
-              </span>
-              <span
-                className={
-                  systemStatus.telegramSourceStatus === "healthy" &&
-                  systemStatus.telegramSources.length === 2 &&
-                  Boolean(systemStatus.telegramSourceAnalyzedNewestAt) &&
-                  systemStatus.telegramSourceAnalyzedNewestAt ===
-                    systemStatus.telegramSourceNewestAt
-                    ? "live"
-                    : systemStatus.telegramSourceStatus === "healthy"
-                      ? "aging"
-                      : "stale"
-                }
-                title={`${systemStatus.telegramSources
-                  .map((source) => source.title)
-                  .filter(Boolean)
-                  .join(" · ")}${
-                  systemStatus.telegramSourceLastAnalyzedAt
-                    ? ` · Hermes checked ${systemStatus.telegramSourceLastAnalyzedAt}`
-                    : ""
-                }`}
-              >
-                <i /> Astro{" "}
-                {systemStatus.telegramSourceStatus === "healthy"
-                  ? Boolean(systemStatus.telegramSourceAnalyzedNewestAt) &&
-                    systemStatus.telegramSourceAnalyzedNewestAt ===
-                      systemStatus.telegramSourceNewestAt
-                    ? `${systemStatus.telegramSources.length}/2 sources checked`
-                    : "update pending"
-                  : systemStatus.telegramSourceStatus}
-              </span>
-              <button onClick={() => showView("live")}>Open live monitor</button>
-            </div>
-
-            <section
-              className="analytics-kpi-grid"
-              aria-label="Current Astro analytics"
-            >
-              <article className="primary">
-                <small>LIVE POSITION</small>
-                <strong>{plainDashboard.where}</strong>
-                <span>Confirmed public book</span>
-              </article>
-              <article>
-                <small>LATEST ACTION</small>
-                <strong>{plainDashboard.happened}</strong>
-                <span>{timeLabel}</span>
-              </article>
-              <article>
-                <small>APPROVED SOURCES</small>
-                <strong>{systemStatus.telegramSources.length}/2 connected</strong>
-                <span>
-                  {systemStatus.telegramSourceStatus === "healthy"
-                    ? "Telegram caught up"
-                    : "Connection needs attention"}
-                </span>
-              </article>
-              <article>
-                <small>HERMES VS ASTRO</small>
-                <strong>{hermesAgreement.label}</strong>
-                <span>{hermesAgreement.detail}</span>
-              </article>
-            </section>
-
-            <section
-              className={`astro-now-board ${opportunity.tone}`}
-              aria-label="Astro now, targets, and performance"
-            >
-              <header>
-                <span><i />ASTRO NOW</span>
-                <small className={signalFreshness.tone}>
-                  {signalFreshness.label}
-                </small>
-              </header>
-
-              <div className="astro-now-main">
-                <article className="astro-now-answer">
-                  <small>WHAT IS HAPPENING NOW?</small>
-                  <strong>{opportunity.label}</strong>
-                  <p>{opportunity.summary}</p>
-                  <div>
-                    <span>NEW ENTRY? · {plainDashboard.freshEntry}</span>
-                    <b>{plainDashboard.you}</b>
-                  </div>
-                </article>
-
-                <article className="astro-now-story compact">
-                  <div>
-                    <small>WHAT JUST HAPPENED</small>
-                    <strong>{plainDashboard.happened}</strong>
-                  </div>
-                  <div>
-                    <small>WATCH THIS NEXT</small>
-                    <strong>{forecast.thesis.nextTrigger}</strong>
-                  </div>
-                  <div>
-                    <small>WHAT CHANGES THIS</small>
-                    <strong>{forecast.decision.risk}</strong>
-                  </div>
-                </article>
-
-                <aside className="astro-next-compact">
-                  <small>HERMES NEXT · MODEL</small>
-                  <strong>{plainDashboard.next}</strong>
-                  <p>Prediction only. It becomes real only after direct evidence.</p>
-                  <button onClick={() => showView("live")}>Watch Hermes live</button>
-                </aside>
+              <div className="simple-live-state">
+                <i className={`connection-dot ${systemStatus.degraded ? "stale" : forecast.mode}`} />
+                <span>{signalFreshness.label}</span>
               </div>
+            </div>
 
-              <div className="astro-target-ladder" aria-label="Astro target ladder">
-                {targetPlan.map((target) => (
-                  <article className={target.tone} key={target.label}>
+            <section className="simple-focus-grid" aria-label="Astro and Hermes now">
+              <article className="simple-focus-card astro-card">
+                <header>
+                  <small>ASTRO · CONFIRMED</small>
+                  <span>{opportunity.label}</span>
+                </header>
+                <h2>{plainDashboard.where}</h2>
+                <p>{plainDashboard.happened}</p>
+                <dl>
+                  <div><dt>New entry?</dt><dd>{plainDashboard.freshEntry}</dd></div>
+                  <div><dt>Next change</dt><dd>{forecast.thesis.nextTrigger}</dd></div>
+                </dl>
+              </article>
+
+              <article className="simple-focus-card hermes-card">
+                <header>
+                  <small>HERMES · PREDICTION</small>
+                  <span>{hermesAgreement.label}</span>
+                </header>
+                <h2>{plainDashboard.next}</h2>
+                <p>{hermesAgreement.detail}</p>
+                <button onClick={() => showView("live")}>See Hermes thinking</button>
+              </article>
+
+              <article className="simple-focus-card targets-card">
+                <header>
+                  <small>IMPORTANT LEVELS</small>
+                  <span>ASTRO ONLY</span>
+                </header>
+                <div>
+                  {focusTargets.map((target) => (
+                    <section key={target.label}>
                     <small>{target.label}</small>
                     <strong>{target.value}</strong>
                     <span>{target.state}</span>
-                  </article>
-                ))}
-              </div>
-
-              <footer className={hasUnseenUpdate ? "new" : ""}>
-                <div>
-                  <small>
-                    {hasUnseenUpdate ? "NEW POST · WHAT CHANGED" : "LATEST POST"}
-                  </small>
-                  <strong>{latestAstroEvidence?.label || forecast.headline}</strong>
-                  <p>
-                    {latestAstroEvidence?.detail ||
-                      "No newer direct Astro evidence has been accepted."}
-                  </p>
+                    </section>
+                  ))}
                 </div>
-                <div>
-                  <a
-                    href={
-                      latestAstroEvidence?.source ||
-                      forecast.sources[0]?.url ||
-                      "https://x.com/astronomer_zero"
-                    }
-                    onClick={markCurrentUpdateSeen}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Open post ↗
-                  </a>
-                  <button onClick={() => showView("evidence")}>Why?</button>
-                </div>
-              </footer>
+                <button onClick={() => showView("chart")}>Open chart</button>
+              </article>
             </section>
+
+            <article className={`simple-latest ${hasUnseenUpdate ? "new" : ""}`}>
+              <div>
+                <small>{hasUnseenUpdate ? "NEW ASTRO UPDATE" : "LATEST ASTRO UPDATE"} · {lastUpdated} · {timeLabel}</small>
+                <strong>{latestAstroEvidence?.label || forecast.headline}</strong>
+              </div>
+              <a
+                href={latestAstroEvidence?.source || forecast.sources[0]?.url || "https://x.com/astronomer_zero"}
+                onClick={markCurrentUpdateSeen}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open post ↗
+              </a>
+            </article>
+
+            <nav className="simple-actions" aria-label="Main actions">
+              <button onClick={() => showView("chart")}><strong>Chart</strong><span>Levels and projection</span></button>
+              <button onClick={() => showView("journal")}><strong>History</strong><span>Past moves and school</span></button>
+            </nav>
 
             {notice && <p className="notice">{notice}</p>}
           </section>
-
-          <nav className="now-shortcuts" aria-label="Open a detailed view">
-            <button onClick={() => showView("chart")}>
-              <span>01</span>
-              <strong>Open chart</strong>
-              <small>Price, levels and projection</small>
-            </button>
-            <button onClick={() => showView("live")}>
-              <span>02</span>
-              <strong>Watch Hermes</strong>
-              <small>Real system activity</small>
-            </button>
-            <button onClick={() => showView("journal")}>
-              <span>03</span>
-              <strong>Review history</strong>
-              <small>Positions, evidence and school</small>
-            </button>
-          </nav>
         </div>
       )}
 
@@ -2035,12 +1930,7 @@ export default function Home() {
         activeView,
       ) && (
         <nav className="journal-subnav" aria-label="Journal sections">
-          <button onClick={() => showView("journal")}>← Journal</button>
-          <button className={activeView === "positions" ? "active" : ""} onClick={() => showView("positions")}>Positions</button>
-          <button className={activeView === "hermes" ? "active" : ""} onClick={() => showView("hermes")}>Thesis</button>
-          <button className={activeView === "history" ? "active" : ""} onClick={() => showView("history")}>History</button>
-          <button className={activeView === "evidence" ? "active" : ""} onClick={() => showView("evidence")}>Evidence</button>
-          <button className={activeView === "playbook" ? "active" : ""} onClick={() => showView("playbook")}>School</button>
+          <button onClick={() => showView("journal")}>← History home</button>
         </nav>
       )}
 
@@ -2054,32 +1944,20 @@ export default function Home() {
           <div className="journal-grid">
             <button onClick={() => showView("positions")}>
               <span>01</span>
-              <strong>Positions</strong>
-              <p>Current Astro and Hermes position maps, entries and targets.</p>
-              <small>Open →</small>
-            </button>
-            <button onClick={() => showView("hermes")}>
-              <span>02</span>
-              <strong>Hermes thesis</strong>
-              <p>The longer-horizon model, its conditions and failure point.</p>
+              <strong>Positions & targets</strong>
+              <p>Current maps, entries, targets and closes.</p>
               <small>Open →</small>
             </button>
             <button onClick={() => showView("history")}>
-              <span>03</span>
+              <span>02</span>
               <strong>Track record</strong>
-              <p>Closed plays, forecast outcomes and verified success rate.</p>
-              <small>Open →</small>
-            </button>
-            <button onClick={() => showView("evidence")}>
-              <span>04</span>
-              <strong>Evidence</strong>
-              <p>Direct Astro posts separated from framework and inference.</p>
+              <p>Past Astro plays and scored Hermes predictions.</p>
               <small>Open →</small>
             </button>
             <button onClick={() => showView("playbook")}>
-              <span>05</span>
+              <span>03</span>
               <strong>Astro School</strong>
-              <p>The organized library Hermes uses to recognize his playbook.</p>
+              <p>His playbook, source evidence and saved lessons.</p>
               <small>Open →</small>
             </button>
           </div>
@@ -2268,6 +2146,9 @@ export default function Home() {
               that library before drawing the next path—without treating an old
               chart as proof of a current trade.
             </p>
+            <button className="school-evidence-button" onClick={() => showView("evidence")}>
+              Open source evidence
+            </button>
           </div>
 
           <div className="codex-stats" aria-label="Astro Codex library status">
@@ -2357,28 +2238,6 @@ export default function Home() {
           </div>
         </section>
       )}
-
-      <nav className="mobile-nav" aria-label="Mobile navigation">
-        <button className={activeView === "desk" ? "active" : ""} onClick={() => showView("desk")}>
-          <span>●</span>Now
-        </button>
-        <button className={activeView === "chart" ? "active" : ""} onClick={() => showView("chart")}>
-          <span>⌁</span>Chart
-        </button>
-        <button className={activeView === "live" ? "active" : ""} onClick={() => showView("live")}>
-          <span>›_</span>Live
-        </button>
-        <button
-          className={
-            ["journal", "positions", "hermes", "history", "evidence", "playbook"].includes(activeView)
-              ? "active"
-              : ""
-          }
-          onClick={() => showView("journal")}
-        >
-          <span>▤</span>Journal
-        </button>
-      </nav>
 
       <footer>
         <div className="brand footer-brand">

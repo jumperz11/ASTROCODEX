@@ -34,23 +34,20 @@ test("server-renders the Astro Intelligence research terminal", async () => {
   const html = await response.text();
   assert.match(html, /<title>Astro Intelligence<\/title>/i);
   assert.match(html, /ASTRO[\s\S]*INTELLIGENCE/);
-  assert.match(html, /WHAT IS HAPPENING NOW/);
+  assert.match(html, /Astro at a glance/);
+  assert.match(html, /ASTRO · CONFIRMED/);
   assert.match(html, />WAIT</);
-  assert.match(html, /No fresh opportunity is confirmed yet/);
-  assert.match(html, /NEW ENTRY/);
-  assert.match(html, /HERMES NEXT · MODEL/);
-  assert.match(html, /ASTRO NOW/);
-  assert.match(html, /WHAT JUST HAPPENED/);
-  assert.match(html, /WATCH THIS NEXT/);
-  assert.match(html, /Watch Hermes live/);
-  assert.match(html, /POSITION/);
+  assert.match(html, /New entry\?/);
+  assert.match(html, /HERMES · PREDICTION/);
+  assert.match(html, /IMPORTANT LEVELS/);
+  assert.match(html, /See Hermes thinking/);
+  assert.match(html, /Open menu/);
   assert.match(html, /Alerts off/);
   assert.match(html, />Chart</);
   assert.match(html, />Live</);
-  assert.match(html, />Journal</);
+  assert.match(html, />History</);
   assert.match(html, /Open chart/);
-  assert.match(html, /Review history/);
-  assert.match(html, /Grok connected/);
+  assert.match(html, /Past moves and school/);
   assert.match(html, /Open post/i);
   assert.match(
     html,
