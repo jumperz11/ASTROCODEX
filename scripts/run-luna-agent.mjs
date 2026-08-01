@@ -117,6 +117,30 @@ function run(command, args, options = {}) {
   });
 }
 
+function codexFailureReason(result) {
+  if (result?.signal) return `Luna Medium timed out (${result.signal}).`;
+  const diagnostic = `${result?.stdout || ""}\n${result?.stderr || ""}`;
+  if (/login|auth|unauthorized/i.test(diagnostic)) {
+    return "Codex login is required on the VPS.";
+  }
+  if (/usage limit|rate limit|too many requests|quota/i.test(diagnostic)) {
+    return "Luna Medium reached its provider usage limit.";
+  }
+  if (/not inside a trusted directory/i.test(diagnostic)) {
+    return "Luna Medium rejected the archived VPS workspace.";
+  }
+  if (/context window|too many tokens|input.{0,20}too long|maximum context/i.test(diagnostic)) {
+    return "Luna Medium input exceeded the model context window.";
+  }
+  if (/permission denied|operation not permitted/i.test(diagnostic)) {
+    return "Luna Medium could not read a required protected input.";
+  }
+  if (/mcp.{0,80}(failed|error)|tool.{0,80}(failed|error)/i.test(diagnostic)) {
+    return "Luna Medium could not complete a protected connector call.";
+  }
+  return `Luna Medium exited unsuccessfully (code ${result?.code ?? "unknown"}).`;
+}
+
 function compactTelegram(source) {
   const messages = Array.isArray(source?.messages) ? source.messages : [];
   return messages.slice(-24).map((message) => ({
@@ -637,13 +661,7 @@ Provider boundary:
     .catch(() => 0);
   const changed = after > before;
   if (mediumResult.signal || mediumResult.code !== 0) {
-    throw new Error(
-      /login|auth|unauthorized/i.test(
-        `${mediumResult.stdout}\n${mediumResult.stderr}`,
-      )
-        ? "Codex login is required on the VPS."
-        : "Luna Medium failed; the last accepted forecast remains active.",
-    );
+    throw new Error(codexFailureReason(mediumResult));
   }
   process.stdout.write(
     `${JSON.stringify({
@@ -661,6 +679,7 @@ Provider boundary:
     })}\n`,
   );
 } catch (error) {
+  process.exitCode = 1;
   process.stdout.write(
     `${JSON.stringify({
       status: "degraded",
