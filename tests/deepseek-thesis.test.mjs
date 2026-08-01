@@ -44,6 +44,10 @@ test("DeepSeek thesis strips unsupported public sources and archive lessons", ()
           "https://x.com/astronomer_zero/status/2083130924980727816",
         ],
         campaign: { state: "open", direction: "short" },
+        nextBehaviors: [
+          { action: "hold", probability: 2, horizonHours: 24 },
+          { action: "close", probability: 1, horizonHours: 48 },
+        ],
       },
       newLessons: [
         {
@@ -61,6 +65,10 @@ test("DeepSeek thesis strips unsupported public sources and archive lessons", ()
   assert.deepEqual(normalized.newLessons[0].sourceRefs, [
     "messages.html#message2",
   ]);
+  assert.deepEqual(
+    normalized.thesis.nextBehaviors.map((item) => item.probability),
+    [67, 33],
+  );
 });
 
 test("DeepSeek thesis source signature changes with accepted inputs", () => {

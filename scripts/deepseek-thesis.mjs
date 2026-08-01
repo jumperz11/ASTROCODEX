@@ -110,6 +110,25 @@ export function normalizeDeepSeekThesis(value, allowedLessonRefs = []) {
     }))
     .filter((lesson) => lesson.rule && lesson.sourceRefs.length)
     .slice(0, 8);
+  const nextBehaviors = (
+    Array.isArray(thesis.nextBehaviors) ? thesis.nextBehaviors : []
+  )
+    .map(normalizeBehavior)
+    .slice(0, 3);
+  const behaviorTotal = nextBehaviors.reduce(
+    (total, behavior) => total + behavior.probability,
+    0,
+  );
+  if (behaviorTotal > 0) {
+    let assigned = 0;
+    nextBehaviors.forEach((behavior, index) => {
+      behavior.probability =
+        index === nextBehaviors.length - 1
+          ? 100 - assigned
+          : Math.round((behavior.probability / behaviorTotal) * 100);
+      assigned += behavior.probability;
+    });
+  }
 
   return {
     thesis: {
@@ -129,11 +148,7 @@ export function normalizeDeepSeekThesis(value, allowedLessonRefs = []) {
         targets: stringList(campaign.targets, 8, 300),
         invalidation: text(campaign.invalidation, "Unknown", 400),
       },
-      nextBehaviors: (
-        Array.isArray(thesis.nextBehaviors) ? thesis.nextBehaviors : []
-      )
-        .map(normalizeBehavior)
-        .slice(0, 3),
+      nextBehaviors,
       contradictions: stringList(thesis.contradictions, 8, 400),
       unknowns: stringList(thesis.unknowns, 8, 400),
     },

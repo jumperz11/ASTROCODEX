@@ -215,7 +215,8 @@ Rules:
 - Telegram is approved private context but must be paraphrased.
 - Archive lessons are historical context, not proof of a current position.
 - Never invent a price or imply private access to Astro's intentions.
-- Keep up to three next behaviors. Probabilities express model uncertainty.
+- Return one to three next behaviors. Probabilities express model uncertainty
+  and should total 100 across the returned candidates.
 - Every new lesson must cite only refs present in the supplied archive batch.`;
 
 const result = await callDeepSeekJson({
