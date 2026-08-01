@@ -174,3 +174,104 @@ export function normalizeDeepSeekThesis(value, allowedLessonRefs = []) {
     },
   };
 }
+
+function hasThesisSubstance(thesis) {
+  return Boolean(
+    thesis &&
+      (thesis.publicSourceRefs?.length ||
+        thesis.nextBehaviors?.length ||
+        thesis.campaign?.direction !== "unknown" ||
+        thesis.campaign?.state !== "unknown" ||
+        (thesis.telegramContext &&
+          thesis.telegramContext !== "No new Telegram context.")),
+  );
+}
+
+export function stabilizeDeepSeekThesis(
+  normalized,
+  { previous = {}, forecast = {}, evidenceBrief = {} } = {},
+) {
+  const previousThesis = previous?.thesis;
+  const acceptedNewThesis = hasThesisSubstance(normalized?.thesis);
+  const thesis = acceptedNewThesis
+    ? structuredClone(normalized.thesis)
+    : hasThesisSubstance(previousThesis)
+      ? structuredClone(previousThesis)
+      : structuredClone(normalized.thesis);
+  const briefCampaign = evidenceBrief?.campaign;
+  if (
+    thesis?.campaign?.direction === "unknown" &&
+    ["long", "short", "both", "flat"].includes(briefCampaign?.direction)
+  ) {
+    thesis.campaign = {
+      state: ["planned", "open", "partial", "closed", "conflict"].includes(
+        briefCampaign.state,
+      )
+        ? briefCampaign.state
+        : "unknown",
+      direction: briefCampaign.direction,
+      entry: text(briefCampaign.entry, "Unknown", 300),
+      targets: stringList(briefCampaign.targets, 8, 300),
+      invalidation: text(briefCampaign.invalidation, "Unknown", 400),
+    };
+  }
+  if (
+    thesis?.telegramContext === "No new Telegram context." &&
+    evidenceBrief?.brief?.astroNow
+  ) {
+    thesis.telegramContext = text(
+      evidenceBrief.brief.astroNow,
+      "No new Telegram context.",
+      700,
+    );
+  }
+  if (!thesis?.nextBehaviors?.length) {
+    const previousBehaviors = previousThesis?.nextBehaviors;
+    const projection = forecast?.hermes?.projection;
+    if (Array.isArray(previousBehaviors) && previousBehaviors.length) {
+      thesis.nextBehaviors = structuredClone(previousBehaviors);
+    } else if (projection?.behavior?.action) {
+      thesis.nextBehaviors = [
+        normalizeBehavior({
+          action: projection.behavior.action,
+          probability: projection.confidence || 50,
+          horizonHours: projection.behavior.horizonHours,
+          why: `Carry-forward from the accepted frozen Hermes behavior map: ${projection.behavior.condition || "condition unchanged"}`,
+          sourceRefs: (forecast.sources || []).map((source) => source?.url),
+        }),
+      ];
+      thesis.nextBehaviors[0].probability = 100;
+    }
+  }
+
+  const normalizedPacket = normalized?.lunaPacket || {};
+  const previousPacket = previous?.lunaPacket || {};
+  const briefPacket = evidenceBrief?.lunaBrief || {};
+  const lunaPacket =
+    normalizedPacket.facts?.length >= 2
+      ? normalizedPacket
+      : previousPacket.facts?.length >= 2
+        ? structuredClone(previousPacket)
+        : {
+            facts: stringList(briefPacket.facts, 10, 500),
+            historicalAnalogues: [],
+            question: text(
+              briefPacket.question,
+              normalizedPacket.question ||
+                "What material evidence changes the accepted forecast?",
+              600,
+            ),
+            counterCase: text(
+              briefPacket.counterCase,
+              normalizedPacket.counterCase ||
+                "The apparent pattern may not repeat.",
+              600,
+            ),
+            doNotAssume: stringList(normalizedPacket.doNotAssume, 8, 400),
+          };
+  return {
+    thesis,
+    lunaPacket,
+    acceptedNewThesis,
+  };
+}

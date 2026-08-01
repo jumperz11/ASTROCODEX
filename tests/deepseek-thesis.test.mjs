@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   nextUnprocessedSchoolBatch,
   normalizeDeepSeekThesis,
+  stabilizeDeepSeekThesis,
   thesisSourceSignature,
 } from "../scripts/deepseek-thesis.mjs";
 import { parseDeepSeekJson } from "../scripts/deepseek-client.mjs";
@@ -85,4 +86,49 @@ test("DeepSeek thesis source signature changes with accepted inputs", () => {
       telegram: { newestAcceptedAt: "new", messages: [] },
     }),
   );
+});
+
+test("weak school batches cannot erase a stronger thesis", () => {
+  const weak = normalizeDeepSeekThesis({}, []);
+  const stabilized = stabilizeDeepSeekThesis(weak, {
+    previous: {
+      thesis: {
+        astroConfirmed: "Prior fact",
+        publicSourceRefs: [
+          "https://x.com/astronomer_zero/status/2083130924980727816",
+        ],
+        telegramContext: "Prior context",
+        campaign: { state: "partial", direction: "short" },
+        nextBehaviors: [],
+        contradictions: [],
+        unknowns: [],
+      },
+      lunaPacket: {
+        facts: ["Fact one", "Fact two"],
+        question: "Prior question",
+      },
+    },
+    forecast: {
+      hermes: {
+        projection: {
+          confidence: 58,
+          behavior: {
+            action: "close",
+            horizonHours: 72,
+            condition: "Astro posts a full close.",
+          },
+        },
+      },
+      sources: [
+        {
+          url: "https://x.com/astronomer_zero/status/2083130924980727816",
+        },
+      ],
+    },
+  });
+  assert.equal(stabilized.acceptedNewThesis, false);
+  assert.equal(stabilized.thesis.campaign.direction, "short");
+  assert.equal(stabilized.thesis.nextBehaviors[0].action, "close");
+  assert.equal(stabilized.thesis.nextBehaviors[0].probability, 100);
+  assert.deepEqual(stabilized.lunaPacket.facts, ["Fact one", "Fact two"]);
 });

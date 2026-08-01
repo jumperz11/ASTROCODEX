@@ -4,6 +4,7 @@ import { callDeepSeekJson } from "./deepseek-client.mjs";
 import {
   nextUnprocessedSchoolBatch,
   normalizeDeepSeekThesis,
+  stabilizeDeepSeekThesis,
   thesisSourceSignature,
 } from "./deepseek-thesis.mjs";
 
@@ -22,6 +23,10 @@ const forecastPath =
   process.env.ASTRO_FORECAST_PATH?.trim() ||
   join(stateDirectory, "forecast.json");
 const outputPath = join(stateDirectory, "deepseek-thesis.json");
+const evidenceBriefPath = join(
+  stateDirectory,
+  "deepseek-evidence-brief.json",
+);
 const budgetPath = join(stateDirectory, "deepseek-background-budget.json");
 const dailyCap = Math.max(
   1,
@@ -58,7 +63,8 @@ async function writeJsonAtomic(path, value) {
   await rename(temporaryPath, path);
 }
 
-const [index, telegram, x, forecast, previous] = await Promise.all([
+const [index, telegram, x, forecast, previous, evidenceBrief] =
+  await Promise.all([
   readJson(indexPath, {}),
   readJson(telegramPath, {}),
   readJson(xPath, {}),
@@ -70,6 +76,7 @@ const [index, telegram, x, forecast, previous] = await Promise.all([
     thesis: null,
     lunaPacket: null,
   }),
+  readJson(evidenceBriefPath, {}),
 ]);
 
 if (
@@ -250,6 +257,11 @@ const normalized = normalizeDeepSeekThesis(
   result.value,
   schoolBatch.map((entry) => entry.ref),
 );
+const stabilized = stabilizeDeepSeekThesis(normalized, {
+  previous,
+  forecast,
+  evidenceBrief,
+});
 const processedRefs = [
   ...new Set([
     ...(Array.isArray(previous.processedRefs) ? previous.processedRefs : []),
@@ -269,7 +281,13 @@ const next = {
   updatedAt,
   checkedAt: updatedAt,
   status: "healthy",
-  work: schoolBatch.length ? "school_and_thesis" : "thesis_refresh",
+  work: schoolBatch.length
+    ? stabilized.acceptedNewThesis
+      ? "school_and_thesis"
+      : "school_with_thesis_continuity"
+    : stabilized.acceptedNewThesis
+      ? "thesis_refresh"
+      : "thesis_continuity",
   provider: result.model,
   sourceSignature,
   sourceFreshness: {
@@ -287,8 +305,8 @@ const next = {
   },
   processedRefs,
   lessons,
-  thesis: normalized.thesis,
-  lunaPacket: normalized.lunaPacket,
+  thesis: stabilized.thesis,
+  lunaPacket: stabilized.lunaPacket,
   budget: {
     cap: result.budget.cap,
     used: result.budget.used,
