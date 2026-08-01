@@ -88,6 +88,25 @@ test("DeepSeek thesis source signature changes with accepted inputs", () => {
   );
 });
 
+test("zero-weight behavior candidates become explicit equal uncertainty", () => {
+  const normalized = normalizeDeepSeekThesis(
+    {
+      thesis: {
+        nextBehaviors: [
+          { action: "silence", probability: 0 },
+          { action: "post_update", probability: 0 },
+          { action: "trim", probability: 0 },
+        ],
+      },
+    },
+    [],
+  );
+  assert.deepEqual(
+    normalized.thesis.nextBehaviors.map((item) => item.probability),
+    [33, 33, 34],
+  );
+});
+
 test("weak school batches cannot erase a stronger thesis", () => {
   const weak = normalizeDeepSeekThesis({}, []);
   const stabilized = stabilizeDeepSeekThesis(weak, {

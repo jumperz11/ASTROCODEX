@@ -128,6 +128,14 @@ export function normalizeDeepSeekThesis(value, allowedLessonRefs = []) {
           : Math.round((behavior.probability / behaviorTotal) * 100);
       assigned += behavior.probability;
     });
+  } else if (nextBehaviors.length) {
+    const equal = Math.floor(100 / nextBehaviors.length);
+    nextBehaviors.forEach((behavior, index) => {
+      behavior.probability =
+        index === nextBehaviors.length - 1
+          ? 100 - equal * (nextBehaviors.length - 1)
+          : equal;
+    });
   }
 
   return {
