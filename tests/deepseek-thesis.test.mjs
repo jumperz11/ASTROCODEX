@@ -6,6 +6,14 @@ import {
   normalizeDeepSeekThesis,
   thesisSourceSignature,
 } from "../scripts/deepseek-thesis.mjs";
+import { parseDeepSeekJson } from "../scripts/deepseek-client.mjs";
+
+test("shared DeepSeek parser accepts fenced objects and rejects partial JSON", () => {
+  assert.deepEqual(parseDeepSeekJson("```json\n{\"ok\":true}\n```"), {
+    ok: true,
+  });
+  assert.equal(parseDeepSeekJson("{\"ok\":"), null);
+});
 
 test("DeepSeek school advances only through unprocessed Astro entries", () => {
   const index = {

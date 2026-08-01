@@ -1,5 +1,25 @@
 import { consumeBudget } from "./provider-budget.mjs";
 
+export function parseDeepSeekJson(content) {
+  if (typeof content !== "string" || !content.trim()) return null;
+  const trimmed = content
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+  const start = trimmed.indexOf("{");
+  const end = trimmed.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+  try {
+    const value = JSON.parse(trimmed.slice(start, end + 1));
+    return value && typeof value === "object" && !Array.isArray(value)
+      ? value
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 function configuration() {
   const apiKey = process.env.DEEPSEEK_API_KEY?.trim();
   const configuredUrl = process.env.DEEPSEEK_BASE_URL?.trim();
@@ -80,10 +100,8 @@ export async function callDeepSeekJson({
     if (typeof content !== "string" || !content.trim()) {
       return { available: false, reason: "empty_response", budget };
     }
-    let value;
-    try {
-      value = JSON.parse(content);
-    } catch {
+    const value = parseDeepSeekJson(content);
+    if (!value) {
       return { available: false, reason: "invalid_json", budget };
     }
     return {
