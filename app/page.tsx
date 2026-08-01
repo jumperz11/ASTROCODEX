@@ -5,6 +5,7 @@ import liveForecast from "./forecast.json";
 import AstroHistory from "./astro-history";
 import LiveAstroChart from "./live-astro-chart";
 import NightSchool from "./night-school";
+import LearningPulse from "./learning-pulse";
 import PositionsView from "./positions-view";
 
 type Evidence = {
@@ -1531,13 +1532,14 @@ export default function Home() {
             {[
               ["desk", "Now"],
               ["chart", "Chart"],
+              ["live", "Live"],
               ["history", "History"],
             ].map(([view, label]) => (
               <button
                 className={activeView === view ? "active" : ""}
                 key={view}
                 onClick={() =>
-                  showView(view as "desk" | "chart" | "history")
+                  showView(view as "desk" | "chart" | "live" | "history")
                 }
               >
                 {label}
@@ -1560,78 +1562,76 @@ export default function Home() {
           </div>
         </header>
 
-        <section className="neo-context" aria-label="Current research summary">
-          <article className={`neo-context-signal ${forecast.signal.state}`}>
-            <small>STATE</small>
-            <strong>{shortStatus}</strong>
-          </article>
-          <article>
-            <small>ASTRO NOW</small>
-            <strong>{plainDashboard.where}</strong>
-          </article>
-          <article>
-            <small>HERMES NEXT</small>
-            <strong>{plainDashboard.next}</strong>
-          </article>
-        </section>
+        {activeView !== "desk" && (
+          <section className="neo-context" aria-label="Current research summary">
+            <article className={`neo-context-signal ${forecast.signal.state}`}>
+              <small>STATE</small>
+              <strong>{shortStatus}</strong>
+            </article>
+            <article>
+              <small>ASTRO NOW</small>
+              <strong>{plainDashboard.where}</strong>
+            </article>
+            <article>
+              <small>HERMES NEXT</small>
+              <strong>{plainDashboard.next}</strong>
+            </article>
+          </section>
+        )}
 
         {activeView === "desk" && (
-          <section className="neo-page neo-now">
-            <article className={`neo-action-card ${forecast.signal.state}`}>
-              <div>
-                <span>CURRENT RESEARCH STATE</span>
-                <strong>{shortStatus}</strong>
-                <h1>{plainDashboard.you}</h1>
-              </div>
-              <footer>
-                <span className={`neo-freshness ${signalFreshness.tone}`}>
+          <section className="home-simple">
+            <article className={`home-answer ${forecast.signal.state}`}>
+              <header>
+                <span>
                   <i />
                   {signalFreshness.label}
                 </span>
-                <small>Research alert only · no automatic trade</small>
+                <b>{shortStatus}</b>
+              </header>
+              <small>WHAT SHOULD I KNOW RIGHT NOW?</small>
+              <h1>{plainDashboard.you}</h1>
+              <footer>
+                <strong>{liveState.label}</strong>
+                <p>{liveState.detail}</p>
               </footer>
             </article>
 
-            <div className="neo-snapshot-grid">
-              <article className="neo-snapshot astro">
-                <div className="neo-answer-top">
+            <div className="home-two-answers">
+              <article className="astro">
+                <header>
                   <span>ASTRO · CONFIRMED</span>
                   <b>{plainDashboard.freshEntry}</b>
-                </div>
-                <strong>{plainDashboard.where}</strong>
-                <p>{plainDashboard.happened}</p>
-                <footer>
-                  <small>CHANGES WHEN</small>
-                  <span>{forecast.thesis.nextTrigger}</span>
-                </footer>
+                </header>
+                <small>WHAT ASTRO LAST DID</small>
+                <h2>{plainDashboard.happened}</h2>
+                <p>{plainDashboard.where}</p>
               </article>
-
-              <article className="neo-snapshot hermes">
-                <div className="neo-answer-top">
-                  <span>HERMES · MODEL</span>
+              <article className="hermes">
+                <header>
+                  <span>HERMES · PREDICTION</span>
                   <b>{hermesAgreement.label}</b>
-                </div>
-                <strong>{plainDashboard.next}</strong>
+                </header>
+                <small>WHAT HERMES EXPECTS NEXT</small>
+                <h2>{plainDashboard.next}</h2>
                 <p>{hermesAgreement.detail}</p>
-                <footer>
-                  <small>WRONG IF</small>
-                  <span>{forecast.hermes.failure}</span>
-                </footer>
               </article>
             </div>
 
-            <section className="neo-level-strip" aria-label="Important levels">
+            <section className="home-path" aria-label="Current important levels">
               <header>
                 <div>
-                  <small>IMPORTANT LEVELS</small>
-                  <strong>Only the current plan</strong>
+                  <small>THE CURRENT PATH</small>
+                  <strong>Only the important numbers</strong>
                 </div>
-                <button onClick={() => showView("chart")}>Open chart →</button>
+                <button onClick={() => showView("chart")}>
+                  See the full drawing →
+                </button>
               </header>
               <div>
                 {targetPlan.slice(0, 4).map((target, index) => (
                   <article className={target.tone} key={target.label}>
-                    <i>{String(index + 1).padStart(2, "0")}</i>
+                    <i>{index + 1}</i>
                     <small>{target.label}</small>
                     <strong>{target.value}</strong>
                     <span>{target.state}</span>
@@ -1640,11 +1640,31 @@ export default function Home() {
               </div>
             </section>
 
-            <article className={`neo-update ${hasUnseenUpdate ? "new" : ""}`}>
+            <nav className="home-open-buttons" aria-label="Open more detail">
+              <button onClick={() => showView("chart")}>
+                <small>SEE THE ROUTE</small>
+                <strong>Chart</strong>
+                <span>Astro levels + Hermes drawing →</span>
+              </button>
+              <button onClick={() => showView("live")}>
+                <small>WATCH THE VPS</small>
+                <strong>Live</strong>
+                <span>Real events only →</span>
+              </button>
+              <button onClick={() => showView("history")}>
+                <small>CHECK RESULTS</small>
+                <strong>History</strong>
+                <span>Right, wrong, or still open →</span>
+              </button>
+            </nav>
+
+            <LearningPulse onOpen={() => showView("playbook")} />
+
+            <article className={`home-latest ${hasUnseenUpdate ? "new" : ""}`}>
               <div>
                 <small>
-                  {hasUnseenUpdate ? "NEW UPDATE" : "LATEST UPDATE"} ·{" "}
-                  {lastUpdated}
+                  {hasUnseenUpdate ? "NEW ASTRO UPDATE" : "LATEST ASTRO UPDATE"} ·{" "}
+                  {relativeTime(latestAstroEvidence?.time, clockNow)}
                 </small>
                 <strong>
                   {latestAstroEvidence?.label || forecast.headline}
@@ -1660,54 +1680,14 @@ export default function Home() {
                 rel="noreferrer"
                 target="_blank"
               >
-                Source ↗
+                Read source ↗
               </a>
             </article>
 
-            <details className="neo-monitor">
-              <summary>
-                <div>
-                  <i className={liveState.tone} />
-                  <span>
-                    <strong>{liveState.label}</strong>
-                    <small>{liveState.detail}</small>
-                  </span>
-                </div>
-                <b>System details</b>
-              </summary>
-              <div className="neo-monitor-health">
-                <span>
-                  Telegram · {systemStatus.telegramSourceStatus === "healthy" ? "2/2 live" : systemStatus.telegramSourceStatus}
-                </span>
-                <span>
-                  X · {systemStatus.xSourceStatus === "healthy" ? "connected" : systemStatus.xSourceStatus}
-                </span>
-                <span>
-                  Brain · {systemStatus.reasoner?.status === "healthy" ? "ready" : systemStatus.reasoner?.status || "standby"}
-                </span>
-              </div>
-              <div className="neo-monitor-feed" aria-live="polite">
-                {[...systemStatus.activity]
-                  .reverse()
-                  .slice(0, 5)
-                  .map((event, index) => (
-                    <article key={`${event.at}-${event.stage}-${index}`}>
-                      <time>
-                        {new Date(event.at).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </time>
-                      <i className={event.status} />
-                      <div>
-                        <strong>{event.title}</strong>
-                        <p>{event.detail}</p>
-                      </div>
-                    </article>
-                  ))}
-              </div>
-            </details>
-
+            <p className="home-boundary">
+              Research monitor only. It never places a trade and never labels a
+              model guess as an Astro call.
+            </p>
             {notice && <p className="neo-notice">{notice}</p>}
           </section>
         )}
@@ -1789,13 +1769,14 @@ export default function Home() {
           {[
             ["desk", "Now"],
             ["chart", "Chart"],
+            ["live", "Live"],
             ["history", "History"],
           ].map(([view, label]) => (
             <button
               className={activeView === view ? "active" : ""}
               key={view}
               onClick={() =>
-                showView(view as "desk" | "chart" | "history")
+                showView(view as "desk" | "chart" | "live" | "history")
               }
             >
               {label}

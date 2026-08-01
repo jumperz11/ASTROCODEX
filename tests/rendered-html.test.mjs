@@ -34,18 +34,18 @@ test("server-renders the Astro Intelligence research terminal", async () => {
   const html = await response.text();
   assert.match(html, /<title>Astro Intelligence<\/title>/i);
   assert.match(html, /Astro Intelligence/i);
-  assert.match(html, /CURRENT RESEARCH STATE/);
+  assert.match(html, /WHAT SHOULD I KNOW RIGHT NOW/);
   assert.match(html, /ASTRO · CONFIRMED/);
   assert.match(html, />WAIT</);
   assert.match(html, /NO · EXISTING POSITION/);
-  assert.match(html, /HERMES · MODEL/);
-  assert.match(html, /IMPORTANT LEVELS/);
-  assert.match(html, /ASTRO NOW/);
+  assert.match(html, /HERMES · PREDICTION/);
+  assert.match(html, /THE CURRENT PATH/);
+  assert.match(html, /IS IT ACTUALLY GETTING SMARTER/i);
   assert.match(html, />Chart</);
+  assert.match(html, />Live</);
   assert.match(html, />History</);
-  assert.doesNotMatch(html, />Live</);
-  assert.match(html, /LATEST UPDATE/);
-  assert.match(html, /Source ↗/i);
+  assert.match(html, /LATEST ASTRO UPDATE/);
+  assert.match(html, /Read source ↗/i);
   assert.match(
     html,
     /https:\/\/x\.com\/astronomer_zero\/status\/\d+/i,

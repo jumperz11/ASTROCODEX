@@ -3798,6 +3798,633 @@ footer a {
   }
 }
 
+/* Default phone-first answer: three decisions before any detail. */
+.home-simple {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: 28px 24px 70px;
+}
+
+.home-answer {
+  padding: clamp(25px, 4vw, 48px);
+  overflow: hidden;
+  border: 1px solid #d9dff5;
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 88% 12%, rgba(103, 82, 217, 0.17), transparent 34%),
+    linear-gradient(135deg, #f3f5ff 0%, #fff 64%);
+  box-shadow: 0 22px 55px rgba(48, 51, 82, 0.08);
+}
+
+.home-answer > header,
+.home-two-answers article > header,
+.home-path > header,
+.home-learning-pulse > header,
+.home-latest {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.home-answer > header > span {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #657087;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.home-answer > header > span i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #35bc82;
+  box-shadow: 0 0 0 5px rgba(53, 188, 130, 0.11);
+}
+
+.home-answer > header > b,
+.home-two-answers header b {
+  padding: 8px 11px;
+  border-radius: 9px;
+  background: #eae7fb;
+  color: #5845c4;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.home-answer > small,
+.home-two-answers article > small,
+.home-path small,
+.home-open-buttons small,
+.home-learning-pulse small,
+.home-latest small {
+  display: block;
+  color: #8a90a2;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.11em;
+}
+
+.home-answer > small {
+  margin-top: clamp(42px, 8vw, 92px);
+}
+
+.home-answer h1 {
+  max-width: 920px;
+  margin: 12px 0 0;
+  color: #161b2e;
+  font-size: clamp(34px, 5.2vw, 65px);
+  font-weight: 630;
+  letter-spacing: -0.055em;
+  line-height: 1.02;
+}
+
+.home-answer > footer {
+  max-width: 720px;
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid #dfe3f2;
+}
+
+.home-answer > footer strong {
+  color: #5947c6;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+.home-answer > footer p {
+  margin: 6px 0 0;
+  color: #70778b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.home-two-answers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.home-two-answers > article {
+  min-height: 260px;
+  padding: 24px;
+  border: 1px solid #e2e5ec;
+  border-radius: 21px;
+  background: #fff;
+}
+
+.home-two-answers > article.astro {
+  border-top: 4px solid #efad3e;
+}
+
+.home-two-answers > article.hermes {
+  border-top: 4px solid #6d7de4;
+}
+
+.home-two-answers header span {
+  color: #666f84;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.home-two-answers article > small {
+  margin-top: 38px;
+}
+
+.home-two-answers h2 {
+  margin: 10px 0 0;
+  color: #252d42;
+  font-size: clamp(20px, 2.2vw, 29px);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.2;
+}
+
+.home-two-answers p {
+  margin: 14px 0 0;
+  color: #7a8193;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.home-path,
+.home-learning-pulse {
+  margin-top: 14px;
+  overflow: hidden;
+  border: 1px solid #e2e5ec;
+  border-radius: 21px;
+  background: #fff;
+}
+
+.home-path > header,
+.home-learning-pulse > header {
+  min-height: 78px;
+  padding: 18px 22px;
+  border-bottom: 1px solid #e7e9ef;
+}
+
+.home-path > header strong,
+.home-learning-pulse h2 {
+  display: block;
+  margin: 5px 0 0;
+  color: #252d42;
+  font-size: 18px;
+}
+
+.home-path button,
+.home-learning-pulse > header button {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid #dde0e9;
+  border-radius: 10px;
+  background: #f7f8fb;
+  color: #4d5265;
+  font-size: 11px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.home-path > div {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.home-path article {
+  min-width: 0;
+  min-height: 142px;
+  padding: 18px;
+}
+
+.home-path article + article {
+  border-left: 1px solid #eceef3;
+}
+
+.home-path article > i {
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 18px;
+  border-radius: 8px;
+  background: #f0f2f8;
+  color: #777f94;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.home-path article strong,
+.home-path article span {
+  display: block;
+}
+
+.home-path article strong {
+  margin-top: 7px;
+  color: #273047;
+  font-size: 18px;
+}
+
+.home-path article span {
+  margin-top: 5px;
+  color: #858c9d;
+  font-size: 10px;
+}
+
+.home-path article.hit strong {
+  color: #2aa878;
+}
+
+.home-path article.watch strong {
+  color: #d4902c;
+}
+
+.home-open-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.home-open-buttons button {
+  min-height: 118px;
+  padding: 18px;
+  border: 1px solid #e1e4eb;
+  border-radius: 18px;
+  background: #fff;
+  color: #273047;
+  text-align: left;
+  cursor: pointer;
+}
+
+.home-open-buttons button:hover {
+  border-color: #cfd4e4;
+  transform: translateY(-1px);
+}
+
+.home-open-buttons strong,
+.home-open-buttons span {
+  display: block;
+}
+
+.home-open-buttons strong {
+  margin-top: 10px;
+  font-size: 21px;
+}
+
+.home-open-buttons span {
+  margin-top: 7px;
+  color: #858c9e;
+  font-size: 11px;
+}
+
+.home-learning-grid {
+  display: grid;
+  grid-template-columns: 1fr 0.8fr 1.25fr;
+}
+
+.home-learning-grid > article {
+  min-width: 0;
+  min-height: 190px;
+  padding: 21px;
+}
+
+.home-learning-grid > article + article {
+  border-left: 1px solid #eceef3;
+}
+
+.learning-verdict {
+  box-shadow: inset 4px 0 0 #d4a347;
+}
+
+.learning-verdict.better {
+  box-shadow: inset 4px 0 0 #35b77f;
+}
+
+.learning-verdict.worse {
+  box-shadow: inset 4px 0 0 #dd6572;
+}
+
+.learning-verdict strong,
+.learning-current strong {
+  display: block;
+  margin-top: 14px;
+  color: #273047;
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.learning-verdict p,
+.learning-current p {
+  margin: 9px 0 0;
+  color: #7c8497;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.learning-numbers {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: center;
+}
+
+.learning-numbers > div {
+  text-align: center;
+}
+
+.learning-numbers > div + div {
+  border-left: 1px solid #eceef3;
+}
+
+.learning-numbers strong {
+  display: block;
+  margin-top: 10px;
+  color: #5140bc;
+  font-size: 26px;
+}
+
+.home-latest {
+  min-height: 82px;
+  margin-top: 14px;
+  padding: 17px 20px;
+  border: 1px solid #e1e4eb;
+  border-radius: 17px;
+  background: #fff;
+}
+
+.home-latest.new {
+  border-color: #bcb3f0;
+  box-shadow: 0 12px 28px rgba(103, 82, 217, 0.1);
+}
+
+.home-latest strong {
+  display: block;
+  max-width: 820px;
+  margin-top: 7px;
+  color: #30384e;
+  font-size: 13px;
+}
+
+.home-latest a {
+  flex: 0 0 auto;
+  color: #5f4bd0;
+  font-size: 11px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.home-boundary {
+  margin: 13px 3px 0;
+  color: #8d93a3;
+  font-size: 10px;
+}
+
+/* The Hermes route keeps its reasons visible instead of hiding them. */
+.hermes-route-explained {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 1px solid var(--line);
+}
+
+.hermes-route-explained > article {
+  min-width: 0;
+  min-height: 255px;
+  padding: 18px;
+  background: #0d0f13;
+}
+
+.hermes-route-explained > article + article {
+  border-left: 1px solid var(--line);
+}
+
+.hermes-route-explained article > header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.hermes-route-explained article > header i {
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: rgba(122, 162, 255, 0.14);
+  color: #a9c1ff;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.hermes-route-explained article > header span,
+.hermes-route-explained article > small,
+.chart-visible-reasons small {
+  color: #788396;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.hermes-route-explained article > strong {
+  display: block;
+  margin-top: 22px;
+  color: #edf1fa;
+  font-size: 25px;
+}
+
+.hermes-route-explained article h3 {
+  margin: 9px 0 0;
+  color: #b9c2d1;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.hermes-route-explained article p {
+  margin: 10px 0 15px;
+  color: #778090;
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.hermes-route-explained article.reached {
+  box-shadow: inset 0 3px 0 #52e6a7;
+}
+
+.hermes-route-explained article.reached > header span {
+  color: #52e6a7;
+}
+
+.hermes-route-explained article.invalid {
+  box-shadow: inset 0 3px 0 #ff6b66;
+}
+
+.hermes-route-explained article.invalid > header i {
+  background: rgba(255, 107, 102, 0.12);
+  color: #ff817c;
+}
+
+.chart-visible-reasons {
+  padding: 20px;
+  border-top: 1px solid var(--line);
+  background: #11141a;
+}
+
+.chart-visible-reasons > header strong {
+  display: block;
+  margin-top: 6px;
+  color: #e8edf6;
+  font-size: 15px;
+}
+
+.chart-visible-reasons > div {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.chart-visible-reasons article {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.chart-visible-reasons article p {
+  margin: 8px 0 0;
+  color: #8c95a5;
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+@media (max-width: 900px) {
+  .home-learning-grid,
+  .hermes-route-explained {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .home-learning-grid > article:nth-child(3) {
+    grid-column: 1 / -1;
+    border-top: 1px solid #eceef3;
+    border-left: 0;
+  }
+
+  .hermes-route-explained > article:nth-child(3) {
+    border-left: 0;
+  }
+
+  .hermes-route-explained > article:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
+  }
+}
+
+@media (max-width: 680px) {
+  .home-simple {
+    padding: 13px 12px 76px;
+  }
+
+  .home-answer {
+    padding: 20px 17px;
+    border-radius: 19px;
+  }
+
+  .home-answer > small {
+    margin-top: 44px;
+  }
+
+  .home-answer h1 {
+    font-size: 36px;
+  }
+
+  .home-answer > footer {
+    margin-top: 24px;
+  }
+
+  .home-two-answers,
+  .home-open-buttons,
+  .home-learning-grid,
+  .chart-visible-reasons > div {
+    grid-template-columns: 1fr;
+  }
+
+  .home-two-answers > article {
+    min-height: 220px;
+    padding: 19px;
+    border-radius: 17px;
+  }
+
+  .home-two-answers article > small {
+    margin-top: 28px;
+  }
+
+  .home-path > header,
+  .home-learning-pulse > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .home-path > div {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .home-path article {
+    min-height: 128px;
+    padding: 15px;
+  }
+
+  .home-path article:nth-child(3) {
+    border-top: 1px solid #eceef3;
+    border-left: 0;
+  }
+
+  .home-path article:nth-child(4) {
+    border-top: 1px solid #eceef3;
+  }
+
+  .home-open-buttons button {
+    min-height: 96px;
+  }
+
+  .home-learning-grid > article {
+    min-height: 0;
+    border-left: 0;
+  }
+
+  .home-learning-grid > article + article {
+    border-top: 1px solid #eceef3;
+    border-left: 0;
+  }
+
+  .learning-numbers {
+    min-height: 125px !important;
+  }
+
+  .home-latest {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .hermes-route-explained {
+    grid-template-columns: 1fr;
+  }
+
+  .hermes-route-explained > article {
+    min-height: 0;
+  }
+
+  .hermes-route-explained > article + article,
+  .hermes-route-explained > article:nth-child(3) {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     scroll-behavior: auto !important;

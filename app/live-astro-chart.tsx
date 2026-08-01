@@ -308,6 +308,11 @@ function formatPrice(value: number | null) {
   }).format(value);
 }
 
+function compactChartPrice(value: number) {
+  if (!Number.isFinite(value)) return "—";
+  return `$${(value / 1_000).toFixed(1)}K`;
+}
+
 function mapCandles(rows: unknown[]): CandlestickData<UTCTimestamp>[] {
   return rows
     .filter(
@@ -776,8 +781,8 @@ export default function LiveAstroChart({
       title: "MODEL PATH",
     });
     const hermesUpperSeries = chart.addSeries(LineSeries, {
-      color: "rgba(122, 162, 255, 0.20)",
-      lineWidth: 1,
+      color: "rgba(122, 162, 255, 0.34)",
+      lineWidth: 2,
       lineStyle: LineStyle.Dashed,
       lineType: LineType.Curved,
       crosshairMarkerVisible: false,
@@ -786,8 +791,8 @@ export default function LiveAstroChart({
       visible: false,
     });
     const hermesLowerSeries = chart.addSeries(LineSeries, {
-      color: "rgba(196, 125, 255, 0.18)",
-      lineWidth: 1,
+      color: "rgba(196, 125, 255, 0.30)",
+      lineWidth: 2,
       lineStyle: LineStyle.Dashed,
       lineType: LineType.Curved,
       crosshairMarkerVisible: false,
@@ -859,7 +864,9 @@ export default function LiveAstroChart({
           position: hermesProjectionPlan.currentIsDown ? "belowBar" : "aboveBar",
           shape: "circle",
           size: 1,
-          text: "1 · FINISH CURRENT",
+          text: `1 · ${compactChartPrice(
+            hermesProjectionPlan.transitionPrice,
+          )}`,
           time: hermesProjectionPlan.points[2].time,
         },
         {
@@ -868,7 +875,9 @@ export default function LiveAstroChart({
           position: "aboveBar",
           shape: "square",
           size: 1,
-          text: "2 · WAIT CONFIRM",
+          text: `2 · ${compactChartPrice(
+            hermesProjectionPlan.points[3].value,
+          )}`,
           time: hermesProjectionPlan.points[3].time,
         },
         {
@@ -877,7 +886,9 @@ export default function LiveAstroChart({
           position: hermesProjectionPlan.longerIsUp ? "aboveBar" : "belowBar",
           shape: "arrowUp",
           size: 1,
-          text: "3 · LONGER CAMPAIGN",
+          text: `3 · ${compactChartPrice(
+            hermesProjectionPlan.campaignTarget,
+          )}`,
           time: hermesProjectionPlan.points.at(-1)!.time,
         },
       ]);
@@ -1296,43 +1307,68 @@ export default function LiveAstroChart({
             </div>
             <button type="button" onClick={onOpenHermes}>Back to summary →</button>
           </header>
-          <div className="hermes-call-strip">
-            <article>
-              <small>FIRST</small>
-              <strong>
-                {formatPrice(
-                  hermesProjection?.checkpoints.find(
-                    (checkpoint) => checkpoint.kind === "transition",
-                  )?.price ?? null,
-                )}
-              </strong>
-              <span>Finish the current phase</span>
-            </article>
-            <i>→</i>
-            <article>
-              <small>THEN CONFIRM</small>
-              <strong>
-                {formatPrice(
-                  hermesProjection?.checkpoints.find(
-                    (checkpoint) => checkpoint.kind === "confirmation",
-                  )?.price ?? null,
-                )}
-              </strong>
-              <span>Do not assume the reversal</span>
-            </article>
-            <i>→</i>
-            <article>
-              <small>LATER TARGET</small>
-              <strong>
-                {formatPrice(
-                  hermesProjection?.checkpoints.find(
-                    (checkpoint) => checkpoint.kind === "target",
-                  )?.price ?? null,
-                )}
-              </strong>
-              <span>Only if confirmation holds</span>
-            </article>
+          <div className="hermes-route-explained">
+            {(hermesProjection?.checkpoints || []).map((checkpoint, index) => (
+              <article
+                className={
+                  index < (hermesAudit?.hitCheckpoints ?? 0)
+                    ? "reached"
+                    : "watching"
+                }
+                key={`${checkpoint.label}-${checkpoint.price}`}
+              >
+                <header>
+                  <i>{index + 1}</i>
+                  <span>
+                    {index < (hermesAudit?.hitCheckpoints ?? 0)
+                      ? "REACHED"
+                      : checkpoint.kind === "transition"
+                        ? "FIRST"
+                        : checkpoint.kind === "confirmation"
+                          ? "THEN CONFIRM"
+                          : "LATER TARGET"}
+                  </span>
+                </header>
+                <strong>{formatPrice(checkpoint.price)}</strong>
+                <h3>{checkpoint.label}</h3>
+                <p>{checkpoint.condition}</p>
+                <small>EXPECTED WITHIN {checkpoint.horizonHours}H</small>
+              </article>
+            ))}
+            {hermesProjection?.invalidation && (
+              <article className="invalid">
+                <header>
+                  <i>×</i>
+                  <span>DRAWING IS WRONG IF</span>
+                </header>
+                <strong>
+                  {formatPrice(hermesProjection.invalidation.price)}
+                </strong>
+                <h3>Hermes must draw a new route</h3>
+                <p>{hermesProjection.invalidation.condition}</p>
+              </article>
+            )}
           </div>
+          <section className="chart-visible-reasons">
+            <header>
+              <small>WHY HERMES DREW THIS ROUTE</small>
+              <strong>Three different inputs—not one guess</strong>
+            </header>
+            <div>
+              <article>
+                <small>1 · WHAT ASTRO CONFIRMED</small>
+                <p>{astroConfirmed}</p>
+              </article>
+              <article>
+                <small>2 · WHAT HERMES LEARNED</small>
+                <p>{schoolMatch}</p>
+              </article>
+              <article>
+                <small>3 · WHAT PRICE MUST DO</small>
+                <p>{hermesConfirmation}</p>
+              </article>
+            </div>
+          </section>
           {hermesAudit && (
             <div className={`chart-hermes-audit ${hermesAudit.marketStatus}`}>
               <span>
