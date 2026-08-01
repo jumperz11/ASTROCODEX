@@ -18,18 +18,23 @@ The production loop runs entirely on the VPS:
   (5/day).
 - `astro-deepseek-background.timer` keeps a durable internal Astro thesis
   current and steadily distills the protected 14k+ message school archive in
-  cited batches. The worker is always scheduled, but skips paid calls when the
-  thesis is fresh and the school queue is empty.
+  cited batches. Candidate lessons pass a separate source-support review before
+  entering approved memory. The worker is always scheduled, but skips paid
+  calls when the thesis is fresh and the school queue is empty.
 - The protected Astro Codex connector gives Luna Medium the archived playbook
   and historical search needed to connect the evidence.
 - `astro-signal.service` serves the last validated forecast through a
   token-protected HTTPS endpoint.
 - `astro-autoresearch.timer` scores market paths and Astro-behavior predictions
-  as separate tracks. It runs a guarded nightly shadow experiment only after a
-  track has enough frozen outcomes, uses a chronological holdout, and can never
-  modify the live forecast or playbook.
+  in independent ledgers. A behavior update cannot replace the longer frozen
+  market map. It runs a guarded nightly shadow experiment only after a track
+  has enough frozen outcomes, uses a chronological holdout, and can never modify
+  the live forecast or playbook.
 - `astro-watchdog.timer` checks freshness every five minutes and invokes
   `astro-recovery.service` if the API or scan loop becomes unhealthy.
+- The Telegram user-session worker exits after three consecutive transport
+  failures so systemd opens a fresh connection instead of leaving a
+  disconnected process alive.
 
 The private dashboard only reads the protected endpoint. It does not perform
 research, trade execution, or background agent work. If research fails, the
@@ -58,6 +63,9 @@ model inference so every forecast can be audited.
   autoresearch calibration are stored as separate internal artifacts. Luna
   receives them as research context and must verify their cited sources before
   saving anything.
+- Astro School wakes the evidence gate only at bounded 2,000-item milestones
+  and initial-pass completion. Historical learning alone cannot become a
+  confirmed Astro signal.
 - Any accepted public Astro claim must cite exact
   `x.com/astronomer_zero/status/...` URLs before the connector accepts a
   forecast.

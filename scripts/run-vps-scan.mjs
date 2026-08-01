@@ -4,10 +4,15 @@ import { readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  BEHAVIOR_SCORING_VERSION,
+  behaviorCommitmentHash,
   commitmentHash,
+  evaluateBehaviorPredictions,
   evaluateHermesPredictions,
+  extractBehaviorPredictions,
   HERMES_SCORING_VERSION,
   hermesLedgerSummary,
+  marketProjectionMateriallyChanged,
   supersedeActivePredictions,
 } from "./hermes-ledger.mjs";
 import { notifyTelegram } from "./telegram-notifier.mjs";
@@ -93,16 +98,26 @@ function forecastSemanticHash(forecast) {
     .digest("hex");
 }
 
-function ledgerTriggerSignature(predictions) {
+function ledgerTriggerSignature(predictions, behaviorPredictions = []) {
   return JSON.stringify(
-    (Array.isArray(predictions) ? predictions : []).map((prediction) => ({
-      id: prediction?.id,
-      marketStatus: prediction?.marketStatus ?? prediction?.status,
-      hits: Array.isArray(prediction?.checkpoints)
-        ? prediction.checkpoints.filter((checkpoint) => checkpoint.hitAt).length
-        : 0,
-      behaviorStatus: prediction?.behaviorOutcome?.status ?? "unscored",
-    })),
+    {
+      market: (Array.isArray(predictions) ? predictions : []).map(
+        (prediction) => ({
+          id: prediction?.id,
+          marketStatus: prediction?.marketStatus ?? prediction?.status,
+          hits: Array.isArray(prediction?.checkpoints)
+            ? prediction.checkpoints.filter((checkpoint) => checkpoint.hitAt)
+                .length
+            : 0,
+        }),
+      ),
+      behavior: (
+        Array.isArray(behaviorPredictions) ? behaviorPredictions : []
+      ).map((prediction) => ({
+        id: prediction?.id,
+        status: prediction?.behaviorOutcome?.status ?? "unscored",
+      })),
+    },
   );
 }
 
@@ -278,6 +293,7 @@ async function deepSeekBackgroundSummary() {
     provider: thesis?.provider ?? null,
     stale,
     school: thesis?.school ?? null,
+    reviewSignal: thesis?.reviewSignal ?? null,
     thesis: thesis?.thesis
       ? {
           campaign: thesis.thesis.campaign ?? null,
@@ -296,6 +312,7 @@ function runAgent(
   hermesAudit,
   telegramSources,
   xSources,
+  schoolReviewSignal,
 ) {
   return new Promise((resolve, reject) => {
     const child = spawn(
@@ -319,7 +336,15 @@ ${JSON.stringify(telegramSources)}
 Grok X scout ledger (direct public evidence transport only):
 ${JSON.stringify(xSources)}
 
+Low-frequency Astro School review signal:
+${JSON.stringify(schoolReviewSignal)}
+
 When messageCount is positive, read the JSON ledger at the supplied path and inspect recent allowlisted messages and referenced local chart media. Use them to improve Hermes scenarios, target mapping, and behavioral context. Do not reproduce paid message text in the saved public-facing summary. A Telegram-only claim may affect Hermes inference, but it cannot become public Astro evidence or create a confirmed public signal unless an exact public X status corroborates it.
+
+When the school review signal is present, treat it only as permission to compare
+the newly distilled school thesis with the accepted Hermes thesis. It is not
+new Astro evidence. Rebuild only if protected source verification shows a
+material thesis difference; otherwise keep the accepted forecast unchanged.
 
 Use this snapshot only for the separate model thesis and thesisLevels. Keep Astro-confirmed levels in levels. Never present the market snapshot or model levels as Astro's words.`,
       ],
@@ -411,11 +436,33 @@ async function updateHistory({
     candles,
     forecast?.evidence,
   );
+  const storedBehaviorPredictions =
+    Array.isArray(history.behaviorPredictions) &&
+    history.behaviorPredictions.length
+      ? history.behaviorPredictions
+      : extractBehaviorPredictions(hermesPredictions);
+  let behaviorPredictions = evaluateBehaviorPredictions(
+    storedBehaviorPredictions,
+    forecast?.evidence,
+    checkedAt,
+  );
   const projection = forecast?.hermes?.projection;
-  if (
+  const activeMarketPrediction = hermesPredictions
+    .filter(
+      (item) =>
+        item?.official &&
+        item?.integrity === "valid" &&
+        item?.marketStatus === "active",
+    )
+    .at(-1);
+  const shouldCreateMarketPrediction =
     forecastId &&
     projection &&
-    !hermesPredictions.some((item) => item?.id === forecastId)
+    !hermesPredictions.some((item) => item?.id === forecastId) &&
+    (!activeMarketPrediction ||
+      marketProjectionMateriallyChanged(activeMarketPrediction, projection));
+  if (
+    shouldCreateMarketPrediction
   ) {
     const createdMs = new Date(forecastId).getTime();
     const createdAt = Number.isFinite(createdMs) ? forecastId : checkedAt;
@@ -425,9 +472,7 @@ async function updateHistory({
       checkedAt,
     );
     const scoringVersion = Number(projection.scoringVersion || 1);
-    const official =
-      scoringVersion === HERMES_SCORING_VERSION &&
-      Boolean(projection.behavior);
+    const official = scoringVersion === HERMES_SCORING_VERSION;
     const prediction = {
       id: forecastId,
       scoringVersion,
@@ -454,13 +499,11 @@ async function updateHistory({
         hitPrice: null,
       })),
       invalidation: projection.invalidation,
-      behavior: projection.behavior ?? null,
+      behavior: null,
       behaviorOutcome: {
-        status: projection.behavior ? "active" : "unscored",
+        status: "unscored",
         resolvedAt: null,
-        reason: projection.behavior
-          ? null
-          : "Experimental map predates official behavior scoring.",
+        reason: "Astro behavior is scored in the independent behavior ledger.",
         matchedSource: null,
       },
       thesis: forecast.hermes.coreThesis,
@@ -472,7 +515,55 @@ async function updateHistory({
     prediction.integrity = official ? "valid" : "legacy";
     hermesPredictions.push(prediction);
   }
-  const hermesStats = hermesLedgerSummary(hermesPredictions);
+
+  const activeBehaviorPrediction = behaviorPredictions
+    .filter(
+      (item) =>
+        item?.official &&
+        item?.integrity === "valid" &&
+        item?.behaviorOutcome?.status === "active",
+    )
+    .at(-1);
+  const behaviorChanged =
+    activeBehaviorPrediction?.behavior?.action !==
+      projection?.behavior?.action ||
+    activeBehaviorPrediction?.behavior?.horizonHours !==
+      projection?.behavior?.horizonHours;
+  if (
+    forecastId &&
+    projection?.behavior &&
+    !behaviorPredictions.some((item) => item?.id === forecastId) &&
+    (!activeBehaviorPrediction || behaviorChanged)
+  ) {
+    const createdMs = new Date(forecastId).getTime();
+    const createdAt = Number.isFinite(createdMs) ? forecastId : checkedAt;
+    const behaviorPrediction = {
+      id: forecastId,
+      scoringVersion: BEHAVIOR_SCORING_VERSION,
+      official: projection.scoringVersion === HERMES_SCORING_VERSION,
+      createdAt,
+      confidence: projection.confidence,
+      horizonHours: projection.behavior.horizonHours,
+      behavior: projection.behavior,
+      behaviorOutcome: {
+        status: "active",
+        resolvedAt: null,
+        reason: null,
+        matchedSource: null,
+      },
+      sources: forecast.sources ?? [],
+    };
+    behaviorPrediction.commitmentHash =
+      behaviorCommitmentHash(behaviorPrediction);
+    behaviorPrediction.integrity = behaviorPrediction.official
+      ? "valid"
+      : "legacy";
+    behaviorPredictions.push(behaviorPrediction);
+  }
+  const hermesStats = hermesLedgerSummary(
+    hermesPredictions,
+    behaviorPredictions,
+  );
 
   const seededTrackRecord = await readJson(trackRecordSeedPath);
   const nextHistory = {
@@ -480,6 +571,7 @@ async function updateHistory({
     daily: daily.slice(-365),
     plays: plays.slice(-500),
     hermesPredictions: hermesPredictions.slice(-500),
+    behaviorPredictions: behaviorPredictions.slice(-500),
     hermesStats: {
       total: hermesStats.total,
       experimental: hermesStats.experimental,
@@ -535,17 +627,37 @@ try {
   const currentHistory = await readJson(historyPath, {});
   const currentTrackRecord =
     currentHistory?.trackRecord ?? (await readJson(trackRecordSeedPath, null));
+  const existingForecast = await readJson(forecastPath);
   const evaluatedHermesPredictions = evaluateHermesPredictions(
     currentHistory?.hermesPredictions,
     market,
     startedAt,
     candles,
-    (await readJson(forecastPath))?.evidence,
+    existingForecast?.evidence,
   );
-  const currentHermesAudit = hermesLedgerSummary(evaluatedHermesPredictions);
+  const storedBehaviorPredictions =
+    Array.isArray(currentHistory?.behaviorPredictions) &&
+    currentHistory.behaviorPredictions.length
+      ? currentHistory.behaviorPredictions
+      : extractBehaviorPredictions(evaluatedHermesPredictions);
+  const evaluatedBehaviorPredictions = evaluateBehaviorPredictions(
+    storedBehaviorPredictions,
+    existingForecast?.evidence,
+    startedAt,
+  );
+  const currentHermesAudit = hermesLedgerSummary(
+    evaluatedHermesPredictions,
+    evaluatedBehaviorPredictions,
+  );
   const ledgerChanged =
-    ledgerTriggerSignature(currentHistory?.hermesPredictions) !==
-    ledgerTriggerSignature(evaluatedHermesPredictions);
+    ledgerTriggerSignature(
+      currentHistory?.hermesPredictions,
+      currentHistory?.behaviorPredictions,
+    ) !==
+    ledgerTriggerSignature(
+      evaluatedHermesPredictions,
+      evaluatedBehaviorPredictions,
+    );
   const previousMarketPrice = Number(previous.marketPrice);
   const materialPriceMove =
     Number.isFinite(previousMarketPrice) &&
@@ -556,12 +668,16 @@ try {
   const xChanged =
     Boolean(xSources.newestAcceptedAt) &&
     xSources.newestAcceptedAt !== previous.xSourceUpdatedAt;
-  const existingForecast = await readJson(forecastPath);
+  const schoolReviewToken = deepSeek.reviewSignal?.token ?? null;
+  const schoolReviewChanged =
+    Boolean(schoolReviewToken) &&
+    schoolReviewToken !== previous.deepSeekReviewToken;
   const shouldRunAgent =
     ledgerChanged ||
     materialPriceMove ||
     telegramChanged ||
     xChanged ||
+    schoolReviewChanged ||
     process.env.ASTRO_FORCE_REASONER === "1" ||
     !existingForecast;
 
@@ -639,7 +755,9 @@ try {
     status: "working",
     title: "Hermes is analyzing",
     detail:
-      "Comparing the newest accepted evidence with Astro history, the active playbook, and live market structure.",
+      schoolReviewChanged
+        ? "Reviewing a bounded Astro School milestone against the accepted thesis without treating history as new evidence."
+        : "Comparing the newest accepted evidence with Astro history, the active playbook, and live market structure.",
   });
   await writeState({
     ...previous,
@@ -671,6 +789,7 @@ try {
     currentHermesAudit,
     telegramSources,
     xSources,
+    schoolReviewChanged ? deepSeek.reviewSignal : null,
   );
   const forecast = await readJson(forecastPath);
   const afterHash = forecastSemanticHash(forecast);
@@ -726,6 +845,9 @@ try {
     model: reasoningModel,
     codex,
     deepSeek,
+    deepSeekReviewToken: schoolReviewChanged
+      ? schoolReviewToken
+      : previous.deepSeekReviewToken ?? null,
     status: "healthy",
     startedAt,
     finishedAt,

@@ -2,8 +2,11 @@ import { readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { callDeepSeekJson } from "./deepseek-client.mjs";
 import {
+  buildThesisReviewSignal,
+  mergeApprovedLessons,
   nextUnprocessedSchoolBatch,
   normalizeDeepSeekThesis,
+  normalizeLessonReviews,
   stabilizeDeepSeekThesis,
   thesisSourceSignature,
 } from "./deepseek-thesis.mjs";
@@ -143,7 +146,9 @@ const recentX = (Array.isArray(x?.posts) ? x.posts : []).slice(0, 8);
 const recentLessons = (Array.isArray(previous?.lessons)
   ? previous.lessons
   : []
-).slice(-60);
+)
+  .filter((lesson) => lesson?.quality?.status === "supported")
+  .slice(-60);
 
 const prompt = `You are DeepSeek, the background evidence clerk and Astro School
 distiller for Astro Intelligence. You prepare a clean internal research packet
@@ -257,6 +262,80 @@ const normalized = normalizeDeepSeekThesis(
   result.value,
   schoolBatch.map((entry) => entry.ref),
 );
+let lessonReviews = [];
+let reviewResult = null;
+if (normalized.newLessons.length) {
+  reviewResult = await callDeepSeekJson({
+    budgetPath,
+    dailyCap,
+    system:
+      "Act as a strict source-entailment grader. Approve only lessons fully supported by the supplied source text. Return JSON only.",
+    prompt: `Review these candidate Astro School lessons against the exact archive
+items supplied below.
+
+Candidates, addressed by zero-based candidateIndex:
+${JSON.stringify(normalized.newLessons)}
+
+Exact archive evidence:
+${JSON.stringify(schoolBatch)}
+
+Return only:
+{
+  "reviews": [
+    {
+      "candidateIndex": 0,
+      "verdict": "supported or rejected",
+      "supportedRefs": ["only candidate refs whose text directly supports it"],
+      "reason": "terse support decision",
+      "contradiction": "direct contradiction or None"
+    }
+  ]
+}
+
+Reject a candidate when its rule, conditions, sequence, or limitation goes
+beyond the cited text. Similarity is not support. Review every candidate.`,
+    maxTokens: 1_400,
+    reasoningEffort: "low",
+    timeoutMs: 60_000,
+  });
+  if (!reviewResult.available) {
+    const degraded = {
+      ...previous,
+      version: 1,
+      checkedAt: new Date().toISOString(),
+      status: "degraded",
+      work: "lesson_review_failed",
+      pendingLessonCandidates: normalized.newLessons,
+      error: reviewResult.reason,
+    };
+    await writeJsonAtomic(outputPath, degraded);
+    process.stdout.write(
+      `${JSON.stringify({
+        status: "degraded",
+        work: "lesson_review_failed",
+        error: reviewResult.reason,
+      })}\n`,
+    );
+    process.exit(0);
+  }
+  const normalizedReviews = normalizeLessonReviews(
+    reviewResult.value,
+    normalized.newLessons,
+  );
+  const byCandidate = new Map(
+    normalizedReviews.map((review) => [review.candidateIndex, review]),
+  );
+  lessonReviews = normalized.newLessons.map(
+    (_, candidateIndex) =>
+      byCandidate.get(candidateIndex) ?? {
+        candidateIndex,
+        verdict: "rejected",
+        supportedRefs: [],
+        reason: "The grader did not return a valid review.",
+        contradiction: "None",
+      },
+  );
+}
 const stabilized = stabilizeDeepSeekThesis(normalized, {
   previous,
   forecast,
@@ -268,14 +347,50 @@ const processedRefs = [
     ...schoolBatch.map((entry) => entry.ref),
   ]),
 ];
-const lessons = [
-  ...(Array.isArray(previous.lessons) ? previous.lessons : []),
-  ...normalized.newLessons.map((lesson) => ({
+const updatedAt = new Date().toISOString();
+const lessons = mergeApprovedLessons(
+  previous.lessons,
+  normalized.newLessons,
+  lessonReviews,
+  updatedAt,
+);
+const legacyLessonCandidates = (Array.isArray(previous.lessons)
+  ? previous.lessons
+  : []
+)
+  .filter((lesson) => lesson?.quality?.status !== "supported")
+  .map((lesson) => ({
     ...lesson,
-    learnedAt: new Date().toISOString(),
+    candidateAt: lesson.learnedAt ?? updatedAt,
+    review: {
+      candidateIndex: null,
+      verdict: "legacy_unreviewed",
+      supportedRefs: [],
+      reason:
+        "Created before the independent lesson-quality gate; retained for audit but not approved memory.",
+      contradiction: "Unknown",
+    },
+  }));
+const lessonCandidates = [
+  ...(Array.isArray(previous.lessonCandidates)
+    ? previous.lessonCandidates
+    : []),
+  ...legacyLessonCandidates,
+  ...normalized.newLessons.map((lesson, candidateIndex) => ({
+    ...lesson,
+    candidateAt: updatedAt,
+    review: lessonReviews.find(
+      (item) => item.candidateIndex === candidateIndex,
+    ) ?? {
+      candidateIndex,
+      verdict: "rejected",
+      supportedRefs: [],
+      reason: "No valid source-support review was returned.",
+      contradiction: "None",
+    },
   })),
 ].slice(-500);
-const updatedAt = new Date().toISOString();
+const budget = reviewResult?.budget ?? result.budget;
 const next = {
   version: 1,
   updatedAt,
@@ -302,18 +417,21 @@ const next = {
     complete: processedRefs.length >= index.entryCount,
     batchSize: schoolBatch.length,
     lessonCount: lessons.length,
+    candidateCount: lessonCandidates.length,
   },
   processedRefs,
   lessons,
+  lessonCandidates,
   thesis: stabilized.thesis,
   lunaPacket: stabilized.lunaPacket,
   budget: {
-    cap: result.budget.cap,
-    used: result.budget.used,
-    remaining: result.budget.remaining,
+    cap: budget.cap,
+    used: budget.used,
+    remaining: budget.remaining,
   },
   error: null,
 };
+next.reviewSignal = buildThesisReviewSignal(previous, next, updatedAt);
 await writeJsonAtomic(outputPath, next);
 process.stdout.write(
   `${JSON.stringify({

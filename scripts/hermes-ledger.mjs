@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 export const HERMES_SCORING_VERSION = 2;
+export const BEHAVIOR_SCORING_VERSION = 1;
 
 function stableValue(value) {
   if (Array.isArray(value)) return value.map(stableValue);
@@ -42,6 +43,76 @@ export function commitmentHash(prediction) {
   return createHash("sha256")
     .update(JSON.stringify(stableValue(predictionCommitment(prediction))))
     .digest("hex");
+}
+
+export function behaviorPredictionCommitment(prediction) {
+  return {
+    scoringVersion: prediction.scoringVersion,
+    official: prediction.official,
+    createdAt: prediction.createdAt,
+    confidence: prediction.confidence,
+    horizonHours: prediction.horizonHours,
+    behavior: prediction.behavior,
+    sources: prediction.sources,
+  };
+}
+
+export function behaviorCommitmentHash(prediction) {
+  return createHash("sha256")
+    .update(
+      JSON.stringify(stableValue(behaviorPredictionCommitment(prediction))),
+    )
+    .digest("hex");
+}
+
+function relativeDifference(left, right) {
+  const a = Number(left);
+  const b = Number(right);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return Infinity;
+  return Math.abs(a - b) / Math.max(1, Math.abs(a));
+}
+
+export function marketProjectionMateriallyChanged(
+  activePrediction,
+  projection,
+) {
+  if (!activePrediction || !projection) return true;
+  if (activePrediction.direction !== projection.direction) return true;
+  if (
+    relativeDifference(
+      activePrediction.horizonHours,
+      projection.horizonHours,
+    ) >= 0.25
+  ) {
+    return true;
+  }
+
+  const activeCheckpoints = Array.isArray(activePrediction.checkpoints)
+    ? activePrediction.checkpoints
+    : [];
+  const nextCheckpoints = Array.isArray(projection.checkpoints)
+    ? projection.checkpoints
+    : [];
+  if (activeCheckpoints.length !== nextCheckpoints.length) return true;
+  if (!activeCheckpoints.length) return true;
+
+  const activeFirst = activeCheckpoints[0]?.price;
+  const nextFirst = nextCheckpoints[0]?.price;
+  const activeFinal = activeCheckpoints.at(-1)?.price;
+  const nextFinal = nextCheckpoints.at(-1)?.price;
+  if (relativeDifference(activeFirst, nextFirst) >= 0.015) return true;
+  if (relativeDifference(activeFinal, nextFinal) >= 0.015) return true;
+
+  const activeInvalidation = activePrediction.invalidation?.price;
+  const nextInvalidation = projection.invalidation?.price;
+  if (
+    (activeInvalidation === null) !== (nextInvalidation === null) ||
+    (activeInvalidation !== null &&
+      relativeDifference(activeInvalidation, nextInvalidation) >= 0.015)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 function candleTime(candle) {
@@ -138,6 +209,72 @@ function evaluateBehavior(prediction, evidence, checkedAt) {
     };
   }
   return current;
+}
+
+export function evaluateBehaviorPredictions(
+  predictions,
+  astroEvidence,
+  checkedAt,
+) {
+  return (Array.isArray(predictions) ? predictions : []).map((prediction) => {
+    if (!prediction) return prediction;
+    const scoringVersion = Number(
+      prediction.scoringVersion || BEHAVIOR_SCORING_VERSION,
+    );
+    const official =
+      prediction.official === true &&
+      scoringVersion === BEHAVIOR_SCORING_VERSION;
+    const integrity = prediction.commitmentHash
+      ? behaviorCommitmentHash({
+          ...prediction,
+          scoringVersion,
+          official,
+        }) === prediction.commitmentHash
+        ? "valid"
+        : "failed"
+      : "legacy";
+    return {
+      ...prediction,
+      scoringVersion,
+      official,
+      integrity,
+      behaviorOutcome: evaluateBehavior(
+        prediction,
+        astroEvidence,
+        checkedAt,
+      ),
+    };
+  });
+}
+
+export function extractBehaviorPredictions(marketPredictions) {
+  return (Array.isArray(marketPredictions) ? marketPredictions : [])
+    .filter((prediction) => prediction?.behavior)
+    .map((prediction) => {
+      const behaviorPrediction = {
+        id: prediction.id,
+        scoringVersion: BEHAVIOR_SCORING_VERSION,
+        official:
+          prediction.official === true && prediction.integrity === "valid",
+        createdAt: prediction.createdAt,
+        confidence: prediction.confidence,
+        horizonHours: prediction.behavior.horizonHours,
+        behavior: prediction.behavior,
+        behaviorOutcome: prediction.behaviorOutcome ?? {
+          status: "active",
+          resolvedAt: null,
+          reason: null,
+          matchedSource: null,
+        },
+        sources: prediction.sources ?? [],
+      };
+      behaviorPrediction.commitmentHash =
+        behaviorCommitmentHash(behaviorPrediction);
+      behaviorPrediction.integrity = behaviorPrediction.official
+        ? "valid"
+        : "legacy";
+      return behaviorPrediction;
+    });
 }
 
 export function evaluateHermesPredictions(
@@ -336,7 +473,7 @@ export function supersedeActivePredictions(
   });
 }
 
-export function hermesLedgerSummary(predictions) {
+export function hermesLedgerSummary(predictions, behaviorPredictions = null) {
   const ledger = Array.isArray(predictions) ? predictions : [];
   const official = ledger.filter(
     (item) =>
@@ -355,7 +492,12 @@ export function hermesLedgerSummary(predictions) {
   const baselineHits = marketResolved.filter(
     (item) => item.checkpoints?.at(-1)?.baselineHitAt,
   ).length;
-  const behaviorResolved = official.filter((item) =>
+  const behaviorLedger = Array.isArray(behaviorPredictions)
+    ? behaviorPredictions.filter(
+        (item) => item?.official && item?.integrity === "valid",
+      )
+    : official;
+  const behaviorResolved = behaviorLedger.filter((item) =>
     ["hit", "wrong"].includes(item?.behaviorOutcome?.status),
   );
   const behaviorHits = behaviorResolved.filter(

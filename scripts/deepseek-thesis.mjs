@@ -15,6 +15,114 @@ function stringList(value, limit = 12, itemLimit = 500) {
     .slice(0, limit);
 }
 
+export function lessonFingerprint(lesson) {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        rule: text(lesson?.rule, "", 400).toLowerCase(),
+        when: text(lesson?.when, "", 300).toLowerCase(),
+        sequence: text(lesson?.sequence, "", 400).toLowerCase(),
+      }),
+    )
+    .digest("hex");
+}
+
+export function normalizeLessonReviews(value, candidates = []) {
+  const reviews = Array.isArray(value?.reviews) ? value.reviews : [];
+  const seen = new Set();
+  return reviews
+    .map((review) => {
+      const candidateIndex = Math.round(Number(review?.candidateIndex));
+      const candidate = candidates[candidateIndex];
+      if (
+        !Number.isInteger(candidateIndex) ||
+        candidateIndex < 0 ||
+        !candidate ||
+        seen.has(candidateIndex)
+      ) {
+        return null;
+      }
+      seen.add(candidateIndex);
+      const candidateRefs = new Set(candidate.sourceRefs || []);
+      const supportedRefs = stringList(
+        review?.supportedRefs,
+        8,
+        300,
+      ).filter((ref) => candidateRefs.has(ref));
+      const verdict =
+        review?.verdict === "supported" && supportedRefs.length
+          ? "supported"
+          : "rejected";
+      return {
+        candidateIndex,
+        verdict,
+        supportedRefs,
+        reason: text(
+          review?.reason,
+          verdict === "supported"
+            ? "Source support verified."
+            : "Source support was insufficient.",
+          500,
+        ),
+        contradiction: text(review?.contradiction, "None", 400),
+      };
+    })
+    .filter(Boolean);
+}
+
+export function mergeApprovedLessons(
+  existingLessons,
+  candidates,
+  reviews,
+  learnedAt,
+) {
+  const approved = reviews
+    .filter((review) => review.verdict === "supported")
+    .map((review) => {
+      const candidate = candidates[review.candidateIndex];
+      return {
+        ...candidate,
+        fingerprint: lessonFingerprint(candidate),
+        sourceRefs: review.supportedRefs,
+        learnedAt,
+        quality: {
+          status: "supported",
+          reviewedAt: learnedAt,
+          reason: review.reason,
+          contradiction: review.contradiction,
+        },
+      };
+    });
+  const merged = new Map();
+  for (const lesson of [
+    ...(Array.isArray(existingLessons)
+      ? existingLessons.filter(
+          (lesson) => lesson?.quality?.status === "supported",
+        )
+      : []),
+    ...approved,
+  ]) {
+    const fingerprint = lesson.fingerprint || lessonFingerprint(lesson);
+    const previous = merged.get(fingerprint);
+    merged.set(
+      fingerprint,
+      previous
+        ? {
+            ...previous,
+            sourceRefs: [
+              ...new Set([
+                ...(previous.sourceRefs || []),
+                ...(lesson.sourceRefs || []),
+              ]),
+            ].slice(0, 12),
+            quality: lesson.quality ?? previous.quality,
+          }
+        : { ...lesson, fingerprint },
+    );
+  }
+  return [...merged.values()].slice(-500);
+}
+
 export function thesisSourceSignature({ index, telegram, x, forecast }) {
   return createHash("sha256")
     .update(
@@ -31,6 +139,49 @@ export function thesisSourceSignature({ index, telegram, x, forecast }) {
       }),
     )
     .digest("hex");
+}
+
+export function buildThesisReviewSignal(
+  previous,
+  next,
+  reviewedAt,
+  milestoneSize = 2_000,
+) {
+  const size = Math.max(500, Math.round(Number(milestoneSize) || 2_000));
+  const previousProcessed = Number(previous?.school?.processed || 0);
+  const nextProcessed = Number(next?.school?.processed || 0);
+  const previousMilestone = Math.floor(previousProcessed / size);
+  const nextMilestone = Math.floor(nextProcessed / size);
+  const completedNow =
+    next?.school?.complete === true && previous?.school?.complete !== true;
+  const reachedMilestone = nextMilestone > previousMilestone;
+  if (!completedNow && !reachedMilestone) {
+    return previous?.reviewSignal ?? null;
+  }
+  const thesisSignature = createHash("sha256")
+    .update(
+      JSON.stringify({
+        campaign: next?.thesis?.campaign ?? null,
+        nextBehaviors: (next?.thesis?.nextBehaviors || []).map((item) => ({
+          action: item.action,
+          probability: item.probability,
+          horizonHours: item.horizonHours,
+        })),
+        approvedLessons: next?.school?.lessonCount ?? 0,
+      }),
+    )
+    .digest("hex");
+  const reason = completedNow
+    ? "Initial Astro School pass completed."
+    : `Astro School crossed ${nextMilestone * size} reviewed archive items.`;
+  return {
+    token: `${completedNow ? "complete" : "milestone"}:${nextProcessed}:${thesisSignature.slice(0, 16)}`,
+    requestedAt: reviewedAt,
+    reason,
+    schoolProcessed: nextProcessed,
+    schoolTotal: Number(next?.school?.total || 0),
+    thesisSignature,
+  };
 }
 
 export function nextUnprocessedSchoolBatch(

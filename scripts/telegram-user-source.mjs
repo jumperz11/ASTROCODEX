@@ -343,10 +343,13 @@ async function ingest() {
   process.on("SIGTERM", () => {
     stopping = true;
   });
+  let consecutiveFailures = 0;
   while (!stopping) {
     try {
       await ingestOnce(client);
+      consecutiveFailures = 0;
     } catch (error) {
+      consecutiveFailures += 1;
       const message =
         error instanceof Error ? error.message : "Telegram user ingestion error";
       process.stderr.write(`${message}\n`);
@@ -371,6 +374,11 @@ async function ingest() {
           2,
         )}\n`,
       );
+      if (consecutiveFailures >= 3) {
+        throw new Error(
+          `Telegram ingestion failed ${consecutiveFailures} consecutive times; restarting the connection.`,
+        );
+      }
     }
     await new Promise((resolve) => setTimeout(resolve, 20_000));
   }

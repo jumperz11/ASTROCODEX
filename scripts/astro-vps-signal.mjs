@@ -187,7 +187,11 @@ const server = createServer(async (request, response) => {
     const hermesPredictions = Array.isArray(history.hermesPredictions)
       ? history.hermesPredictions
       : [];
+    const behaviorPredictions = Array.isArray(history.behaviorPredictions)
+      ? history.behaviorPredictions
+      : [];
     const latestHermesPrediction = hermesPredictions.at(-1) ?? null;
+    const latestBehaviorPrediction = behaviorPredictions.at(-1) ?? null;
     response
       .writeHead(200, {
         "Content-Type": "application/json",
@@ -252,9 +256,13 @@ const server = createServer(async (request, response) => {
                   : 0,
                 outcomeReason: latestHermesPrediction.outcomeReason ?? null,
                 behaviorAction:
-                  latestHermesPrediction.behavior?.action ?? null,
+                  latestBehaviorPrediction?.behavior?.action ??
+                  latestHermesPrediction.behavior?.action ??
+                  null,
                 behaviorStatus:
-                  latestHermesPrediction.behaviorOutcome?.status ?? "unscored",
+                  latestBehaviorPrediction?.behaviorOutcome?.status ??
+                  latestHermesPrediction.behaviorOutcome?.status ??
+                  "unscored",
               }
             : null,
           error: health.error,

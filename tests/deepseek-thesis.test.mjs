@@ -2,8 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildThesisReviewSignal,
+  lessonFingerprint,
+  mergeApprovedLessons,
   nextUnprocessedSchoolBatch,
   normalizeDeepSeekThesis,
+  normalizeLessonReviews,
   stabilizeDeepSeekThesis,
   thesisSourceSignature,
 } from "../scripts/deepseek-thesis.mjs";
@@ -124,6 +128,142 @@ test("background behavior certainty leaves room for alternatives", () => {
     normalized.thesis.nextBehaviors.map((item) => item.probability),
     [70, 15, 15],
   );
+});
+
+test("school lessons require a valid source-support review before promotion", () => {
+  const candidates = [
+    {
+      rule: "Trim gradually into strength.",
+      when: "A target is reached.",
+      sequence: "Entry, target, trim.",
+      failsWhen: "The position was never confirmed.",
+      sourceRefs: ["archive:1"],
+    },
+    {
+      rule: "Invented rule.",
+      when: "Always.",
+      sequence: "Unknown.",
+      failsWhen: "Never.",
+      sourceRefs: ["archive:2"],
+    },
+  ];
+  const reviews = normalizeLessonReviews(
+    {
+      reviews: [
+        {
+          candidateIndex: 0,
+          verdict: "supported",
+          supportedRefs: ["archive:1", "archive:not-allowed"],
+          reason: "The cited message states the sequence.",
+          contradiction: "None",
+        },
+        {
+          candidateIndex: 1,
+          verdict: "supported",
+          supportedRefs: [],
+          reason: "No source support.",
+          contradiction: "None",
+        },
+      ],
+    },
+    candidates,
+  );
+  assert.equal(reviews[0].verdict, "supported");
+  assert.deepEqual(reviews[0].supportedRefs, ["archive:1"]);
+  assert.equal(reviews[1].verdict, "rejected");
+
+  const approved = mergeApprovedLessons(
+    [],
+    candidates,
+    reviews,
+    "2026-08-01T00:00:00.000Z",
+  );
+  assert.equal(approved.length, 1);
+  assert.equal(approved[0].quality.status, "supported");
+  assert.equal(approved[0].fingerprint, lessonFingerprint(candidates[0]));
+});
+
+test("approved school lessons deduplicate while preserving source support", () => {
+  const candidate = {
+    rule: "Protect a runner.",
+    when: "After taking partial profit.",
+    sequence: "Trim, protect, wait.",
+    failsWhen: "The trade is fully closed.",
+    sourceRefs: ["archive:2"],
+  };
+  const existing = [
+    {
+      ...candidate,
+      fingerprint: lessonFingerprint(candidate),
+      sourceRefs: ["archive:1"],
+      learnedAt: "2026-07-31T00:00:00.000Z",
+      quality: { status: "supported" },
+    },
+  ];
+  const merged = mergeApprovedLessons(
+    existing,
+    [candidate],
+    [
+      {
+        candidateIndex: 0,
+        verdict: "supported",
+        supportedRefs: ["archive:2"],
+        reason: "Supported.",
+        contradiction: "None",
+      },
+    ],
+    "2026-08-01T00:00:00.000Z",
+  );
+  assert.equal(merged.length, 1);
+  assert.deepEqual(merged[0].sourceRefs, ["archive:1", "archive:2"]);
+});
+
+test("school review wakes only at bounded milestones or completion", () => {
+  const base = {
+    school: { processed: 1_900, total: 14_187, complete: false, lessonCount: 9 },
+    thesis: {
+      campaign: { state: "open", direction: "short" },
+      nextBehaviors: [{ action: "hold", probability: 60, horizonHours: 24 }],
+    },
+  };
+  assert.equal(
+    buildThesisReviewSignal(
+      base,
+      {
+        ...base,
+        school: { ...base.school, processed: 1_999 },
+      },
+      "2026-08-01T00:00:00.000Z",
+    ),
+    null,
+  );
+  const milestone = buildThesisReviewSignal(
+    base,
+    {
+      ...base,
+      school: { ...base.school, processed: 2_000 },
+    },
+    "2026-08-01T00:00:00.000Z",
+  );
+  assert.match(milestone.token, /^milestone:2000:/);
+
+  const completed = buildThesisReviewSignal(
+    {
+      ...base,
+      school: { ...base.school, processed: 14_100 },
+      reviewSignal: milestone,
+    },
+    {
+      ...base,
+      school: {
+        ...base.school,
+        processed: 14_187,
+        complete: true,
+      },
+    },
+    "2026-08-02T00:00:00.000Z",
+  );
+  assert.match(completed.token, /^complete:14187:/);
 });
 
 test("weak school batches cannot erase a stronger thesis", () => {

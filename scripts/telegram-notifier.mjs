@@ -25,6 +25,15 @@ function latestOfficialPrediction(history) {
     .at(-1);
 }
 
+function latestOfficialBehavior(history) {
+  return (Array.isArray(history?.behaviorPredictions)
+    ? history.behaviorPredictions
+    : []
+  )
+    .filter((item) => item?.official && item?.integrity === "valid")
+    .at(-1);
+}
+
 function directionFromText(value) {
   const text = String(value || "").toLowerCase();
   const hasLong = /\blong\b|\bbull(?:ish)?\b/.test(text);
@@ -177,6 +186,7 @@ function agreementRead(forecast, prediction) {
 export function telegramSnapshot(forecast, history, market) {
   const evidence = latestDirectEvidence(forecast);
   const prediction = latestOfficialPrediction(history);
+  const behaviorPrediction = latestOfficialBehavior(history);
   const checkpoints = Array.isArray(prediction?.checkpoints)
     ? prediction.checkpoints
     : [];
@@ -189,7 +199,11 @@ export function telegramSnapshot(forecast, history, market) {
     predictionId: prediction?.id ?? null,
     marketStatus: prediction?.marketStatus ?? null,
     hitCount,
-    behaviorStatus: prediction?.behaviorOutcome?.status ?? null,
+    behaviorPredictionId: behaviorPrediction?.id ?? null,
+    behaviorStatus:
+      behaviorPrediction?.behaviorOutcome?.status ??
+      prediction?.behaviorOutcome?.status ??
+      null,
   };
   const signature = createHash("sha256")
     .update(JSON.stringify(signatureData))

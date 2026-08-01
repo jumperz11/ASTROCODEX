@@ -2,9 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  BEHAVIOR_SCORING_VERSION,
+  behaviorCommitmentHash,
   commitmentHash,
+  evaluateBehaviorPredictions,
   evaluateHermesPredictions,
+  extractBehaviorPredictions,
   hermesLedgerSummary,
+  marketProjectionMateriallyChanged,
   supersedeActivePredictions,
 } from "../scripts/hermes-ledger.mjs";
 import {
@@ -243,4 +248,87 @@ test("shadow research can learn behavior even when a market map was superseded",
   });
   assert.equal(score.selected, 4);
   assert.ok(score.score > 0);
+});
+
+test("market map stays frozen when only a rolling middle checkpoint moves", () => {
+  const active = prediction();
+  assert.equal(
+    marketProjectionMateriallyChanged(active, {
+      direction: "down_then_up",
+      horizonHours: 168,
+      checkpoints: [
+        { price: 61000 },
+        { price: 61750 },
+      ],
+      invalidation: { price: 59000 },
+    }),
+    false,
+  );
+  assert.equal(
+    marketProjectionMateriallyChanged(active, {
+      direction: "up_then_down",
+      horizonHours: 168,
+      checkpoints: [
+        { price: 61000 },
+        { price: 62000 },
+      ],
+      invalidation: { price: 59000 },
+    }),
+    true,
+  );
+});
+
+test("standalone behavior ledger migrates and scores without replacing market maps", () => {
+  const migrated = extractBehaviorPredictions([
+    prediction({ integrity: "valid" }),
+  ]);
+  assert.equal(migrated.length, 1);
+  assert.equal(migrated[0].scoringVersion, BEHAVIOR_SCORING_VERSION);
+  assert.equal(
+    migrated[0].commitmentHash,
+    behaviorCommitmentHash(migrated[0]),
+  );
+
+  const evaluated = evaluateBehaviorPredictions(
+    migrated,
+    [
+      {
+        type: "astro",
+        label: "Trim update",
+        detail: "Taking profit and reducing the residual position.",
+        source:
+          "https://x.com/astronomer_zero/status/2083131725987864687",
+        time: "2026-07-31T01:30:00.000Z",
+      },
+    ],
+    "2026-07-31T02:00:00.000Z",
+  );
+  assert.equal(evaluated[0].integrity, "valid");
+  assert.equal(evaluated[0].behaviorOutcome.status, "hit");
+  const summary = hermesLedgerSummary(
+    [prediction({ integrity: "valid" })],
+    evaluated,
+  );
+  assert.equal(summary.active, 1);
+  assert.equal(summary.behavior.hitRate, 100);
+});
+
+test("autoresearch prefers the independent behavior ledger", () => {
+  const legacy = prediction({
+    id: "legacy-hit",
+    integrity: "valid",
+    behaviorOutcome: { status: "hit" },
+  });
+  const standalone = extractBehaviorPredictions([
+    prediction({
+      id: "standalone-wrong",
+      integrity: "valid",
+      behaviorOutcome: { status: "wrong" },
+    }),
+  ]);
+  const eligible = eligibleBehaviorPredictions({
+    hermesPredictions: [legacy],
+    behaviorPredictions: standalone,
+  });
+  assert.deepEqual(eligible.map((item) => item.id), ["standalone-wrong"]);
 });

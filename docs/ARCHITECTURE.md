@@ -50,10 +50,10 @@ Coinbase candles ─────────────────────
 | `telegram-source.json` | Telegram user ingestion | Approved private channel context and chart media | No public claim; internal Hermes context only |
 | `x-source.json` | Grok OAuth scout | Exact new public Astro status URLs | Yes, after validation |
 | `codex-index.json` | Deterministic Night School indexer | Searchable archive and live-message memory | No; historical context only |
-| `deepseek-thesis.json` | DeepSeek background worker | Current internal thesis, next-behavior candidates, cited lessons, Luna packet | No |
+| `deepseek-thesis.json` | DeepSeek background worker | Current internal thesis, reviewed lessons, rejected candidates, Luna packet, bounded review signal | No |
 | `deepseek-evidence-brief.json` | DeepSeek event gate | Materiality decision and compact campaign packet | No |
 | `forecast.json` | Luna Medium through the protected validator | Accepted Astro/Hermes research state | Only direct X evidence can populate confirmed Astro facts |
-| `history.json` | Deterministic VPS scanner | Immutable plays, frozen Hermes maps, market and behavior outcomes | No |
+| `history.json` | Deterministic VPS scanner | Immutable plays plus independent frozen market-path and Astro-behavior ledgers | No |
 | `autoresearch-shadow.json` | Mechanical scorer + DeepSeek proposer | Rejected/accepted shadow policy experiments | Never automatically |
 
 ## Provider responsibilities
@@ -73,6 +73,9 @@ DeepSeek has three cheap, bounded roles:
 1. **Background thesis and school distillation**
    - Runs every ten minutes.
    - Processes the next unprocessed batch of protected archive entries.
+   - Sends each candidate lesson through a separate source-entailment review;
+     rejected and pre-gate legacy candidates remain auditable but cannot enter
+     approved memory.
    - Updates a compact internal thesis from Telegram, X, the accepted forecast,
      and prior cited lessons.
    - Skips the API call once the school is complete and inputs remain fresh.
@@ -104,22 +107,38 @@ Luna Light is only a fallback evidence gate when DeepSeek is unavailable.
 ### Astro School loop
 
 The deterministic Codex index owns the raw memory. DeepSeek never replaces it.
-Each background run receives a bounded batch and may create only lessons citing
-refs from that batch. Processed refs are persisted, preventing repeated paid
-work. The nightly index rebuild carries forward live Telegram entries after
-they leave the rolling ingestion window, preventing long-term forgetting.
+Each background run receives a bounded batch and may propose only lessons
+citing refs from that batch. A second bounded review sees the exact source text
+and promotes only fully supported lessons. Supported lessons deduplicate by
+their rule, conditions, and sequence. Rejected candidates remain in the audit
+trail. Processed refs are persisted, preventing repeated paid work. The nightly
+index rebuild carries forward live Telegram entries after they leave the
+rolling ingestion window, preventing long-term forgetting.
 
 ### Prediction loop
 
-Every saved Hermes projection is frozen with:
+Market-path and Astro-behavior predictions have separate commitments.
+
+The market map is frozen with:
 
 - direction and horizon;
 - two to four ordered checkpoints;
-- confidence and invalidation;
-- one observable Astro behavior prediction.
+- confidence and invalidation.
 
-The scanner scores market paths from candles and behavior from later direct
-Astro evidence. New forecasts supersede old maps without deleting them.
+Rolling middle references cannot replace an active campaign map. A successor is
+created only after completion or when direction, endpoints, invalidation, or
+horizon materially changes.
+
+The behavior ledger separately freezes one observable Astro action and its
+horizon. The scanner scores market paths from candles and behavior from later
+direct Astro evidence. A new behavior hypothesis never erases or restarts the
+longer market test.
+
+At each 2,000-item reviewed-school milestone and at initial-pass completion,
+the background worker creates one review token. The scanner consumes it once
+through the normal evidence gate. Luna Medium runs only when the gate and
+protected-source verification find a material thesis difference. The milestone
+itself is never treated as new Astro evidence.
 
 ### Autoresearch loop
 
@@ -139,10 +158,14 @@ The winning result remains shadow-only until explicitly reviewed.
 | --- | --- | --- |
 | Telegram user ingestion | Continuous polling | None |
 | VPS scanner | Every 2 minutes | None unless a material trigger exists |
-| DeepSeek background | Every 10 minutes | One call while school work, changed inputs, or six-hour refresh exists |
+| DeepSeek background | Every 10 minutes | One thesis call plus a source-review call when lesson candidates exist |
 | Grok X scout | Every 30 minutes | One bounded Grok OAuth call |
 | Watchdog | Every 5 minutes | None |
 | Codex index rebuild | Nightly around 02:15 UTC | None |
+
+The Telegram transport retries transient errors in place. After three
+consecutive failures it exits deliberately and systemd restarts it with a fresh
+MTProto connection. Until a healthy poll succeeds, the scanner fails closed.
 | DeepSeek autoresearch | Nightly around 03:30 UTC | At most two calls and only with enough outcomes |
 
 ## Failure behavior

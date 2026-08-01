@@ -24,10 +24,13 @@ export function eligiblePredictions(history) {
 }
 
 export function eligibleBehaviorPredictions(history) {
-  return (Array.isArray(history?.hermesPredictions)
-    ? history.hermesPredictions
-    : []
-  )
+  const standalone = Array.isArray(history?.behaviorPredictions)
+    ? history.behaviorPredictions
+    : null;
+  return (standalone ??
+    (Array.isArray(history?.hermesPredictions)
+      ? history.hermesPredictions
+      : []))
     .filter(
       (item) =>
         item?.official === true &&
