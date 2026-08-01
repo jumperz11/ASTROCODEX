@@ -145,6 +145,11 @@ Evidence discipline
   macro path after that transition. `learningNote` must name the retrieved
   historical execution or phase behavior that changed or supported the read.
   Keep all eight fields compact enough for a dedicated dashboard tab.
+- Populate `hermes.lessonRefs` with only the exact approved lesson
+  fingerprints supplied in the DeepSeek packet that you actually verified and
+  used in the accepted thesis. Use an empty array when no approved lesson
+  materially affected the read. This is an audit trail, not a place for archive
+  message IDs or X URLs.
 - Populate `hermes.projection` as the frozen, scoreable chart map. It must have
   `scoringVersion: 2`, a 24-to-2160-hour horizon, model confidence, one
   directional sequence, two to four ordered numeric checkpoints, an

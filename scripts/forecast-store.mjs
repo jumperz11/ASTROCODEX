@@ -134,6 +134,18 @@ export function validateForecast(report) {
       throw new Error(`Forecast Hermes thesis is missing ${field}.`);
     }
   }
+  if (
+    report.hermes.lessonRefs !== undefined &&
+    (!Array.isArray(report.hermes.lessonRefs) ||
+      report.hermes.lessonRefs.length > 8 ||
+      report.hermes.lessonRefs.some(
+        (ref) =>
+          typeof ref !== "string" ||
+          !/^[a-f0-9]{64}$/i.test(ref),
+      ))
+  ) {
+    throw new Error("Forecast Hermes lesson references are invalid.");
+  }
   const projection = report.hermes.projection;
   const projectionDirections = [
     "down_then_up",

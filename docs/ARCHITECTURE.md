@@ -15,6 +15,13 @@ The primary learning label is Astro's observable decision behavior—not profit.
 Hermes studies what he notices, waits for, avoids, enters, adds to, trims,
 closes, invalidates, and changes after contradictory evidence.
 
+Night School exposes the complete learning trail on the private dashboard:
+archive or live source excerpt, source-entailment decision, owner review,
+approved lesson fingerprint, whether the current DeepSeek research selected
+it, whether the accepted Hermes forecast used it, and the later frozen
+Astro-behavior outcome. Reading more archive messages is progress, not proof of
+improvement; only better results on later unseen answer keys count.
+
 The system is research-only. It never sends an order, chooses leverage, or
 promotes a model inference into an Astro-confirmed signal.
 

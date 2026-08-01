@@ -40,6 +40,7 @@ test("DeepSeek school advances only through unprocessed Astro entries", () => {
 });
 
 test("DeepSeek thesis strips unsupported public sources and archive lessons", () => {
+  const allowedFingerprint = "a".repeat(64);
   const normalized = normalizeDeepSeekThesis(
     {
       thesis: {
@@ -60,9 +61,13 @@ test("DeepSeek thesis strips unsupported public sources and archive lessons", ()
           sourceRefs: ["messages.html#message2", "invented-ref"],
         },
       ],
-      lunaPacket: { facts: ["One fact"] },
+      lunaPacket: {
+        facts: ["One fact"],
+        appliedLessonFingerprints: [allowedFingerprint, "invented"],
+      },
     },
     ["messages.html#message2"],
+    [allowedFingerprint],
   );
   assert.deepEqual(normalized.thesis.publicSourceRefs, [
     "https://x.com/astronomer_zero/status/2083130924980727816",
@@ -74,6 +79,9 @@ test("DeepSeek thesis strips unsupported public sources and archive lessons", ()
     normalized.thesis.nextBehaviors.map((item) => item.probability),
     [67, 33],
   );
+  assert.deepEqual(normalized.lunaPacket.appliedLessonFingerprints, [
+    allowedFingerprint,
+  ]);
 });
 
 test("DeepSeek thesis source signature changes with accepted inputs", () => {

@@ -422,6 +422,11 @@ const forecastSchema = z.object({
     confirmation: z.string().min(1),
     failure: z.string().min(1),
     learningNote: z.string().min(1),
+    lessonRefs: z
+      .array(z.string().regex(/^[a-f0-9]{64}$/i))
+      .max(8)
+      .optional()
+      .default([]),
     projection: z.object({
       scoringVersion: z.literal(2),
       direction: z.enum([

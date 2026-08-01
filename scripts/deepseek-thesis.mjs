@@ -350,7 +350,11 @@ function capBehaviorCertainty(behaviors, maxProbability = 70) {
   });
 }
 
-export function normalizeDeepSeekThesis(value, allowedLessonRefs = []) {
+export function normalizeDeepSeekThesis(
+  value,
+  allowedLessonRefs = [],
+  allowedLessonFingerprints = [],
+) {
   const allowedRefs = new Set(allowedLessonRefs);
   const thesis = value?.thesis && typeof value.thesis === "object"
     ? value.thesis
@@ -456,6 +460,13 @@ export function normalizeDeepSeekThesis(value, allowedLessonRefs = []) {
         value?.lunaPacket?.historicalAnalogues,
         8,
         500,
+      ),
+      appliedLessonFingerprints: stringList(
+        value?.lunaPacket?.appliedLessonFingerprints,
+        8,
+        128,
+      ).filter((fingerprint) =>
+        allowedLessonFingerprints.includes(fingerprint),
       ),
       question: text(
         value?.lunaPacket?.question,
@@ -566,6 +577,7 @@ export function stabilizeDeepSeekThesis(
         : {
             facts: stringList(briefPacket.facts, 10, 500),
             historicalAnalogues: [],
+            appliedLessonFingerprints: [],
             question: text(
               briefPacket.question,
               normalizedPacket.question ||

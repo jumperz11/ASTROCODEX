@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import liveForecast from "./forecast.json";
 import AstroHistory from "./astro-history";
 import LiveAstroChart from "./live-astro-chart";
+import NightSchool from "./night-school";
 import PositionsView from "./positions-view";
 
 type Evidence = {
@@ -143,6 +144,7 @@ type Forecast = {
     confirmation: string;
     failure: string;
     learningNote: string;
+    lessonRefs?: string[];
     projection?: HermesProjection;
   };
   thesisLevels: Array<{
@@ -2274,8 +2276,8 @@ export default function Home() {
             </button>
             <button onClick={() => showView("playbook")}>
               <span>03</span>
-              <strong>Astro School</strong>
-              <p>His playbook, source evidence and saved lessons.</p>
+              <strong>Night School</strong>
+              <p>Sources, lessons and whether Hermes is improving.</p>
               <small>Open →</small>
             </button>
           </div>
@@ -2454,108 +2456,7 @@ export default function Home() {
         </section>
       )}
 
-      {activeView === "playbook" && (
-        <section className="playbook-view">
-          <div className="view-intro">
-            <span className="eyebrow">ASTRO SCHOOL · PRIVATE MEMORY</span>
-            <h1>One library. Every live read.</h1>
-            <p>
-              The archive you supplied is indexed on the VPS. Every scan searches
-              that library before drawing the next path—without treating an old
-              chart as proof of a current trade.
-            </p>
-            <button className="school-evidence-button" onClick={() => showView("evidence")}>
-              Open source evidence
-            </button>
-          </div>
-
-          <div className="codex-stats" aria-label="Astro Codex library status">
-            <article>
-              <small>SEARCHABLE LESSONS</small>
-              <strong>
-                {(systemStatus.codexEntries || 13984).toLocaleString("en-US")}
-              </strong>
-              <span>messages from both Telegram knowledge archives</span>
-            </article>
-            <article>
-              <small>ARCHIVED CHARTS</small>
-              <strong>
-                {(systemStatus.codexMedia || 877).toLocaleString("en-US")}
-              </strong>
-              <span>charts connected to their group and original context</span>
-            </article>
-            <article>
-              <small>LIVE STATUS</small>
-              <strong className={systemStatus.degraded ? "soft" : "live"}>
-                {systemStatus.degraded ? "SAFE COPY" : "CONNECTED"}
-              </strong>
-              <span>VPS memory is queried before each accepted forecast</span>
-            </article>
-          </div>
-
-          <div className="school-loop" aria-label="How Astro School powers predictions">
-            <article>
-              <span>01</span>
-              <small>NIGHT LEARN</small>
-              <strong>Index his archive</strong>
-              <p>Messages, charts, setups, language, entries, trims, exits, and corrections.</p>
-            </article>
-            <i>→</i>
-            <article>
-              <span>02</span>
-              <small>LIVE CONNECT</small>
-              <strong>Read the new post</strong>
-              <p>Grok verifies X, then finds the closest phase, execution sequence, and behavior.</p>
-            </article>
-            <i>→</i>
-            <article>
-              <span>03</span>
-              <small>DRAW + PREDICT</small>
-              <strong>Build the clean map</strong>
-              <p>Solid lines are Astro. The faint path is our probability-weighted forward read.</p>
-            </article>
-            <i>→</i>
-            <article>
-              <span>04</span>
-              <small>MEASURE</small>
-              <strong>Save what happened</strong>
-              <p>Resolved plays enter History; open or unclear calls never inflate the win rate.</p>
-            </article>
-          </div>
-
-          <div className="school-section-head">
-            <small>CORE LESSONS</small>
-            <h2>What the agent must remember every time</h2>
-          </div>
-          <div className="rule-grid">
-            {rules.map((rule) => (
-              <article key={rule.index}>
-                <span>{rule.index}</span>
-                <h2>{rule.title}</h2>
-                <p>{rule.body}</p>
-                <small>{rule.source}</small>
-              </article>
-            ))}
-          </div>
-          <div className="version-log">
-            <div>
-              <span>RULE UPDATE</span>
-              <strong>Type A catastrophic invalidation</strong>
-            </div>
-            <p>
-              Earlier archive reference: 35%. Later detailed rule: 25%. The engine uses the later rule and preserves the earlier statement for audit.
-            </p>
-          </div>
-          <div className="school-boundary">
-            <strong>What this can predict</strong>
-            <p>
-              The most likely next observable Astro behavior—hold, trim, add,
-              close, flip, or stay silent—with a probability and a condition.
-              It cannot know his private position or guarantee where price goes.
-            </p>
-          </div>
-        </section>
-      )}
+      {activeView === "playbook" && <NightSchool />}
 
       <footer>
         <div className="brand footer-brand">

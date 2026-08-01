@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildSchoolAudit } from "./school-audit.mjs";
 
 const scriptsDirectory = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(scriptsDirectory, "..");
@@ -13,6 +14,10 @@ const stateDirectory =
   process.env.ASTRO_STATE_DIR?.trim() || join(projectRoot, ".astro-runtime");
 const statePath = join(stateDirectory, "state.json");
 const historyPath = join(stateDirectory, "history.json");
+const deepSeekThesisPath = join(stateDirectory, "deepseek-thesis.json");
+const learningReviewPath = join(stateDirectory, "learning-review.json");
+const codexIndexPath = join(stateDirectory, "codex-index.json");
+const autoresearchPath = join(stateDirectory, "autoresearch-shadow.json");
 const signalToken = process.env.ASTRO_SIGNAL_TOKEN?.trim() ?? "";
 const host = process.env.ASTRO_SIGNAL_HOST?.trim() || "127.0.0.1";
 const port = Number.parseInt(process.env.ASTRO_SIGNAL_PORT || "8789", 10);
@@ -160,13 +165,29 @@ const server = createServer(async (request, response) => {
 
   if (url.pathname === "/history") {
     try {
-      const history = await readJson(historyPath);
+      const [history, thesis, review, index, autoresearch, forecast] =
+        await Promise.all([
+          readJson(historyPath),
+          readJson(deepSeekThesisPath).catch(() => ({})),
+          readJson(learningReviewPath).catch(() => ({})),
+          readJson(codexIndexPath).catch(() => ({})),
+          readJson(autoresearchPath).catch(() => ({})),
+          readJson(forecastPath).catch(() => ({})),
+        ]);
+      const schoolAudit = buildSchoolAudit({
+        thesis,
+        review,
+        index,
+        autoresearch,
+        history,
+        forecast,
+      });
       response
         .writeHead(200, {
           "Content-Type": "application/json",
           "Cache-Control": "no-store",
         })
-        .end(JSON.stringify(history));
+        .end(JSON.stringify({ ...history, schoolAudit }));
     } catch {
       response
         .writeHead(200, {

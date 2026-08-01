@@ -262,6 +262,7 @@ Return only this JSON:
   "lunaPacket": {
     "facts": ["maximum ten terse facts"],
     "historicalAnalogues": ["closest useful lessons, with refs"],
+    "appliedLessonFingerprints": ["exact fingerprint of each approved lesson that materially affects the current research"],
     "question": "the one decision Luna must resolve",
     "counterCase": "strongest opposing explanation",
     "doNotAssume": ["unsupported claims Luna must not make"]
@@ -282,7 +283,10 @@ Rules:
   notices, waits for, avoids, enters, adds to, trims, closes, invalidates, and
   changes after the market disagrees.
 - Preserve negative edge. A well-supported rule about when Astro refuses or
-  skips a setup is as valuable as an entry rule.`;
+  skips a setup is as valuable as an entry rule.
+- appliedLessonFingerprints may contain only exact fingerprints from Previously
+  distilled lessons. Include a fingerprint only when that lesson materially
+  changes or supports the current research; otherwise return an empty array.`;
 
 const result = await callDeepSeekJson({
   budgetPath,
@@ -314,6 +318,9 @@ if (!result.available) {
 const normalized = normalizeDeepSeekThesis(
   result.value,
   learningEvidence.map((entry) => entry.ref),
+  humanApprovedLessons.map(
+    (lesson) => lesson.fingerprint || lessonFingerprint(lesson),
+  ),
 );
 let lessonReviews = [];
 let reviewResult = null;
