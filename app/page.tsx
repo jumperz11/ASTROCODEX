@@ -1535,27 +1535,22 @@ export default function Home() {
             freshnessTone={signalFreshness.tone}
             levels={forecast.levels}
             thesisLevels={forecast.thesisLevels}
-            thesisTrigger={forecast.thesis.nextTrigger}
             forecastTime={forecast.generatedAt}
             signalState={forecast.signal.state}
             signalHeadline={opportunity.label}
             riskText={forecast.decision.risk}
-            predictedMove={predictedNextMove?.name || "Insufficient inputs"}
             predictedProbability={predictedNextMove?.probability ?? 0}
-            predictionSummary={
-              predictedNextMove?.description ||
-              "There is not enough evidence for a forward read yet."
-            }
-            predictionTrigger={
-              predictedNextMove?.trigger || forecast.thesis.nextTrigger
-            }
-            readerStep={plainDashboard.you}
             hermesHorizon={forecast.hermes.horizon}
             hermesCurrentPhase={forecast.hermes.currentPhase}
             hermesNextPhase={forecast.hermes.nextPhase}
             hermesLongerMove={forecast.hermes.longerMove}
             hermesConfirmation={forecast.hermes.confirmation}
             hermesFailure={forecast.hermes.failure}
+            astroPosition={forecast.decision.position}
+            astroConfirmed={forecast.thesis.astroConfirmed}
+            astroTakeProfit={`${forecast.execution.takeProfit.state} · ${forecast.execution.takeProfit.level}`}
+            schoolMatch={forecast.hermes.learningNote}
+            marketContext={forecast.thesis.regime}
             hermesProjection={forecast.hermes.projection}
             hermesAudit={systemStatus.hermesAudit}
             onOpenHermes={() => showView("hermes")}
