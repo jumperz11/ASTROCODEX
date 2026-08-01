@@ -78,6 +78,35 @@ function normalizeBehavior(value) {
   };
 }
 
+function capBehaviorCertainty(behaviors, maxProbability = 70) {
+  if (behaviors.length < 2) return;
+  const leaderIndex = behaviors.reduce(
+    (best, behavior, index) =>
+      behavior.probability > behaviors[best].probability ? index : best,
+    0,
+  );
+  const excess = behaviors[leaderIndex].probability - maxProbability;
+  if (excess <= 0) return;
+
+  behaviors[leaderIndex].probability = maxProbability;
+  const alternatives = behaviors.filter((_, index) => index !== leaderIndex);
+  const alternativeWeight = alternatives.reduce(
+    (total, behavior) => total + behavior.probability,
+    0,
+  );
+  let assigned = 0;
+  alternatives.forEach((behavior, index) => {
+    const addition =
+      index === alternatives.length - 1
+        ? excess - assigned
+        : alternativeWeight > 0
+          ? Math.round((behavior.probability / alternativeWeight) * excess)
+          : Math.floor(excess / alternatives.length);
+    behavior.probability += addition;
+    assigned += addition;
+  });
+}
+
 export function normalizeDeepSeekThesis(value, allowedLessonRefs = []) {
   const allowedRefs = new Set(allowedLessonRefs);
   const thesis = value?.thesis && typeof value.thesis === "object"
@@ -137,6 +166,7 @@ export function normalizeDeepSeekThesis(value, allowedLessonRefs = []) {
           : equal;
     });
   }
+  capBehaviorCertainty(nextBehaviors);
 
   return {
     thesis: {

@@ -107,6 +107,25 @@ test("zero-weight behavior candidates become explicit equal uncertainty", () => 
   );
 });
 
+test("background behavior certainty leaves room for alternatives", () => {
+  const normalized = normalizeDeepSeekThesis(
+    {
+      thesis: {
+        nextBehaviors: [
+          { action: "post_update", probability: 100 },
+          { action: "hold", probability: 0 },
+          { action: "trim", probability: 0 },
+        ],
+      },
+    },
+    [],
+  );
+  assert.deepEqual(
+    normalized.thesis.nextBehaviors.map((item) => item.probability),
+    [70, 15, 15],
+  );
+});
+
 test("weak school batches cannot erase a stronger thesis", () => {
   const weak = normalizeDeepSeekThesis({}, []);
   const stabilized = stabilizeDeepSeekThesis(weak, {
