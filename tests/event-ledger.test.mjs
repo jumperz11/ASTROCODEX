@@ -4,7 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import {
+  recordRuntimeEvent,
   readLedgerHealth,
+  readRuntimeEvents,
   syncRuntimeLedger,
 } from "../scripts/astro-event-ledger.mjs";
 
@@ -149,7 +151,53 @@ test("event ledger backfills idempotently with complete parity", async () => {
     assert.equal(second.counts.lessonUses, 2);
     assert.equal(health.status, "healthy");
     assert.equal(health.integrity, "ok");
-    assert.equal(health.schemaVersion, 2);
+    assert.equal(health.schemaVersion, 3);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("runtime activity is plain, ordered, and idempotent", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "astro-ledger-"));
+  const path = join(directory, "ledger.sqlite");
+  try {
+    syncRuntimeLedger({ path, ...fixture() });
+    recordRuntimeEvent(path, {
+      at: "2026-08-01T01:01:00.000Z",
+      service: "telegram",
+      kind: "source_update",
+      status: "done",
+      importance: "important",
+      title: "  New   Astro Telegram update  ",
+      detail: "An approved Astro channel posted a message.",
+      dedupeKey: "telegram:700",
+    });
+    recordRuntimeEvent(path, {
+      at: "2026-08-01T01:01:00.000Z",
+      service: "telegram",
+      kind: "source_update",
+      status: "done",
+      importance: "important",
+      title: "Duplicate title",
+      detail: "This must not create another row.",
+      dedupeKey: "telegram:700",
+    });
+    recordRuntimeEvent(path, {
+      at: "2026-08-01T01:02:00.000Z",
+      service: "hermes",
+      kind: "no_change",
+      status: "quiet",
+      title: "Nothing changed",
+      detail: "Hermes kept the saved plan.",
+    });
+
+    const events = readRuntimeEvents(path);
+    const health = readLedgerHealth(path);
+    assert.equal(events.length, 2);
+    assert.equal(events[0].title, "New Astro Telegram update");
+    assert.equal(events[1].service, "hermes");
+    assert.equal(events[1].stage, "no_change");
+    assert.equal(health.counts.runtimeEvents, 2);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

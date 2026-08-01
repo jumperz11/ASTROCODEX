@@ -8,7 +8,25 @@ import {
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-export const ASTRO_LEDGER_SCHEMA_VERSION = 2;
+export const ASTRO_LEDGER_SCHEMA_VERSION = 3;
+
+const RUNTIME_SERVICES = new Set([
+  "telegram",
+  "x",
+  "scanner",
+  "hermes",
+  "notifications",
+  "school",
+  "system",
+]);
+const RUNTIME_STATUSES = new Set([
+  "working",
+  "done",
+  "quiet",
+  "warning",
+  "error",
+]);
+const RUNTIME_IMPORTANCE = new Set(["normal", "important", "alert"]);
 
 function array(value) {
   return Array.isArray(value) ? value : [];
@@ -264,6 +282,25 @@ function migrate(database) {
 
     CREATE INDEX IF NOT EXISTS sync_runs_time_idx
       ON sync_runs (finished_at DESC);
+
+    CREATE TABLE IF NOT EXISTS runtime_events (
+      id TEXT PRIMARY KEY,
+      occurred_at TEXT NOT NULL,
+      service TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      status TEXT NOT NULL,
+      title TEXT NOT NULL,
+      detail TEXT NOT NULL,
+      importance TEXT NOT NULL,
+      entity_ref TEXT,
+      dedupe_key TEXT,
+      UNIQUE (service, kind, dedupe_key)
+    ) STRICT;
+
+    CREATE INDEX IF NOT EXISTS runtime_events_time_idx
+      ON runtime_events (occurred_at DESC, id DESC);
+    CREATE INDEX IF NOT EXISTS runtime_events_service_idx
+      ON runtime_events (service, occurred_at DESC);
   `);
   database
     .prepare(
@@ -271,6 +308,7 @@ function migrate(database) {
        VALUES (?, ?)`,
     )
     .run(ASTRO_LEDGER_SCHEMA_VERSION, new Date().toISOString());
+  database.exec("PRAGMA optimize");
 }
 
 function insertEvent(database, event) {
@@ -821,6 +859,7 @@ function databaseCounts(database) {
     lessons: count("lessons"),
     lessonUses: count("lesson_uses"),
     syncRuns: count("sync_runs"),
+    runtimeEvents: count("runtime_events"),
   };
 }
 
@@ -829,6 +868,113 @@ export function defaultLedgerPath(stateDirectory) {
     process.env.ASTRO_LEDGER_PATH?.trim() ||
     join(stateDirectory, "astro-ledger.sqlite")
   );
+}
+
+export function recordRuntimeEvent(path, event = {}) {
+  if (!path) throw new Error("A ledger path is required.");
+  const occurredAt = iso(event.at ?? event.occurredAt, new Date().toISOString());
+  const service = RUNTIME_SERVICES.has(event.service)
+    ? event.service
+    : "system";
+  const kind = text(event.kind, "activity", 80).toLowerCase();
+  const status = RUNTIME_STATUSES.has(event.status)
+    ? event.status
+    : "done";
+  const importance = RUNTIME_IMPORTANCE.has(event.importance)
+    ? event.importance
+    : "normal";
+  const title = text(event.title, "System activity", 160);
+  const detail = text(event.detail, "A real system event was recorded.", 500);
+  const entityRef = text(event.entityRef, "", 500) || null;
+  const dedupeKey = text(event.dedupeKey, "", 500) || null;
+  const id = dedupeKey
+    ? sha256(`${service}|${kind}|${dedupeKey}`)
+    : randomUUID();
+  const database = openLedger(path);
+  try {
+    migrate(database);
+    database
+      .prepare(
+        `INSERT OR IGNORE INTO runtime_events (
+          id, occurred_at, service, kind, status, title, detail,
+          importance, entity_ref, dedupe_key
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        id,
+        occurredAt,
+        service,
+        kind,
+        status,
+        title,
+        detail,
+        importance,
+        entityRef,
+        dedupeKey,
+      );
+    const saved = database
+      .prepare(
+        `SELECT id, occurred_at, service, kind, status, title, detail,
+                importance, entity_ref
+         FROM runtime_events
+         WHERE id = ?`,
+      )
+      .get(id);
+    database.close();
+    chmodSync(path, 0o600);
+    return saved
+      ? {
+          id: saved.id,
+          at: saved.occurred_at,
+          service: saved.service,
+          kind: saved.kind,
+          stage: saved.kind,
+          status: saved.status,
+          title: saved.title,
+          detail: saved.detail,
+          importance: saved.importance,
+          entityRef: saved.entity_ref,
+        }
+      : null;
+  } catch (error) {
+    database.close();
+    throw error;
+  }
+}
+
+export function readRuntimeEvents(path, { limit = 60 } = {}) {
+  if (!path || !existsSync(path)) return [];
+  const safeLimit = Math.max(1, Math.min(200, Number(limit) || 60));
+  let database;
+  try {
+    database = openLedger(path, { readOnly: true });
+    const rows = database
+      .prepare(
+        `SELECT id, occurred_at, service, kind, status, title, detail,
+                importance, entity_ref
+         FROM runtime_events
+         ORDER BY occurred_at DESC, id DESC
+         LIMIT ?`,
+      )
+      .all(safeLimit)
+      .reverse();
+    database.close();
+    return rows.map((row) => ({
+      id: row.id,
+      at: row.occurred_at,
+      service: row.service,
+      kind: row.kind,
+      stage: row.kind,
+      status: row.status,
+      title: row.title,
+      detail: row.detail,
+      importance: row.importance,
+      entityRef: row.entity_ref,
+    }));
+  } catch {
+    database?.close();
+    return [];
+  }
 }
 
 export function syncRuntimeLedger({

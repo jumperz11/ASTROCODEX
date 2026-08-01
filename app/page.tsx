@@ -94,10 +94,21 @@ type HermesAudit = {
 };
 
 type HermesActivity = {
+  id?: string;
   at: string;
   runId?: string;
-  stage: "scan" | "inputs" | "hermes" | "decision" | "error";
-  status: "working" | "done" | "quiet" | "error";
+  service?:
+    | "telegram"
+    | "x"
+    | "scanner"
+    | "hermes"
+    | "notifications"
+    | "school"
+    | "system";
+  kind?: string;
+  stage: string;
+  status: "working" | "done" | "quiet" | "warning" | "error";
+  importance?: "normal" | "important" | "alert";
   title: string;
   detail: string;
 };
@@ -599,6 +610,20 @@ function relativeTime(value: string | null | undefined, now: number) {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
+function activitySourceLabel(service?: HermesActivity["service"]) {
+  return (
+    {
+      telegram: "ASTRO SOURCE",
+      x: "PUBLIC X",
+      scanner: "LIVE CHECK",
+      hermes: "HERMES",
+      notifications: "ALERT",
+      school: "NIGHT SCHOOL",
+      system: "SYSTEM",
+    }[service || "system"] || "SYSTEM"
+  );
+}
+
 const embeddedForecast =
   (liveForecast as Forecast).mode === "live"
     ? normalizeForecast(liveForecast as Forecast)
@@ -650,8 +675,14 @@ type LiveSignalEnvelope = {
     error?: string;
   } | null;
   activity?: HermesActivity[];
+  liveEventCursor?: string | null;
   hermesAudit?: HermesAudit | null;
 };
+
+type LiveEventsEnvelope = Omit<
+  LiveSignalEnvelope,
+  "forecast" | "source" | "hermesAudit"
+>;
 
 async function fetchLiveSignal(): Promise<LiveSignalEnvelope> {
   const response = await fetch(`/api/live-signal?ts=${Date.now()}`, {
@@ -666,44 +697,18 @@ async function fetchLiveSignal(): Promise<LiveSignalEnvelope> {
   return data;
 }
 
-const rules = [
-  {
-    index: "01",
-    title: "Direction before execution",
-    body: "No bias, no trade. Establish the highest relevant timeframe first, then descend.",
-    source: "Ch. 1 · message 619",
-  },
-  {
-    index: "02",
-    title: "Timeframe translation",
-    body: "Bias timeframe ≈ execution timeframe × 12. Treat the ratio as guidance, not a rigid law.",
-    source: "Ch. 1 · messages 178–184",
-  },
-  {
-    index: "03",
-    title: "Patterns, not fractals",
-    body: "Use repeatable formats that adapt to context. Exact historical shapes are not predictions.",
-    source: "Ch. 3 · messages 4254–4261",
-  },
-  {
-    index: "04",
-    title: "Data + logic",
-    body: "Combine minimally correlated evidence; confidence must not come from several copies of one signal.",
-    source: "Ch. 2 · messages 716–739",
-  },
-  {
-    index: "05",
-    title: "Plan before position",
-    body: "A position changes only after the thesis changes. Document triggers, targets and invalidation first.",
-    source: "Ch. 2 · messages 2893–2905",
-  },
-  {
-    index: "06",
-    title: "Sentiment confirms",
-    body: "Sentiment follows recent price action. It confirms an existing plan; it does not create one alone.",
-    source: "Ch. 4 · messages 4699–4799",
-  },
-];
+async function fetchLiveEvents(): Promise<LiveEventsEnvelope> {
+  const response = await fetch(`/api/live-events?ts=${Date.now()}`, {
+    cache: "no-store",
+  });
+  const data = (await response.json()) as LiveEventsEnvelope & {
+    error?: string;
+  };
+  if (!response.ok) {
+    throw new Error(data.error || "The live activity feed is unavailable.");
+  }
+  return data;
+}
 
 function Tag({ type }: { type: Evidence["type"] }) {
   const copy = {
@@ -790,15 +795,16 @@ export default function Home() {
     xSourceBudget: null as LiveSignalEnvelope["xSourceBudget"],
     reasoner: null as LiveSignalEnvelope["reasoner"],
     activity: [] as HermesActivity[],
+    liveEventCursor: null as string | null,
     hermesAudit: null as HermesAudit | null,
   });
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [hasUnseenUpdate, setHasUnseenUpdate] = useState(false);
-  const [openStrategy, setOpenStrategy] = useState<string | null>(null);
   const [soundAlertsEnabled, setSoundAlertsEnabled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const soundAlertsEnabledRef = useRef(false);
   const lastObservedForecastRef = useRef<string | null>(null);
+  const lastObservedLiveEventRef = useRef<string | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
   const playAlertTone = useCallback(async () => {
@@ -844,6 +850,32 @@ export default function Home() {
         new Notification("Astro Intelligence updated", {
           body: `${nextForecast.decision.position} · ${nextForecast.signal.plainSummary}`,
           tag: "astro-intelligence-forecast",
+        });
+      }
+    },
+    [playAlertTone],
+  );
+
+  const announceLiveEvent = useCallback(
+    async (event: HermesActivity) => {
+      if (
+        !soundAlertsEnabledRef.current ||
+        !["important", "alert"].includes(event.importance || "normal")
+      ) {
+        return;
+      }
+      try {
+        await playAlertTone();
+      } catch {
+        // The visual event remains visible when a browser suspends audio.
+      }
+      if (
+        typeof Notification !== "undefined" &&
+        Notification.permission === "granted"
+      ) {
+        new Notification(event.title, {
+          body: event.detail,
+          tag: event.id || `${event.at}-${event.stage}`,
         });
       }
     },
@@ -913,8 +945,12 @@ export default function Home() {
           xSourceBudget: envelope.xSourceBudget ?? null,
           reasoner: envelope.reasoner ?? null,
           activity: Array.isArray(envelope.activity) ? envelope.activity : [],
+          liveEventCursor: envelope.liveEventCursor ?? null,
           hermesAudit: envelope.hermesAudit ?? null,
         });
+        if (!lastObservedLiveEventRef.current && envelope.liveEventCursor) {
+          lastObservedLiveEventRef.current = envelope.liveEventCursor;
+        }
         setLastUpdated(
           envelope.source === "vps"
             ? "VPS live signal"
@@ -947,7 +983,76 @@ export default function Home() {
   }, [announceForecastChange]);
 
   useEffect(() => {
-    const clock = window.setInterval(() => setClockNow(Date.now()), 60_000);
+    let active = true;
+
+    async function loadEvents() {
+      try {
+        const envelope = await fetchLiveEvents();
+        if (!active) return;
+        const events = Array.isArray(envelope.activity)
+          ? envelope.activity
+          : [];
+        const newest = events.at(-1) ?? null;
+        const cursor =
+          envelope.liveEventCursor ??
+          newest?.id ??
+          (newest ? `${newest.at}-${newest.stage}` : null);
+        const previousCursor = lastObservedLiveEventRef.current;
+        lastObservedLiveEventRef.current = cursor;
+        if (previousCursor && cursor && previousCursor !== cursor && newest) {
+          void announceLiveEvent(newest);
+        }
+        setSystemStatus((current) => ({
+          ...current,
+          pipelineStatus: envelope.status ?? current.pipelineStatus,
+          runId: envelope.runId ?? current.runId,
+          telegramSourceStatus:
+            envelope.telegramSourceStatus ??
+            current.telegramSourceStatus,
+          telegramSourceLastSuccessAt:
+            envelope.telegramSourceLastSuccessAt ??
+            current.telegramSourceLastSuccessAt,
+          telegramSourceNewestAt:
+            envelope.telegramSourceNewestAt ??
+            current.telegramSourceNewestAt,
+          telegramSourceMessages: Number(
+            envelope.telegramSourceMessages ??
+              current.telegramSourceMessages,
+          ),
+          telegramSourceMedia: Number(
+            envelope.telegramSourceMedia ?? current.telegramSourceMedia,
+          ),
+          telegramSources: Array.isArray(envelope.telegramSources)
+            ? envelope.telegramSources
+            : current.telegramSources,
+          xSourceStatus:
+            envelope.xSourceStatus ?? current.xSourceStatus,
+          xSourceLastSuccessAt:
+            envelope.xSourceLastSuccessAt ??
+            current.xSourceLastSuccessAt,
+          xSourceNewestAt:
+            envelope.xSourceNewestAt ?? current.xSourceNewestAt,
+          xSourceBudget:
+            envelope.xSourceBudget ?? current.xSourceBudget,
+          reasoner: envelope.reasoner ?? current.reasoner,
+          activity: events.length ? events : current.activity,
+          liveEventCursor: cursor ?? current.liveEventCursor,
+        }));
+      } catch {
+        // Keep the last recorded feed visible; the full signal poll reports health.
+      }
+    }
+
+    void loadEvents();
+    const refresh = window.setInterval(() => void loadEvents(), 4_000);
+    return () => {
+      active = false;
+      window.clearInterval(refresh);
+    };
+  }, [announceLiveEvent]);
+
+  useEffect(() => {
+    const clock = window.setInterval(() => setClockNow(Date.now()), 5_000);
     return () => window.clearInterval(clock);
   }, []);
 
@@ -1017,45 +1122,6 @@ export default function Home() {
       detail: "Astro has no confirmed direction to compare.",
     };
   }, [forecast.decision.position, systemStatus.hermesAudit?.direction]);
-  const strategyShelf = useMemo(
-    () =>
-      forecast.scenarios.map((scenario, index) => {
-        const fit =
-          index === 0 && scenario.probability >= 45
-            ? "best"
-            : scenario.probability >= 25
-              ? "partial"
-              : "parked";
-        return {
-          id: `${scenario.name}-${index}`,
-          name: scenario.name,
-          probability: scenario.probability,
-          fit,
-          fitLabel:
-            fit === "best"
-              ? "BEST FIT"
-              : fit === "partial"
-                ? "PARTIAL"
-                : "NOT ACTIVE",
-          currentSetup:
-            fit === "best"
-              ? "Closest current research match. It is not a trade until direct evidence confirms it."
-              : fit === "partial"
-                ? "Some conditions match, but its required trigger has not happened."
-                : "Saved for comparison. Current evidence does not support activating it.",
-          summary: scenario.description,
-          trigger: scenario.trigger,
-          failure: forecast.decision.risk,
-          schoolLesson:
-            index === 0
-              ? forecast.hermes.learningNote
-              : index === 1
-                ? `${forecast.thesis.regime}. ${rules[1].body}`
-                : rules[4].body,
-        };
-      }),
-    [forecast],
-  );
   const targetPlan = useMemo(() => {
     const byLabel = (needles: string[]) =>
       forecast.levels.find((level) =>
@@ -1247,31 +1313,76 @@ export default function Home() {
     if (systemStatus.degraded || systemStatus.pipelineStatus === "error") {
       return {
         label: "NEEDS ATTENTION",
-        detail: latestActivity?.detail || "The live evidence connection is unavailable.",
+        detail:
+          latestActivity?.detail ||
+          "The last safe plan is still visible while the live connection retries.",
         tone: "error",
       };
     }
-    if (systemStatus.pipelineStatus === "analyzing") {
+    if (
+      latestActivity?.kind === "source_update" ||
+      latestActivity?.stage === "source_update"
+    ) {
       return {
-        label: "HERMES ANALYZING",
-        detail:
-          latestActivity?.detail ||
-          "Comparing accepted evidence with Astro history and market structure.",
+        label: "NEW ASTRO UPDATE FOUND",
+        detail: "Hermes will check whether it changes the saved plan.",
         tone: "working",
       };
     }
-    if (systemStatus.pipelineStatus === "checking") {
+    if (
+      latestActivity?.kind === "analysis_started" ||
+      latestActivity?.stage === "analysis_started" ||
+      systemStatus.pipelineStatus === "analyzing"
+    ) {
       return {
-        label: "CHECKING SOURCES",
-        detail: latestActivity?.detail || "Reading approved sources and market data.",
+        label: "HERMES IS CHECKING IT",
+        detail: "The new information is being compared with Astro history.",
         tone: "working",
+      };
+    }
+    if (
+      latestActivity?.kind === "forecast_changed" ||
+      latestActivity?.stage === "forecast_changed"
+    ) {
+      return {
+        label: "THE PLAN CHANGED",
+        detail: "The chart and the simple answer now show the new saved read.",
+        tone: "working",
+      };
+    }
+    if (
+      latestActivity?.kind === "no_change" ||
+      latestActivity?.kind === "analysis_kept" ||
+      latestActivity?.stage === "no_change" ||
+      latestActivity?.stage === "analysis_kept"
+    ) {
+      return {
+        label: "NO CHANGE",
+        detail: "Hermes checked the newest information and kept the saved plan.",
+        tone: "quiet",
+      };
+    }
+    if (
+      latestActivity?.kind === "scan_started" ||
+      latestActivity?.stage === "scan_started" ||
+      systemStatus.pipelineStatus === "checking"
+    ) {
+      return {
+        label: "CHECKING NOW",
+        detail: "Looking for a new Astro update or an important market change.",
+        tone: "working",
+      };
+    }
+    if (latestActivity?.service === "school") {
+      return {
+        label: "LEARNING IN THE BACKGROUND",
+        detail: "Night School is studying old Astro examples. Live updates still come first.",
+        tone: "quiet",
       };
     }
     return {
-      label: "MONITORING",
-      detail:
-        latestActivity?.detail ||
-        "Waiting for new evidence or a material market trigger.",
+      label: "WAITING FOR ASTRO",
+      detail: "Both Telegram channels are being watched. The saved plan stays active.",
       tone: "quiet",
     };
   }, [
@@ -1329,8 +1440,12 @@ export default function Home() {
         xSourceBudget: envelope.xSourceBudget ?? null,
         reasoner: envelope.reasoner ?? null,
         activity: Array.isArray(envelope.activity) ? envelope.activity : [],
+        liveEventCursor: envelope.liveEventCursor ?? null,
         hermesAudit: envelope.hermesAudit ?? null,
       });
+      if (!lastObservedLiveEventRef.current && envelope.liveEventCursor) {
+        lastObservedLiveEventRef.current = envelope.liveEventCursor;
+      }
       setLastUpdated(
         envelope.source === "vps"
           ? "VPS live signal"
@@ -2033,215 +2148,183 @@ export default function Home() {
       )}
 
       {activeView === "live" && (
-        <section className="hermes-console-view">
-          <header className="console-hero">
+        <section className="live-room">
+          <header className="live-room-hero">
             <div>
-              <span className="eyebrow">TRUTHFUL SYSTEM MONITOR</span>
-              <h1>Hermes Live</h1>
+              <span className="eyebrow">REAL ACTIVITY · REFRESHES EVERY 4 SECONDS</span>
+              <h1>What is happening now?</h1>
               <p>
-                A real event feed from the VPS. It shows what the system checked
-                and decided—never hidden reasoning or invented thoughts.
+                One simple answer first. The timeline below shows only events
+                that actually happened on the VPS.
               </p>
             </div>
-            <div className={`console-current ${liveState.tone}`}>
+            <div className={`live-now-card ${liveState.tone}`}>
               <span><i /> RIGHT NOW</span>
               <strong>{liveState.label}</strong>
               <p>{liveState.detail}</p>
+              <small>
+                Last real event · {relativeTime(latestActivity?.at, clockNow)}
+              </small>
             </div>
           </header>
 
-          <div className="console-facts" aria-label="Live system facts">
-            <article>
-              <small>SOURCES</small>
-              <strong>{systemStatus.telegramSources.length}/2</strong>
-              <span>
-                {systemStatus.telegramSourceStatus === "healthy"
-                  ? "Connected"
-                  : systemStatus.telegramSourceStatus}
-              </span>
-            </article>
-            <article>
-              <small>X SCOUT · GROK</small>
-              <strong>{systemStatus.xSourceStatus.toUpperCase()}</strong>
-              <span>
-                {typeof systemStatus.xSourceBudget?.remaining === "number"
-                  ? `${systemStatus.xSourceBudget.remaining} checks left`
-                  : relativeTime(systemStatus.xSourceLastSuccessAt, clockNow)}
-              </span>
-            </article>
-            <article>
-              <small>LUNA · HERMES BRAIN</small>
-              <strong>{(systemStatus.reasoner?.stage || "STANDBY").toUpperCase()}</strong>
-              <span>
-                {systemStatus.reasoner?.status === "healthy"
-                  ? systemStatus.reasoner.material
-                    ? "Material evidence processed"
-                    : "No material change"
-                  : systemStatus.reasoner?.error || "Waiting for new evidence"}
-              </span>
-            </article>
-            <article>
-              <small>CURRENT RESULT</small>
-              <strong>{opportunity.label}</strong>
-              <span>{systemStatus.model || "Codex Luna"}</span>
-            </article>
-          </div>
+          <section className="live-simple-answer">
+            <div className="live-answer-heading">
+              <span>THE SIMPLE ANSWER</span>
+              <strong>{plainDashboard.you}</strong>
+            </div>
+            <div className="live-answer-grid">
+              <article>
+                <small>WHAT ASTRO LAST DID</small>
+                <strong>{plainDashboard.happened}</strong>
+              </article>
+              <article>
+                <small>WHAT HERMES EXPECTS NEXT</small>
+                <strong>{plainDashboard.next}</strong>
+              </article>
+              <article>
+                <small>WHEN THIS ANSWER CHANGES</small>
+                <strong>{forecast.signal.changesWhen}</strong>
+              </article>
+            </div>
+          </section>
 
-          <div className="console-layout">
-            <section className="console-terminal" aria-label="Hermes activity console">
+          <section className="live-steps" aria-label="How the live system works">
+            <article>
+              <i>1</i>
+              <div>
+                <small>LISTEN</small>
+                <strong>Astro sources</strong>
+                <p>
+                  {systemStatus.telegramSourceStatus === "healthy"
+                    ? `Both Telegram channels checked ${relativeTime(
+                        systemStatus.telegramSourceLastSuccessAt,
+                        clockNow,
+                      )}.`
+                    : "Telegram is reconnecting. Saved messages remain available."}
+                </p>
+              </div>
+            </article>
+            <article>
+              <i>2</i>
+              <div>
+                <small>UNDERSTAND</small>
+                <strong>Hermes checks the meaning</strong>
+                <p>
+                  {systemStatus.pipelineStatus === "analyzing"
+                    ? "Working on new information now."
+                    : "Ready. It runs only when something important changes."}
+                </p>
+              </div>
+            </article>
+            <article>
+              <i>3</i>
+              <div>
+                <small>UPDATE</small>
+                <strong>Plan, chart, and alert</strong>
+                <p>
+                  Last accepted plan saved {relativeTime(
+                    forecast.generatedAt,
+                    clockNow,
+                  )}.
+                </p>
+              </div>
+            </article>
+          </section>
+
+          <div className="live-room-grid">
+            <section className="live-event-feed" aria-label="Recent real activity">
               <header>
                 <div>
-                  <i />
-                  <i />
-                  <i />
-                  <span>astro@vps · live activity</span>
+                  <span>REAL VPS EVENTS</span>
+                  <strong>What just happened</strong>
                 </div>
-                <small>AUTO REFRESH · 15S</small>
+                <small>UPDATES EVERY 4S</small>
               </header>
-              <div className="console-lines" aria-live="polite">
+              <div className="live-event-list" aria-live="polite">
                 {systemStatus.activity.length ? (
-                  [...systemStatus.activity].reverse().map((event, index) => (
+                  [...systemStatus.activity]
+                    .reverse()
+                    .slice(0, 12)
+                    .map((event, index) => (
                     <article
                       className={event.status}
-                      key={`${event.at}-${event.stage}-${index}`}
+                      key={event.id || `${event.at}-${event.stage}-${index}`}
                     >
-                      <time>
-                        {new Date(event.at).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          second: "2-digit",
-                        })}
-                      </time>
-                      <span className="console-prompt">›</span>
+                      <i />
                       <div>
+                        <span>
+                          {activitySourceLabel(event.service)} ·{" "}
+                          {relativeTime(event.at, clockNow)}
+                        </span>
                         <strong>{event.title}</strong>
                         <p>{event.detail}</p>
                       </div>
                     </article>
-                  ))
+                    ))
                 ) : (
                   <article className="quiet">
-                    <time>--:--:--</time>
-                    <span className="console-prompt">›</span>
+                    <i />
                     <div>
-                      <strong>Waiting for the next recorded scan</strong>
-                      <p>No activity event has been recorded yet.</p>
+                      <span>LIVE CHECK</span>
+                      <strong>Waiting for the first recorded event</strong>
+                      <p>The last saved plan remains visible above.</p>
                     </div>
                   </article>
                 )}
               </div>
             </section>
 
-            <aside className="console-side">
-              <section className="strategy-shelf">
-                <header>
-                  <div>
-                    <small>ASTRO SCHOOL · SAVED PATTERNS</small>
-                    <strong>Strategy Shelf</strong>
-                  </div>
-                  <span>QUIET MODE</span>
-                </header>
-                <p>
-                  Fresh Astro Telegram and X evidence always comes first. Only
-                  when live sources are caught up does Hermes search the school
-                  again.
-                </p>
-                <div className="strategy-list">
-                  {strategyShelf.map((strategy) => {
-                    const isOpen = openStrategy === strategy.id;
-                    return (
-                      <article className={strategy.fit} key={strategy.id}>
-                        <button
-                          aria-expanded={isOpen}
-                          onClick={() =>
-                            setOpenStrategy(isOpen ? null : strategy.id)
-                          }
-                        >
-                          <span>
-                            <i />
-                            {strategy.fitLabel}
-                          </span>
-                          <strong>{strategy.name}</strong>
-                          <small>{strategy.probability}% model fit</small>
-                          <b>{isOpen ? "−" : "+"}</b>
-                        </button>
-                        {isOpen && (
-                          <div className="strategy-detail">
-                            <p>{strategy.currentSetup}</p>
-                            <dl>
-                              <div>
-                                <dt>WHY IT FITS</dt>
-                                <dd>{strategy.summary}</dd>
-                              </div>
-                              <div>
-                                <dt>ACTIVATES IF</dt>
-                                <dd>{strategy.trigger}</dd>
-                              </div>
-                              <div>
-                                <dt>DOES NOT FIT IF</dt>
-                                <dd>{strategy.failure}</dd>
-                              </div>
-                              <div>
-                                <dt>SCHOOL LESSON</dt>
-                                <dd>{strategy.schoolLesson}</dd>
-                              </div>
-                            </dl>
-                            <span>
-                              Saved with forecast · {timeLabel}
-                            </span>
-                          </div>
-                        )}
-                      </article>
-                    );
-                  })}
-                </div>
-              </section>
+            <aside className="live-side-cards">
               <section>
-                <small>WHAT HERMES IS WATCHING</small>
+                <small>WHAT WOULD MAKE HERMES RECHECK?</small>
                 <strong>{forecast.thesis.nextTrigger}</strong>
-                <p>This is the recorded trigger for reconsidering the read.</p>
+                <p>A recheck does not automatically mean the plan will change.</p>
               </section>
               <section className="risk">
-                <small>WHAT BREAKS THE READ</small>
+                <small>WHAT WOULD PROVE THIS READ WRONG?</small>
                 <strong>{forecast.decision.risk}</strong>
               </section>
-              <section>
-                <small>APPROVED INPUTS</small>
-                {systemStatus.telegramSources.map((source) => (
-                  <div className="console-source" key={source.id || source.title}>
-                    <i />
-                    <span>
-                      <strong>{source.title || "Astro source"}</strong>
-                      <small>
-                        {relativeTime(source.lastMessageAt, clockNow)} ·{" "}
-                        {source.messageCount || 0} messages
-                      </small>
-                    </span>
-                  </div>
-                ))}
-                <div className="console-source">
-                  <i />
-                  <span>
-                    <strong>Coinbase BTC-USD</strong>
-                    <small>Live market structure</small>
-                  </span>
+              <section className="live-freshness">
+                <small>SOURCE FRESHNESS</small>
+                <div>
+                  <span>Astro Telegram</span>
+                  <strong>
+                    {systemStatus.telegramSourceStatus === "healthy"
+                      ? "Listening now"
+                      : "Reconnecting"}
+                  </strong>
                 </div>
-                <div className="console-source">
-                  <i />
-                  <span>
-                    <strong>Astro Codex</strong>
-                    <small>
-                      {systemStatus.codexEntries.toLocaleString()} memories
-                    </small>
-                  </span>
+                <div>
+                  <span>Public X</span>
+                  <strong>
+                    Checked{" "}
+                    {relativeTime(systemStatus.xSourceLastSuccessAt, clockNow)}
+                  </strong>
+                </div>
+                <div>
+                  <span>Whole signal</span>
+                  <strong>{signalFreshness.label.toLowerCase()}</strong>
                 </div>
               </section>
+              <button
+                className={`live-sound-button ${
+                  soundAlertsEnabled ? "active" : ""
+                }`}
+                onClick={() => void toggleSoundAlerts()}
+              >
+                <span>{soundAlertsEnabled ? "Sound is on" : "Turn on sound"}</span>
+                <small>
+                  Alert me when a real Astro update or saved plan change arrives.
+                </small>
+              </button>
             </aside>
           </div>
 
-          <p className="console-boundary">
-            Hermes Live exposes operations and conclusions. It does not expose
-            private chain-of-thought, and it cannot know Astro’s private actions.
+          <p className="live-boundary">
+            This page shows recorded inputs and conclusions, not hidden
+            chain-of-thought. It cannot know Astro&apos;s private actions and it
+            never places a trade.
           </p>
         </section>
       )}

@@ -7,6 +7,7 @@ import { buildSchoolAudit } from "./school-audit.mjs";
 import {
   defaultLedgerPath,
   readLedgerHealth,
+  readRuntimeEvents,
 } from "./astro-event-ledger.mjs";
 
 const scriptsDirectory = dirname(fileURLToPath(import.meta.url));
@@ -17,6 +18,12 @@ const forecastPath =
 const stateDirectory =
   process.env.ASTRO_STATE_DIR?.trim() || join(projectRoot, ".astro-runtime");
 const statePath = join(stateDirectory, "state.json");
+const telegramSourcePath =
+  process.env.ASTRO_TELEGRAM_SOURCE_PATH?.trim() ||
+  join(stateDirectory, "telegram-source.json");
+const xSourcePath =
+  process.env.ASTRO_X_SOURCE_PATH?.trim() ||
+  join(stateDirectory, "x-source.json");
 const historyPath = join(stateDirectory, "history.json");
 const deepSeekThesisPath = join(stateDirectory, "deepseek-thesis.json");
 const learningReviewPath = join(stateDirectory, "learning-review.json");
@@ -56,7 +63,26 @@ async function readJson(path) {
 
 async function currentHealth() {
   try {
-    const state = await readJson(statePath);
+    const [state, liveTelegram, liveX] = await Promise.all([
+      readJson(statePath),
+      readJson(telegramSourcePath).catch(() => ({})),
+      readJson(xSourcePath).catch(() => ({})),
+    ]);
+    const runtimeEvents = readRuntimeEvents(eventLedgerPath, { limit: 60 });
+    const telegramMessages = Array.isArray(liveTelegram.messages)
+      ? liveTelegram.messages
+      : [];
+    const telegramSources = Array.isArray(liveTelegram.discoveredChats)
+      ? liveTelegram.discoveredChats
+          .filter((source) => source?.allowed)
+          .map((source) => ({
+            id: source.id,
+            title: source.title,
+            lastMessageAt: source.lastMessageAt ?? null,
+            messageCount: Number(source.messageCount || 0),
+            mediaCount: Number(source.mediaCount || 0),
+          }))
+      : [];
     const lastSuccessfulMs = new Date(state.lastSuccessfulAt || 0).getTime();
     const stale =
       !Number.isFinite(lastSuccessfulMs) ||
@@ -76,26 +102,34 @@ async function currentHealth() {
       codexBuiltAt: state.codex?.builtAt ?? null,
       telegramEnabled: Boolean(state.telegram?.enabled),
       telegramStatus: state.telegram?.status ?? "disabled",
-      telegramSourceStatus: state.telegramSource?.status ?? "unknown",
+      telegramSourceStatus:
+        liveTelegram.status ?? state.telegramSource?.status ?? "unknown",
       telegramSourceLastSuccessAt:
-        state.telegramSource?.lastSuccessAt ?? null,
+        liveTelegram.lastSuccessAt ?? state.telegramSource?.lastSuccessAt ?? null,
       telegramSourceNewestAt:
-        state.telegramSource?.newestAcceptedAt ?? null,
+        liveTelegram.newestAcceptedAt ??
+        state.telegramSource?.newestAcceptedAt ??
+        null,
       telegramSourceLastAnalyzedAt:
         state.telegramSource?.lastAnalyzedAt ?? null,
       telegramSourceAnalyzedNewestAt:
         state.telegramSource?.analyzedNewestAt ?? null,
-      telegramSourceMessages: Number(
-        state.telegramSource?.messageCount || 0,
-      ),
-      telegramSourceMedia: Number(state.telegramSource?.mediaCount || 0),
-      telegramSources: Array.isArray(state.telegramSource?.sources)
-        ? state.telegramSource.sources
-        : [],
-      xSourceStatus: state.xSource?.status ?? "unknown",
-      xSourceLastSuccessAt: state.xSource?.lastSuccessAt ?? null,
-      xSourceNewestAt: state.xSource?.newestAcceptedAt ?? null,
-      xSourceBudget: state.xSource?.budget ?? null,
+      telegramSourceMessages: telegramMessages.length,
+      telegramSourceMedia: telegramMessages.filter(
+        (message) => message?.mediaPath,
+      ).length,
+      telegramSources:
+        telegramSources.length > 0
+          ? telegramSources
+          : Array.isArray(state.telegramSource?.sources)
+            ? state.telegramSource.sources
+            : [],
+      xSourceStatus: liveX.status ?? state.xSource?.status ?? "unknown",
+      xSourceLastSuccessAt:
+        liveX.lastSuccessAt ?? state.xSource?.lastSuccessAt ?? null,
+      xSourceNewestAt:
+        liveX.newestAcceptedAt ?? state.xSource?.newestAcceptedAt ?? null,
+      xSourceBudget: liveX.budget ?? state.xSource?.budget ?? null,
       reasoner:
         state.reasoner && typeof state.reasoner === "object"
           ? state.reasoner
@@ -104,7 +138,13 @@ async function currentHealth() {
         state.ledger && typeof state.ledger === "object"
           ? state.ledger
           : readLedgerHealth(eventLedgerPath),
-      activity: Array.isArray(state.activity) ? state.activity.slice(-60) : [],
+      activity:
+        runtimeEvents.length > 0
+          ? runtimeEvents
+          : Array.isArray(state.activity)
+            ? state.activity.slice(-60)
+            : [],
+      liveEventCursor: runtimeEvents.at(-1)?.id ?? null,
       consecutiveFailures: Number(state.consecutiveFailures || 0),
       error: state.error ?? null,
     };
@@ -139,6 +179,7 @@ async function currentHealth() {
       reasoner: null,
       ledger: readLedgerHealth(eventLedgerPath),
       activity: [],
+      liveEventCursor: null,
       consecutiveFailures: 0,
       error: "No completed VPS scan is available yet.",
     };
@@ -164,7 +205,11 @@ const server = createServer(async (request, response) => {
     return;
   }
 
-  if (url.pathname !== "/signal" && url.pathname !== "/history") {
+  if (
+    url.pathname !== "/signal" &&
+    url.pathname !== "/history" &&
+    url.pathname !== "/events"
+  ) {
     response.writeHead(404).end();
     return;
   }
@@ -207,6 +252,36 @@ const server = createServer(async (request, response) => {
         })
         .end(JSON.stringify({ updatedAt: null, daily: [], plays: [] }));
     }
+    return;
+  }
+
+  if (url.pathname === "/events") {
+    const health = await currentHealth();
+    response
+      .writeHead(200, {
+        "Content-Type": "application/json",
+        "Cache-Control": "private, no-store, max-age=0",
+      })
+      .end(
+        JSON.stringify({
+          status: health.status,
+          checkedAt: health.checkedAt,
+          runId: health.runId,
+          telegramSourceStatus: health.telegramSourceStatus,
+          telegramSourceLastSuccessAt: health.telegramSourceLastSuccessAt,
+          telegramSourceNewestAt: health.telegramSourceNewestAt,
+          telegramSourceMessages: health.telegramSourceMessages,
+          telegramSourceMedia: health.telegramSourceMedia,
+          telegramSources: health.telegramSources,
+          xSourceStatus: health.xSourceStatus,
+          xSourceLastSuccessAt: health.xSourceLastSuccessAt,
+          xSourceNewestAt: health.xSourceNewestAt,
+          xSourceBudget: health.xSourceBudget,
+          reasoner: health.reasoner,
+          activity: health.activity,
+          liveEventCursor: health.liveEventCursor,
+        }),
+      );
     return;
   }
 
@@ -258,6 +333,7 @@ const server = createServer(async (request, response) => {
           reasoner: health.reasoner,
           ledger: health.ledger,
           activity: health.activity,
+          liveEventCursor: health.liveEventCursor,
           hermesAudit: latestHermesPrediction
             ? {
                 id: latestHermesPrediction.id,

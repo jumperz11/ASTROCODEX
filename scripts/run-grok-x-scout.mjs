@@ -4,6 +4,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { consumeBudget } from "./provider-budget.mjs";
 import { parseScoutOutput } from "./x-scout-parser.mjs";
+import {
+  defaultLedgerPath,
+  recordRuntimeEvent,
+} from "./astro-event-ledger.mjs";
 
 const scriptsDirectory = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(scriptsDirectory, "..");
@@ -16,6 +20,7 @@ const forecastPath =
   process.env.ASTRO_FORECAST_PATH?.trim() ||
   join(projectRoot, "public", "forecast.json");
 const budgetPath = join(stateDirectory, "grok-x-budget.json");
+const eventLedgerPath = defaultLedgerPath(stateDirectory);
 const dailyCap = Math.max(
   1,
   Number.parseInt(process.env.ASTRO_GROK_X_DAILY_CAP || "60", 10),
@@ -41,6 +46,14 @@ async function writeJsonAtomic(path, value) {
     mode: 0o600,
   });
   await rename(temporaryPath, path);
+}
+
+function emitLiveEvent(event) {
+  try {
+    return recordRuntimeEvent(eventLedgerPath, event);
+  } catch {
+    return null;
+  }
 }
 
 function run(command, args, environment) {
@@ -81,9 +94,10 @@ const previous = await readJson(sourcePath, {
 });
 const budget = await consumeBudget(budgetPath, dailyCap);
 if (!budget.accepted) {
+  const checkedAt = new Date().toISOString();
   await writeJsonAtomic(sourcePath, {
     ...previous,
-    checkedAt: new Date().toISOString(),
+    checkedAt,
     status: "rate_limited",
     provider: "grok-oauth",
     budget: {
@@ -92,6 +106,15 @@ if (!budget.accepted) {
       remaining: budget.remaining,
     },
     error: "Daily Grok X scout budget reached; cached evidence remains active.",
+  });
+  emitLiveEvent({
+    at: checkedAt,
+    service: "x",
+    kind: "x_paused",
+    status: "warning",
+    title: "Public X check paused",
+    detail: "The daily Grok limit was reached. Saved X evidence remains active until checks resume.",
+    dedupeKey: checkedAt.slice(0, 10),
   });
   process.stdout.write(
     `${JSON.stringify({ status: "rate_limited", provider: "grok-oauth" })}\n`,
@@ -208,6 +231,24 @@ try {
     },
     error: null,
   });
+  emitLiveEvent({
+    at: checkedAt,
+    service: "x",
+    kind: discoveredPosts.length > 0 ? "source_update" : "x_checked",
+    status: discoveredPosts.length > 0 ? "done" : "quiet",
+    importance: discoveredPosts.length > 0 ? "important" : "normal",
+    title:
+      discoveredPosts.length > 0
+        ? "New Astro X post found"
+        : "Public X checked · no new post",
+    detail:
+      discoveredPosts.length > 0
+        ? `Grok found ${discoveredPosts.length} new direct Astro post${
+            discoveredPosts.length === 1 ? "" : "s"
+          }. Hermes will compare it with the current plan.`
+        : "The newest known public Astro post is unchanged.",
+    dedupeKey: checkedAt,
+  });
   process.stdout.write(
     `${JSON.stringify({
       status: "healthy",
@@ -220,9 +261,10 @@ try {
 } catch (error) {
   const message =
     error instanceof Error ? error.message : "Unknown Grok X scout failure.";
+  const checkedAt = new Date().toISOString();
   await writeJsonAtomic(sourcePath, {
     ...previous,
-    checkedAt: new Date().toISOString(),
+    checkedAt,
     status: /limit|quota|rate/i.test(message) ? "rate_limited" : "degraded",
     provider: "grok-oauth",
     budget: {
@@ -231,6 +273,16 @@ try {
       remaining: budget.remaining,
     },
     error: message,
+  });
+  emitLiveEvent({
+    at: checkedAt,
+    service: "x",
+    kind: "x_error",
+    status: "warning",
+    importance: "alert",
+    title: "Public X check needs attention",
+    detail: "Saved X evidence remains active. The X checker will retry automatically.",
+    dedupeKey: `${checkedAt.slice(0, 13)}:${message}`,
   });
   process.stdout.write(
     `${JSON.stringify({

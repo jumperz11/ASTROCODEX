@@ -5,6 +5,10 @@ import { join } from "node:path";
 import QRCode from "qrcode";
 import { TelegramClient, utils } from "teleproto";
 import { StringSession } from "teleproto/sessions/index.js";
+import {
+  defaultLedgerPath,
+  recordRuntimeEvent,
+} from "./astro-event-ledger.mjs";
 
 const mode = process.argv[2] || "ingest";
 const apiId = Number.parseInt(process.env.TELEGRAM_API_ID || "", 10);
@@ -18,6 +22,7 @@ const sourcePath =
   process.env.ASTRO_TELEGRAM_SOURCE_PATH?.trim() ||
   join(stateDirectory, "telegram-source.json");
 const mediaDirectory = join(stateDirectory, "telegram-media");
+const eventLedgerPath = defaultLedgerPath(stateDirectory);
 const sourceSelectors = (process.env.ASTRO_TELEGRAM_USER_SOURCE_CHATS || "")
   .split(",")
   .map((value) => value.trim())
@@ -49,6 +54,14 @@ async function writeAtomic(path, value, mode = 0o600) {
   const temporary = `${path}.${process.pid}.tmp`;
   await writeFile(temporary, value, { encoding: "utf8", mode });
   await rename(temporary, path);
+}
+
+function emitLiveEvent(event) {
+  try {
+    return recordRuntimeEvent(eventLedgerPath, event);
+  } catch {
+    return null;
+  }
 }
 
 function peerId(entity) {
@@ -234,6 +247,7 @@ async function ingestOnce(client) {
     discoveredChats: [],
     messages: [],
   });
+  const previousNewestAcceptedAt = state.newestAcceptedAt || null;
   const known = new Map(
     (Array.isArray(state.messages) ? state.messages : []).map((message) => [
       message.id,
@@ -323,6 +337,33 @@ async function ingestOnce(client) {
       2,
     )}\n`,
   );
+  if (
+    newestAcceptedAt &&
+    newestAcceptedAt !== previousNewestAcceptedAt
+  ) {
+    const newestMessage = retainedMessages
+      .filter(
+        (message) =>
+          (message.activityAt || message.editedAt || message.postedAt) ===
+          newestAcceptedAt,
+      )
+      .at(-1);
+    if (newestMessage) {
+      emitLiveEvent({
+        at: newestAcceptedAt,
+        service: "telegram",
+        kind: "source_update",
+        status: "done",
+        importance: "important",
+        entityRef: newestMessage.id,
+        title: "New Astro Telegram update",
+        detail: `${newestMessage.chatTitle || "An approved Astro channel"} posted ${
+          newestMessage.mediaPath ? "a chart or message" : "a message"
+        }. Hermes will check whether it changes the plan.`,
+        dedupeKey: `${newestMessage.id}:${newestAcceptedAt}`,
+      });
+    }
+  }
 }
 
 async function ingest() {
@@ -352,6 +393,15 @@ async function ingest() {
       consecutiveFailures += 1;
       const message =
         error instanceof Error ? error.message : "Telegram user ingestion error";
+      emitLiveEvent({
+        service: "telegram",
+        kind: "source_error",
+        status: "error",
+        importance: "alert",
+        title: "Astro Telegram check needs attention",
+        detail: "The last saved messages remain available while the connection retries.",
+        dedupeKey: message,
+      });
       process.stderr.write(`${message}\n`);
       const failedAt = new Date().toISOString();
       const failedState = await readJson(sourcePath, {

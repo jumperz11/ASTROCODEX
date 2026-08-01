@@ -17,6 +17,7 @@ import {
 } from "./hermes-ledger.mjs";
 import {
   defaultLedgerPath,
+  recordRuntimeEvent,
   syncRuntimeLedger,
 } from "./astro-event-ledger.mjs";
 import { notifyTelegram } from "./telegram-notifier.mjs";
@@ -71,6 +72,14 @@ async function writeJsonAtomic(path, value) {
 
 async function writeState(state) {
   await writeJsonAtomic(statePath, state);
+}
+
+function emitLiveEvent(event) {
+  try {
+    return recordRuntimeEvent(eventLedgerPath, event);
+  } catch {
+    return null;
+  }
 }
 
 async function syncArchitectureLedger({
@@ -633,6 +642,15 @@ async function updateHistory({
 const previous = await readJson(statePath, {});
 const runId = randomUUID();
 const startedAt = new Date().toISOString();
+emitLiveEvent({
+  at: startedAt,
+  service: "scanner",
+  kind: "scan_started",
+  status: "working",
+  title: "Checking Astro now",
+  detail: "Looking for new Telegram or X evidence and important price changes.",
+  dedupeKey: `${runId}:start`,
+});
 let activity = nextActivity(previous.activity, {
   runId,
   stage: "scan",
@@ -661,6 +679,14 @@ try {
   ]);
   const market = marketFeed.snapshot;
   const candles = marketFeed.candles;
+  emitLiveEvent({
+    service: "scanner",
+    kind: "sources_checked",
+    status: "done",
+    title: "Sources checked",
+    detail: `${telegramSources.allowedChats.length}/2 Astro Telegram channels are connected. Public X and market data are available.`,
+    dedupeKey: `${runId}:inputs`,
+  });
   activity = nextActivity(activity, {
     runId,
     stage: "inputs",
@@ -740,6 +766,16 @@ try {
       market,
       previous: previous.telegram,
     });
+    if (telegram?.status === "sent") {
+      emitLiveEvent({
+        service: "notifications",
+        kind: "alert_sent",
+        status: "done",
+        title: "Telegram alert sent",
+        detail: "The current Astro and Hermes update was delivered to your Signals topic.",
+        dedupeKey: `${runId}:telegram`,
+      });
+    }
     const ledger = await syncArchitectureLedger({
       observedAt: finishedAt,
       forecast: existingForecast,
@@ -751,6 +787,14 @@ try {
       status: "quiet",
       title: "No material trigger",
       detail: "No new Astro evidence or market change required a full Hermes rebuild.",
+    });
+    emitLiveEvent({
+      service: "hermes",
+      kind: "no_change",
+      status: "quiet",
+      title: "Nothing changed",
+      detail: "No new evidence changed the current read. Hermes is staying with the saved plan.",
+      dedupeKey: `${runId}:decision`,
     });
     if (ledger.status !== "healthy") {
       activity = nextActivity(activity, {
@@ -819,6 +863,16 @@ try {
       schoolReviewChanged
         ? "Reviewing a bounded Astro School milestone against the accepted thesis without treating history as new evidence."
         : "Comparing the newest accepted evidence with Astro history, the active playbook, and live market structure.",
+  });
+  emitLiveEvent({
+    service: "hermes",
+    kind: "analysis_started",
+    status: "working",
+    title: "Hermes is checking new information",
+    detail: schoolReviewChanged
+      ? "A new Astro School review is being compared with the saved plan."
+      : "New evidence is being compared with Astro history and the saved plan.",
+    dedupeKey: `${runId}:analysis`,
   });
   await writeState({
     ...previous,
@@ -892,6 +946,16 @@ try {
     market,
     previous: previous.telegram,
   });
+  if (telegram?.status === "sent") {
+    emitLiveEvent({
+      service: "notifications",
+      kind: "alert_sent",
+      status: "done",
+      title: "Telegram alert sent",
+      detail: "The updated plan was delivered to your Signals topic.",
+      dedupeKey: `${runId}:telegram`,
+    });
+  }
   const ledger = await syncArchitectureLedger({
     observedAt: finishedAt,
     forecast,
@@ -905,6 +969,17 @@ try {
     detail: changed
       ? "New evidence materially changed the accepted dashboard read."
       : "Hermes found no material reason to replace the accepted forecast.",
+  });
+  emitLiveEvent({
+    service: "hermes",
+    kind: changed ? "forecast_changed" : "analysis_kept",
+    status: changed ? "done" : "quiet",
+    importance: changed ? "important" : "normal",
+    title: changed ? "The saved plan changed" : "Hermes kept the current plan",
+    detail: changed
+      ? "New evidence changed what Hermes expects. The chart and plain-language plan were updated."
+      : "The new information did not justify replacing the frozen prediction.",
+    dedupeKey: `${runId}:decision`,
   });
   if (ledger.status !== "healthy") {
     activity = nextActivity(activity, {
@@ -974,6 +1049,15 @@ try {
   const finishedAt = new Date().toISOString();
   const message =
     error instanceof Error ? error.message : "Unknown Astro scan failure.";
+  emitLiveEvent({
+    service: "system",
+    kind: "scan_error",
+    status: "error",
+    importance: "alert",
+    title: "Live check needs attention",
+    detail: "The last safe plan is still saved. The monitor will retry automatically.",
+    dedupeKey: `${runId}:error`,
+  });
   activity = nextActivity(activity, {
     runId,
     stage: "error",

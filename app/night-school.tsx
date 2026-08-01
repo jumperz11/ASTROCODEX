@@ -109,6 +109,7 @@ type SchoolAudit = {
       lessons: number;
       lessonUses: number;
       syncRuns: number;
+      runtimeEvents: number;
     } | null;
     parity: { ok?: boolean } | null;
     error: string | null;

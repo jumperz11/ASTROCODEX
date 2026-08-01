@@ -11,6 +11,10 @@ import {
   stabilizeDeepSeekThesis,
   thesisSourceSignature,
 } from "./deepseek-thesis.mjs";
+import {
+  defaultLedgerPath,
+  recordRuntimeEvent,
+} from "./astro-event-ledger.mjs";
 
 const stateDirectory =
   process.env.ASTRO_STATE_DIR?.trim() || "/var/lib/astro-signal";
@@ -28,6 +32,7 @@ const forecastPath =
   join(stateDirectory, "forecast.json");
 const outputPath = join(stateDirectory, "deepseek-thesis.json");
 const learningReviewPath = join(stateDirectory, "learning-review.json");
+const eventLedgerPath = defaultLedgerPath(stateDirectory);
 const evidenceBriefPath = join(
   stateDirectory,
   "deepseek-evidence-brief.json",
@@ -66,6 +71,14 @@ async function writeJsonAtomic(path, value) {
     mode: 0o600,
   });
   await rename(temporaryPath, path);
+}
+
+function emitLiveEvent(event) {
+  try {
+    return recordRuntimeEvent(eventLedgerPath, event);
+  } catch {
+    return null;
+  }
 }
 
 const [index, telegram, x, forecast, previous, evidenceBrief, learningReview] =
@@ -519,6 +532,15 @@ const next = {
 };
 next.reviewSignal = buildThesisReviewSignal(previous, next, updatedAt);
 await writeJsonAtomic(outputPath, next);
+emitLiveEvent({
+  at: updatedAt,
+  service: "school",
+  kind: "school_progress",
+  status: "done",
+  title: "Night School studied more Astro history",
+  detail: `${schoolBatch.length} archive items were reviewed. Live Astro updates still have priority.`,
+  dedupeKey: updatedAt,
+});
 process.stdout.write(
   `${JSON.stringify({
     status: "healthy",
