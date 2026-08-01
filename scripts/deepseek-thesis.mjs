@@ -231,16 +231,30 @@ export function stabilizeDeepSeekThesis(
     if (Array.isArray(previousBehaviors) && previousBehaviors.length) {
       thesis.nextBehaviors = structuredClone(previousBehaviors);
     } else if (projection?.behavior?.action) {
+      const primaryProbability = Math.min(
+        70,
+        Math.max(30, Math.round(Number(projection.confidence) || 50)),
+      );
+      const alternativeAction =
+        projection.behavior.action === "hold" ? "close" : "hold";
+      const sourceRefs = (forecast.sources || []).map((source) => source?.url);
       thesis.nextBehaviors = [
         normalizeBehavior({
           action: projection.behavior.action,
-          probability: projection.confidence || 50,
+          probability: primaryProbability,
           horizonHours: projection.behavior.horizonHours,
           why: `Carry-forward from the accepted frozen Hermes behavior map: ${projection.behavior.condition || "condition unchanged"}`,
-          sourceRefs: (forecast.sources || []).map((source) => source?.url),
+          sourceRefs,
+        }),
+        normalizeBehavior({
+          action: alternativeAction,
+          probability: 100 - primaryProbability,
+          horizonHours: projection.behavior.horizonHours,
+          why:
+            "Simple opposing case retained until fresh direct evidence resolves the behavior.",
+          sourceRefs,
         }),
       ];
-      thesis.nextBehaviors[0].probability = 100;
     }
   }
 

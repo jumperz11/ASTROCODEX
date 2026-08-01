@@ -129,6 +129,8 @@ test("weak school batches cannot erase a stronger thesis", () => {
   assert.equal(stabilized.acceptedNewThesis, false);
   assert.equal(stabilized.thesis.campaign.direction, "short");
   assert.equal(stabilized.thesis.nextBehaviors[0].action, "close");
-  assert.equal(stabilized.thesis.nextBehaviors[0].probability, 100);
+  assert.equal(stabilized.thesis.nextBehaviors[0].probability, 58);
+  assert.equal(stabilized.thesis.nextBehaviors[1].action, "hold");
+  assert.equal(stabilized.thesis.nextBehaviors[1].probability, 42);
   assert.deepEqual(stabilized.lunaPacket.facts, ["Fact one", "Fact two"]);
 });
