@@ -134,10 +134,7 @@ async function currentHealth() {
         state.reasoner && typeof state.reasoner === "object"
           ? state.reasoner
           : null,
-      ledger:
-        state.ledger && typeof state.ledger === "object"
-          ? state.ledger
-          : readLedgerHealth(eventLedgerPath),
+      ledger: readLedgerHealth(eventLedgerPath),
       activity:
         runtimeEvents.length > 0
           ? runtimeEvents
