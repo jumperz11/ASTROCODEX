@@ -8,6 +8,11 @@ import {
   inspectBudget,
   recentAttempts,
 } from "../scripts/provider-budget.mjs";
+import {
+  eligiblePredictions,
+  normalizePolicy,
+  scorePolicy,
+} from "../scripts/autoresearch-shadow.mjs";
 import { parseScoutOutput } from "../scripts/x-scout-parser.mjs";
 
 test("provider budget keeps only the rolling 24 hour window", () => {
@@ -67,4 +72,61 @@ test("Grok scout accepts only direct AstronomerZero status URLs", () => {
   assert.deepEqual(parsed.posts[0].threadUrls, [
     "https://x.com/astronomer_zero/status/124",
   ]);
+});
+
+test("shadow research only scores frozen official predictions", () => {
+  const eligible = eligiblePredictions({
+    hermesPredictions: [
+      {
+        id: "accepted",
+        official: true,
+        integrity: "valid",
+        marketStatus: "hit",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+      {
+        id: "active",
+        official: true,
+        integrity: "valid",
+        marketStatus: "active",
+        createdAt: "2026-01-02T00:00:00.000Z",
+      },
+      {
+        id: "mutated",
+        official: true,
+        integrity: "failed",
+        marketStatus: "hit",
+        createdAt: "2026-01-03T00:00:00.000Z",
+      },
+    ],
+  });
+  assert.deepEqual(eligible.map((item) => item.id), ["accepted"]);
+});
+
+test("shadow policy clamps proposals and rejects tiny samples", () => {
+  assert.deepEqual(
+    normalizePolicy({
+      confidenceFloor: 999,
+      maxHorizonHours: 3,
+      requireBehaviorPrediction: 1,
+    }),
+    {
+      confidenceFloor: 90,
+      maxHorizonHours: 24,
+      requireBehaviorPrediction: true,
+    },
+  );
+  const result = scorePolicy(
+    [
+      {
+        confidence: 80,
+        horizonHours: 48,
+        marketStatus: "hit",
+        behavior: { action: "hold" },
+        behaviorOutcome: { status: "hit" },
+      },
+    ],
+    { confidenceFloor: 0, maxHorizonHours: 2160 },
+  );
+  assert.equal(result.score, null);
 });

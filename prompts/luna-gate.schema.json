@@ -38,6 +38,72 @@
     },
     "mediumReason": {
       "type": "string"
+    },
+    "brief": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "astroNow": { "type": "string" },
+        "changed": { "type": "string" },
+        "nextTrigger": { "type": "string" },
+        "contradiction": { "type": "string" },
+        "levels": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "label": { "type": "string" },
+              "value": { "type": "string" },
+              "sourceRef": { "type": "string" }
+            },
+            "required": ["label", "value", "sourceRef"]
+          }
+        }
+      },
+      "required": ["astroNow", "changed", "nextTrigger", "contradiction", "levels"]
+    },
+    "campaign": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": ["unknown", "planned", "open", "partial", "closed", "conflict"]
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["unknown", "long", "short", "both", "flat"]
+        },
+        "entry": { "type": "string" },
+        "targets": {
+          "type": "array",
+          "maxItems": 8,
+          "items": { "type": "string" }
+        },
+        "invalidation": { "type": "string" },
+        "sourceRefs": {
+          "type": "array",
+          "maxItems": 12,
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["state", "direction", "entry", "targets", "invalidation", "sourceRefs"]
+    },
+    "lunaBrief": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "facts": {
+          "type": "array",
+          "maxItems": 8,
+          "items": { "type": "string" }
+        },
+        "question": { "type": "string" },
+        "counterCase": { "type": "string" }
+      },
+      "required": ["facts", "question", "counterCase"]
     }
   },
   "required": [
@@ -47,6 +113,9 @@
     "reason",
     "evidenceRefs",
     "needsXSearch",
-    "mediumReason"
+    "mediumReason",
+    "brief",
+    "campaign",
+    "lunaBrief"
   ]
 }

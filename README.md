@@ -11,15 +11,18 @@ The production loop runs entirely on the VPS:
   is capped at 60 short checks per rolling day.
 - `astro-scan.timer` checks market and evidence state every two minutes using
   local code. No model runs when nothing material changed.
-- On a real event, the latest configured DeepSeek V4 Flash route performs the
-  repetitive JSON evidence
-  classification (24/day maximum). Luna Light is the bounded fallback
+- On a real event, the latest configured DeepSeek V4 Flash route performs
+  repetitive classification, campaign linking, contradiction checks, and a
+  compact Luna briefing (100/day maximum). Luna Light is the bounded fallback
   (8/day), and Luna Medium alone may rebuild the Hermes strategy thesis
   (5/day).
 - The protected Astro Codex connector gives Luna Medium the archived playbook
   and historical search needed to connect the evidence.
 - `astro-signal.service` serves the last validated forecast through a
   token-protected HTTPS endpoint.
+- `astro-autoresearch.timer` runs one guarded nightly shadow experiment only
+  after at least 20 frozen outcomes exist. It uses a chronological holdout and
+  can never modify the live forecast or playbook.
 - `astro-watchdog.timer` checks freshness every five minutes and invokes
   `astro-recovery.service` if the API or scan loop becomes unhealthy.
 
@@ -39,7 +42,7 @@ model inference so every forecast can be audited.
 
 - Grok is authenticated with the user's existing `grok.com` OAuth session and
   is restricted to direct X retrieval.
-- DeepSeek V4 Flash handles only repetitive evidence classification, with
+- DeepSeek V4 Flash handles repetitive evidence work and compact briefings, with
   thinking disabled and a hard rolling cap. Direct DeepSeek and
   OpenRouter-compatible credentials are supported.
 - Codex CLI is authenticated on the VPS. Luna Light handles only fallback

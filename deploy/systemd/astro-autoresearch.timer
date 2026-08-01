@@ -1,0 +1,11 @@
+[Unit]
+Description=Run guarded Astro shadow research nightly
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 UTC
+RandomizedDelaySec=10min
+Persistent=true
+Unit=astro-autoresearch.service
+
+[Install]
+WantedBy=timers.target

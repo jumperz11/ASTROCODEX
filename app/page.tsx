@@ -642,6 +642,7 @@ type LiveSignalEnvelope = {
     stage?: string;
     material?: boolean;
     category?: string;
+    remaining?: number;
     lightRemaining?: number;
     mediumRemaining?: number;
     error?: string;
@@ -762,7 +763,7 @@ export default function Home() {
     >("desk");
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
-  const [lastUpdated, setLastUpdated] = useState("Validated Grok snapshot");
+  const [lastUpdated, setLastUpdated] = useState("Saved snapshot");
   const [signalCheckedAt, setSignalCheckedAt] = useState<string | null>(null);
   const [systemStatus, setSystemStatus] = useState({
     degraded: true,
@@ -1395,6 +1396,333 @@ export default function Home() {
       setSoundAlertsEnabled(false);
       setNotice("This browser did not allow sound alerts.");
     }
+  }
+
+  if (["desk", "chart", "live", "history"].includes(activeView)) {
+    const shortStatus =
+      opportunity.label === "WAIT" ? "WAIT" : opportunity.label;
+    const watchLevel =
+      focusTargets[0]?.value || forecast.execution.takeProfit.level;
+    const deepSeekStatus =
+      systemStatus.reasoner?.provider?.includes("deepseek")
+        ? "DeepSeek checked"
+        : systemStatus.reasoner?.stage
+          ? "Hermes checked"
+          : "Standing by";
+
+    return (
+      <main className="neo-shell" id="top">
+        <header className="neo-topbar">
+          <button className="neo-brand" onClick={() => showView("desk")}>
+            <span>AI</span>
+            <strong>Astro</strong>
+          </button>
+
+          <nav className="neo-tabs" aria-label="Main pages">
+            {[
+              ["desk", "Now"],
+              ["chart", "Chart"],
+              ["history", "History"],
+              ["live", "Live"],
+            ].map(([view, label]) => (
+              <button
+                className={activeView === view ? "active" : ""}
+                key={view}
+                onClick={() =>
+                  showView(view as "desk" | "chart" | "history" | "live")
+                }
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+
+          <div className="neo-tools">
+            <span className={systemStatus.degraded ? "stale" : "live"}>
+              <i />
+              {systemStatus.degraded ? "Saved" : "Live"}
+            </span>
+            <button
+              aria-label="Refresh"
+              disabled={loading}
+              onClick={refreshForecast}
+            >
+              {loading ? "…" : "↻"}
+            </button>
+          </div>
+        </header>
+
+        <section className="neo-brief" aria-label="Current Astro summary">
+          <article className={`neo-signal ${forecast.signal.state}`}>
+            <small>RIGHT NOW</small>
+            <strong>{shortStatus}</strong>
+          </article>
+          <article>
+            <small>ASTRO</small>
+            <strong>{plainDashboard.where}</strong>
+          </article>
+          <article>
+            <small>HERMES NEXT</small>
+            <strong>{plainDashboard.next}</strong>
+          </article>
+          <article>
+            <small>WATCH</small>
+            <strong>{watchLevel}</strong>
+          </article>
+        </section>
+
+        {activeView === "desk" && (
+          <section className="neo-page neo-now">
+            <header className="neo-page-title">
+              <div>
+                <span>YOUR CLEAR READ</span>
+                <h1>{plainDashboard.you}</h1>
+              </div>
+              <span className={`neo-freshness ${signalFreshness.tone}`}>
+                <i />
+                {signalFreshness.label}
+              </span>
+            </header>
+
+            <div className="neo-now-grid">
+              <article className="neo-answer">
+                <div className="neo-answer-top">
+                  <span>ASTRO · CONFIRMED</span>
+                  <b>{plainDashboard.freshEntry}</b>
+                </div>
+                <strong>{plainDashboard.where}</strong>
+                <p>{plainDashboard.happened}</p>
+                <footer>
+                  <small>CHANGES WHEN</small>
+                  <span>{forecast.thesis.nextTrigger}</span>
+                </footer>
+              </article>
+
+              <article className="neo-answer hermes">
+                <div className="neo-answer-top">
+                  <span>HERMES · MODEL</span>
+                  <b>{hermesAgreement.label}</b>
+                </div>
+                <strong>{plainDashboard.next}</strong>
+                <p>{hermesAgreement.detail}</p>
+                <footer>
+                  <small>WRONG IF</small>
+                  <span>{forecast.hermes.failure}</span>
+                </footer>
+              </article>
+
+              <aside className="neo-levels">
+                <header>
+                  <span>LEVELS</span>
+                  <button onClick={() => showView("chart")}>Chart →</button>
+                </header>
+                {targetPlan.slice(0, 4).map((target) => (
+                  <div className={target.tone} key={target.label}>
+                    <small>{target.label}</small>
+                    <strong>{target.value}</strong>
+                    <span>{target.state}</span>
+                  </div>
+                ))}
+              </aside>
+            </div>
+
+            <article className={`neo-update ${hasUnseenUpdate ? "new" : ""}`}>
+              <div>
+                <small>
+                  {hasUnseenUpdate ? "NEW UPDATE" : "LATEST UPDATE"} ·{" "}
+                  {lastUpdated}
+                </small>
+                <strong>
+                  {latestAstroEvidence?.label || forecast.headline}
+                </strong>
+              </div>
+              <a
+                href={
+                  latestAstroEvidence?.source ||
+                  forecast.sources[0]?.url ||
+                  "https://x.com/astronomer_zero"
+                }
+                onClick={markCurrentUpdateSeen}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Source ↗
+              </a>
+            </article>
+
+            {notice && <p className="neo-notice">{notice}</p>}
+          </section>
+        )}
+
+        {activeView === "chart" && (
+          <section className="neo-page neo-chart">
+            <header className="neo-page-title">
+              <div>
+                <span>PRICE + IMPORTANT LEVELS</span>
+                <h1>Chart</h1>
+              </div>
+              <button
+                className="neo-alerts"
+                onClick={() => void toggleSoundAlerts()}
+              >
+                {soundAlertsEnabled ? "Sound on" : "Sound off"}
+              </button>
+            </header>
+
+            <LiveAstroChart
+              events={forecast.evidence.filter(
+                (item) => item.type === "astro" && item.source && item.time,
+              )}
+              freshnessLabel={signalFreshness.label}
+              freshnessTone={signalFreshness.tone}
+              levels={forecast.levels}
+              thesisLevels={forecast.thesisLevels}
+              forecastTime={forecast.generatedAt}
+              signalState={forecast.signal.state}
+              signalHeadline={opportunity.label}
+              riskText={forecast.decision.risk}
+              predictedProbability={predictedNextMove?.probability ?? 0}
+              hermesHorizon={forecast.hermes.horizon}
+              hermesCurrentPhase={forecast.hermes.currentPhase}
+              hermesNextPhase={forecast.hermes.nextPhase}
+              hermesLongerMove={forecast.hermes.longerMove}
+              hermesConfirmation={forecast.hermes.confirmation}
+              hermesFailure={forecast.hermes.failure}
+              astroPosition={forecast.decision.position}
+              astroConfirmed={forecast.thesis.astroConfirmed}
+              astroTakeProfit={`${forecast.execution.takeProfit.state} · ${forecast.execution.takeProfit.level}`}
+              schoolMatch={forecast.hermes.learningNote}
+              marketContext={forecast.thesis.regime}
+              hermesProjection={forecast.hermes.projection}
+              hermesAudit={systemStatus.hermesAudit}
+              onOpenHermes={() => showView("live")}
+            />
+
+            <div className="neo-chart-notes">
+              <article>
+                <small>ASTRO SAYS</small>
+                <strong>{forecast.thesis.astroConfirmed}</strong>
+              </article>
+              <article>
+                <small>HERMES EXPECTS</small>
+                <strong>{forecast.hermes.nextPhase}</strong>
+              </article>
+              <article>
+                <small>READ CHANGES IF</small>
+                <strong>{forecast.decision.risk}</strong>
+              </article>
+            </div>
+          </section>
+        )}
+
+        {activeView === "history" && (
+          <section className="neo-page neo-history">
+            <header className="neo-page-title">
+              <div>
+                <span>WHAT ACTUALLY HAPPENED</span>
+                <h1>History</h1>
+              </div>
+            </header>
+            <AstroHistory />
+          </section>
+        )}
+
+        {activeView === "live" && (
+          <section className="neo-page neo-live">
+            <header className="neo-page-title">
+              <div>
+                <span>REAL SYSTEM ACTIVITY</span>
+                <h1>Live</h1>
+              </div>
+              <span className="neo-worker-state">{deepSeekStatus}</span>
+            </header>
+
+            <div className="neo-health">
+              <article>
+                <i className={systemStatus.telegramSourceStatus} />
+                <small>TELEGRAM</small>
+                <strong>
+                  {systemStatus.telegramSourceStatus === "healthy"
+                    ? "Watching 2/2"
+                    : systemStatus.telegramSourceStatus}
+                </strong>
+              </article>
+              <article>
+                <i className={systemStatus.xSourceStatus} />
+                <small>X · GROK</small>
+                <strong>
+                  {systemStatus.xSourceStatus === "healthy"
+                    ? `${systemStatus.xSourceBudget?.remaining ?? "—"} left`
+                    : systemStatus.xSourceStatus}
+                </strong>
+              </article>
+              <article>
+                <i className={systemStatus.reasoner?.status || "standby"} />
+                <small>DEEPSEEK</small>
+                <strong>
+                  {systemStatus.reasoner?.provider?.includes("deepseek")
+                    ? `${systemStatus.reasoner.remaining ?? "—"} left`
+                    : "Standby"}
+                </strong>
+              </article>
+              <article>
+                <i className="healthy" />
+                <small>LUNA</small>
+                <strong>
+                  {systemStatus.reasoner?.stage === "medium"
+                    ? "Thinking"
+                    : "Saved"}
+                </strong>
+              </article>
+            </div>
+
+            <section className="neo-feed" aria-live="polite">
+              <header>
+                <strong>Latest activity</strong>
+                <span>Updates automatically</span>
+              </header>
+              {[...systemStatus.activity]
+                .reverse()
+                .slice(0, 10)
+                .map((event, index) => (
+                  <article key={`${event.at}-${event.stage}-${index}`}>
+                    <time>
+                      {new Date(event.at).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </time>
+                    <i className={event.status} />
+                    <div>
+                      <strong>{event.title}</strong>
+                      <p>{event.detail}</p>
+                    </div>
+                  </article>
+                ))}
+            </section>
+          </section>
+        )}
+
+        <nav className="neo-mobile-tabs" aria-label="Mobile pages">
+          {[
+            ["desk", "Now"],
+            ["chart", "Chart"],
+            ["history", "History"],
+            ["live", "Live"],
+          ].map(([view, label]) => (
+            <button
+              className={activeView === view ? "active" : ""}
+              key={view}
+              onClick={() =>
+                showView(view as "desk" | "chart" | "history" | "live")
+              }
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+      </main>
+    );
   }
 
   return (

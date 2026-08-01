@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import "./globals.css";
 
 const description =
-  "An evidence-backed research terminal that separates Astro's public statements, archived framework, and probabilistic inference.";
+  "Astro now, Hermes next, the levels that matter, and what changed.";
 
 export async function generateMetadata(): Promise<Metadata> {
   const incoming = await headers();
@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const protocol =
     incoming.get("x-forwarded-proto") ??
     (host.startsWith("localhost") ? "http" : "https");
-  const image = `${protocol}://${host}/og-v3.png`;
+  const image = `${protocol}://${host}/og.png`;
 
   return {
     title: "Astro Intelligence",

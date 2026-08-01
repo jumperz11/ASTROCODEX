@@ -33,27 +33,23 @@ test("server-renders the Astro Intelligence research terminal", async () => {
 
   const html = await response.text();
   assert.match(html, /<title>Astro Intelligence<\/title>/i);
-  assert.match(html, /ASTRO[\s\S]*INTELLIGENCE/);
-  assert.match(html, /Astro at a glance/);
+  assert.match(html, /Astro Intelligence/i);
+  assert.match(html, /YOUR CLEAR READ/);
   assert.match(html, /ASTRO · CONFIRMED/);
   assert.match(html, />WAIT</);
-  assert.match(html, /New entry\?/);
-  assert.match(html, /HERMES · PREDICTION/);
-  assert.match(html, /IMPORTANT LEVELS/);
-  assert.match(html, /See Hermes thinking/);
-  assert.match(html, /Open menu/);
-  assert.match(html, /Alerts off/);
+  assert.match(html, /NO · EXISTING POSITION/);
+  assert.match(html, /HERMES · MODEL/);
+  assert.match(html, /LEVELS/);
+  assert.match(html, /RIGHT NOW/);
   assert.match(html, />Chart</);
   assert.match(html, />Live</);
   assert.match(html, />History</);
-  assert.match(html, /Open chart/);
-  assert.match(html, /Past moves and school/);
-  assert.match(html, /Open post/i);
+  assert.match(html, /LATEST UPDATE/);
+  assert.match(html, /Source ↗/i);
   assert.match(
     html,
     /https:\/\/x\.com\/astronomer_zero\/status\/\d+/i,
   );
-  assert.match(html, /Human judgment remains the final gate/);
   assert.match(html, /property="og:image"/);
   assert.doesNotMatch(html, /XAI_API_KEY/);
   assert.doesNotMatch(html, /Your site is taking shape|react-loading-skeleton/);

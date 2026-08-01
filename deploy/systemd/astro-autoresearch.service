@@ -1,0 +1,27 @@
+[Unit]
+Description=Astro DeepSeek guarded shadow research
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=astro
+Group=astro
+WorkingDirectory=/opt/astro
+EnvironmentFile=/etc/astro-signal.env
+Environment=ASTRO_STATE_DIR=/var/lib/astro-signal
+Environment=ASTRO_AUTORESEARCH_MIN_EXAMPLES=20
+ExecStart=/usr/bin/npm run astro:autoresearch
+TimeoutStartSec=180
+StateDirectory=astro-signal
+StateDirectoryMode=0700
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+RestrictSUIDSGID=true
+LockPersonality=true
+UMask=0077

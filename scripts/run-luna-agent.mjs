@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { access, readFile, stat } from "node:fs/promises";
+import { access, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ensureConnectorCredentials } from "./connector-auth.mjs";
@@ -27,6 +27,7 @@ const deepSeekBudgetPath = join(
   stateDirectory,
   "deepseek-flash-budget.json",
 );
+const evidenceBriefPath = join(stateDirectory, "deepseek-evidence-brief.json");
 const lightDailyCap = Math.max(
   1,
   Number.parseInt(process.env.ASTRO_LUNA_LIGHT_DAILY_CAP || "8", 10),
@@ -73,6 +74,15 @@ async function readJson(path, fallback) {
   }
 }
 
+async function writeJsonAtomic(path, value) {
+  const temporaryPath = `${path}.${process.pid}.tmp`;
+  await writeFile(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, {
+    encoding: "utf8",
+    mode: 0o600,
+  });
+  await rename(temporaryPath, path);
+}
+
 function run(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -106,7 +116,7 @@ function run(command, args, options = {}) {
 
 function compactTelegram(source) {
   const messages = Array.isArray(source?.messages) ? source.messages : [];
-  return messages.slice(-14).map((message) => ({
+  return messages.slice(-24).map((message) => ({
     id: message.id ?? message.messageId ?? null,
     chatId: message.chatId ?? null,
     chatTitle: message.chatTitle ?? message.sourceTitle ?? null,
@@ -190,7 +200,31 @@ function validGate(value) {
     typeof value.reason === "string" &&
     Array.isArray(value.evidenceRefs) &&
     typeof value.needsXSearch === "boolean" &&
-    typeof value.mediumReason === "string"
+    typeof value.mediumReason === "string" &&
+    value.brief &&
+    typeof value.brief === "object" &&
+    typeof value.brief.astroNow === "string" &&
+    typeof value.brief.changed === "string" &&
+    typeof value.brief.nextTrigger === "string" &&
+    typeof value.brief.contradiction === "string" &&
+    Array.isArray(value.brief.levels) &&
+    value.campaign &&
+    typeof value.campaign === "object" &&
+    ["unknown", "planned", "open", "partial", "closed", "conflict"].includes(
+      value.campaign.state,
+    ) &&
+    ["unknown", "long", "short", "both", "flat"].includes(
+      value.campaign.direction,
+    ) &&
+    typeof value.campaign.entry === "string" &&
+    Array.isArray(value.campaign.targets) &&
+    typeof value.campaign.invalidation === "string" &&
+    Array.isArray(value.campaign.sourceRefs) &&
+    value.lunaBrief &&
+    typeof value.lunaBrief === "object" &&
+    Array.isArray(value.lunaBrief.facts) &&
+    typeof value.lunaBrief.question === "string" &&
+    typeof value.lunaBrief.counterCase === "string"
   );
 }
 
@@ -321,8 +355,31 @@ Return only this JSON object:
   "reason": "one terse factual sentence",
   "evidenceRefs": ["message IDs or exact X status URLs"],
   "needsXSearch": true or false,
-  "mediumReason": "why Luna Medium is or is not justified"
-}`;
+  "mediumReason": "why Luna Medium is or is not justified",
+  "brief": {
+    "astroNow": "plain-language current state",
+    "changed": "what changed, or Nothing material",
+    "nextTrigger": "the next fact that would change the read",
+    "contradiction": "the direct conflict, or None",
+    "levels": [{"label":"ENTRY/TP/EXIT/OTHER","value":"supported value","sourceRef":"message ID or exact X URL"}]
+  },
+  "campaign": {
+    "state": "unknown/planned/open/partial/closed/conflict",
+    "direction": "unknown/long/short/both/flat",
+    "entry": "supported entry or Unknown",
+    "targets": ["ordered supported targets"],
+    "invalidation": "supported invalidation or Unknown",
+    "sourceRefs": ["message IDs or exact X URLs"]
+  },
+  "lunaBrief": {
+    "facts": ["maximum eight short facts"],
+    "question": "the one question Luna Medium must answer",
+    "counterCase": "the strongest reason the apparent read may be wrong"
+  }
+}
+
+Keep every field terse. Paraphrase private Telegram context; never reproduce
+paid message text. Do not infer a level that is not present in a source.`;
 
 let gate = null;
 let gateProvider = "deepseek-v4-flash";
@@ -408,6 +465,15 @@ if (deepSeekResult.available) {
     process.exit(0);
   }
 }
+await writeJsonAtomic(evidenceBriefPath, {
+  updatedAt: new Date().toISOString(),
+  provider: gateProvider,
+  material: gate.material,
+  category: gate.category,
+  brief: gate.brief,
+  campaign: gate.campaign,
+  lunaBrief: gate.lunaBrief,
+});
 if (!gate.material) {
   process.stdout.write(
     `${JSON.stringify({
@@ -417,6 +483,8 @@ if (!gate.material) {
       material: false,
       category: gate.category,
       reason: gate.reason,
+      brief: gate.brief,
+      campaign: gate.campaign,
       remaining: lightRemaining,
     })}\n`,
   );
@@ -580,6 +648,8 @@ Provider boundary:
       category: gate.category,
       changed,
       gateProvider,
+      brief: gate.brief,
+      campaign: gate.campaign,
       lightRemaining,
       mediumRemaining: mediumBudget.remaining,
     })}\n`,
