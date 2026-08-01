@@ -243,6 +243,48 @@ export async function buildCodexIndex(archiveDirectory, liveSourcePath = null) {
   };
 }
 
+export function carryForwardLiveEntries(index, previousIndex) {
+  const currentEntries = Array.isArray(index?.entries) ? index.entries : [];
+  const previousLive = (Array.isArray(previousIndex?.entries)
+    ? previousIndex.entries
+    : []
+  ).filter((entry) => String(entry?.ref || "").startsWith("telegram-live:"));
+  const byRef = new Map(
+    currentEntries
+      .filter((entry) => entry?.ref)
+      .map((entry) => [entry.ref, entry]),
+  );
+  for (const entry of previousLive) {
+    if (entry?.ref && !byRef.has(entry.ref)) byRef.set(entry.ref, entry);
+  }
+  const entries = [...byRef.values()].sort(
+    (left, right) =>
+      String(left.source || "").localeCompare(String(right.source || "")) ||
+      String(left.date || "").localeCompare(String(right.date || "")) ||
+      Number(left.id || 0) - Number(right.id || 0),
+  );
+  return {
+    ...index,
+    archiveSources: [
+      ...new Set(entries.flatMap((entry) => entry.sources || [entry.source])),
+    ]
+      .filter(Boolean)
+      .sort(),
+    carriedForwardLiveCount: previousLive.filter(
+      (entry) =>
+        entry?.ref &&
+        !currentEntries.some((candidate) => candidate?.ref === entry.ref),
+    ).length,
+    entryCount: entries.length,
+    mediaCount: entries.reduce(
+      (total, entry) =>
+        total + (Array.isArray(entry.media) ? entry.media.length : 0),
+      0,
+    ),
+    entries,
+  };
+}
+
 function queryTerms(query) {
   return [
     ...new Set(
@@ -315,7 +357,14 @@ async function main() {
       "Usage: node scripts/astro-codex-index.mjs ARCHIVE_DIRECTORY OUTPUT_PATH",
     );
   }
-  const index = await buildCodexIndex(archiveDirectory, liveSourcePath);
+  const builtIndex = await buildCodexIndex(archiveDirectory, liveSourcePath);
+  let previousIndex = null;
+  try {
+    previousIndex = JSON.parse(await readFile(outputPath, "utf8"));
+  } catch {
+    // The first build has no prior live ledger to preserve.
+  }
+  const index = carryForwardLiveEntries(builtIndex, previousIndex);
   await writeFile(outputPath, `${JSON.stringify(index)}\n`, {
     encoding: "utf8",
     mode: 0o600,

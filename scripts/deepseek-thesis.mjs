@@ -1,0 +1,161 @@
+import { createHash } from "node:crypto";
+
+const PUBLIC_ASTRO_URL =
+  /^https:\/\/(?:www\.)?x\.com\/astronomer_zero\/status\/\d+$/;
+
+function text(value, fallback = "Unknown", limit = 600) {
+  const normalized = String(value || "").replace(/\s+/g, " ").trim();
+  return (normalized || fallback).slice(0, limit);
+}
+
+function stringList(value, limit = 12, itemLimit = 500) {
+  return (Array.isArray(value) ? value : [])
+    .map((item) => text(item, "", itemLimit))
+    .filter(Boolean)
+    .slice(0, limit);
+}
+
+export function thesisSourceSignature({ index, telegram, x, forecast }) {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        indexBuiltAt: index?.builtAt ?? null,
+        indexEntries: index?.entryCount ?? null,
+        telegramNewest: telegram?.newestAcceptedAt ?? null,
+        telegramCount: Array.isArray(telegram?.messages)
+          ? telegram.messages.length
+          : 0,
+        xNewest: x?.newestAcceptedAt ?? null,
+        xStatus: x?.status ?? null,
+        forecastGeneratedAt: forecast?.generatedAt ?? null,
+      }),
+    )
+    .digest("hex");
+}
+
+export function nextUnprocessedSchoolBatch(
+  index,
+  processedRefs,
+  batchSize = 100,
+) {
+  const seen = new Set(Array.isArray(processedRefs) ? processedRefs : []);
+  const entries = Array.isArray(index?.entries) ? index.entries : [];
+  return entries
+    .filter((entry) => entry?.ref && !seen.has(entry.ref))
+    .slice(0, Math.max(1, Math.min(Number(batchSize) || 100, 200)))
+    .map((entry) => ({
+      ref: entry.ref,
+      source: text(entry.source, "Astro archive", 120),
+      date: text(entry.date, "Unknown date", 80),
+      text: text(entry.text, "[Media-only item]", 700),
+    }));
+}
+
+function normalizeBehavior(value) {
+  const allowed = new Set([
+    "hold",
+    "trim",
+    "close",
+    "flip_long",
+    "flip_short",
+    "readd",
+    "silence",
+    "post_update",
+  ]);
+  const action = allowed.has(value?.action) ? value.action : "post_update";
+  return {
+    action,
+    probability: Math.min(
+      100,
+      Math.max(0, Math.round(Number(value?.probability) || 0)),
+    ),
+    horizonHours: Math.min(
+      720,
+      Math.max(1, Math.round(Number(value?.horizonHours) || 24)),
+    ),
+    why: text(value?.why, "Insufficient evidence.", 500),
+    sourceRefs: stringList(value?.sourceRefs, 8, 300),
+  };
+}
+
+export function normalizeDeepSeekThesis(value, allowedLessonRefs = []) {
+  const allowedRefs = new Set(allowedLessonRefs);
+  const thesis = value?.thesis && typeof value.thesis === "object"
+    ? value.thesis
+    : {};
+  const campaign = thesis?.campaign && typeof thesis.campaign === "object"
+    ? thesis.campaign
+    : {};
+  const state = ["unknown", "planned", "open", "partial", "closed", "conflict"]
+    .includes(campaign.state)
+    ? campaign.state
+    : "unknown";
+  const direction = ["unknown", "long", "short", "both", "flat"].includes(
+    campaign.direction,
+  )
+    ? campaign.direction
+    : "unknown";
+  const publicRefs = stringList(thesis.publicSourceRefs, 12, 300).filter((ref) =>
+    PUBLIC_ASTRO_URL.test(ref),
+  );
+  const lessons = (Array.isArray(value?.newLessons) ? value.newLessons : [])
+    .map((lesson) => ({
+      rule: text(lesson?.rule, "", 400),
+      when: text(lesson?.when, "Unknown", 300),
+      sequence: text(lesson?.sequence, "Unknown", 400),
+      failsWhen: text(lesson?.failsWhen, "Unknown", 300),
+      sourceRefs: stringList(lesson?.sourceRefs, 8, 300).filter((ref) =>
+        allowedRefs.has(ref),
+      ),
+    }))
+    .filter((lesson) => lesson.rule && lesson.sourceRefs.length)
+    .slice(0, 8);
+
+  return {
+    thesis: {
+      astroConfirmed: publicRefs.length
+        ? text(thesis.astroConfirmed, "No new public confirmation.", 700)
+        : "No new public confirmation.",
+      publicSourceRefs: publicRefs,
+      telegramContext: text(
+        thesis.telegramContext,
+        "No new Telegram context.",
+        700,
+      ),
+      campaign: {
+        state,
+        direction,
+        entry: text(campaign.entry, "Unknown", 300),
+        targets: stringList(campaign.targets, 8, 300),
+        invalidation: text(campaign.invalidation, "Unknown", 400),
+      },
+      nextBehaviors: (
+        Array.isArray(thesis.nextBehaviors) ? thesis.nextBehaviors : []
+      )
+        .map(normalizeBehavior)
+        .slice(0, 3),
+      contradictions: stringList(thesis.contradictions, 8, 400),
+      unknowns: stringList(thesis.unknowns, 8, 400),
+    },
+    newLessons: lessons,
+    lunaPacket: {
+      facts: stringList(value?.lunaPacket?.facts, 10, 500),
+      historicalAnalogues: stringList(
+        value?.lunaPacket?.historicalAnalogues,
+        8,
+        500,
+      ),
+      question: text(
+        value?.lunaPacket?.question,
+        "What material evidence would change the accepted forecast?",
+        600,
+      ),
+      counterCase: text(
+        value?.lunaPacket?.counterCase,
+        "The apparent pattern may not repeat.",
+        600,
+      ),
+      doNotAssume: stringList(value?.lunaPacket?.doNotAssume, 8, 400),
+    },
+  };
+}

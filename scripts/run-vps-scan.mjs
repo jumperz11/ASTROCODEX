@@ -31,6 +31,7 @@ const trackRecordSeedPath = join(projectRoot, "app", "track-record.json");
 const codexIndexPath =
   process.env.ASTRO_CODEX_INDEX?.trim() ||
   join(stateDirectory, "codex-index.json");
+const deepSeekThesisPath = join(stateDirectory, "deepseek-thesis.json");
 const reasoningModel =
   process.env.ASTRO_CODEX_MODEL?.trim() || "codex-luna";
 const timeoutMs = Math.max(
@@ -261,6 +262,34 @@ async function verifyCodexIndex() {
   };
 }
 
+async function deepSeekBackgroundSummary() {
+  const thesis = await readJson(deepSeekThesisPath, {});
+  const updatedMs = new Date(thesis?.updatedAt || 0).getTime();
+  const stale =
+    !Number.isFinite(updatedMs) || Date.now() - updatedMs > 8 * 3_600_000;
+  return {
+    status:
+      thesis?.status === "healthy" && !stale
+        ? "healthy"
+        : thesis?.status || "warming_up",
+    updatedAt: thesis?.updatedAt ?? null,
+    checkedAt: thesis?.checkedAt ?? null,
+    work: thesis?.work ?? null,
+    provider: thesis?.provider ?? null,
+    stale,
+    school: thesis?.school ?? null,
+    thesis: thesis?.thesis
+      ? {
+          campaign: thesis.thesis.campaign ?? null,
+          nextBehaviors: thesis.thesis.nextBehaviors ?? [],
+          contradictions: thesis.thesis.contradictions ?? [],
+          unknowns: thesis.thesis.unknowns ?? [],
+        }
+      : null,
+    error: thesis?.error ?? null,
+  };
+}
+
 function runAgent(
   market,
   trackRecord,
@@ -486,11 +515,13 @@ await writeState({
 });
 
 try {
-  const [marketFeed, codex, telegramSources, xSources] = await Promise.all([
+  const [marketFeed, codex, telegramSources, xSources, deepSeek] =
+    await Promise.all([
     verifyMarketFeed(),
     verifyCodexIndex(),
     telegramSourceSummary(),
     xSourceSummary(),
+    deepSeekBackgroundSummary(),
   ]);
   const market = marketFeed.snapshot;
   const candles = marketFeed.candles;
@@ -499,7 +530,7 @@ try {
     stage: "inputs",
     status: "done",
     title: "Inputs verified",
-    detail: `${telegramSources.allowedChats.length}/2 Astro channels healthy · ${telegramSources.messageCount} recent messages · BTC $${Math.round(market.price).toLocaleString("en-US")}.`,
+    detail: `${telegramSources.allowedChats.length}/2 Astro channels healthy · ${telegramSources.messageCount} recent messages · DeepSeek school ${deepSeek.school?.processed ?? 0}/${deepSeek.school?.total ?? codex.entries} · BTC $${Math.round(market.price).toLocaleString("en-US")}.`,
   });
   const currentHistory = await readJson(historyPath, {});
   const currentTrackRecord =
@@ -561,6 +592,7 @@ try {
       runId,
       model: reasoningModel,
       codex,
+      deepSeek,
       status: "healthy",
       startedAt,
       finishedAt,
@@ -614,6 +646,7 @@ try {
     runId,
     model: reasoningModel,
     codex,
+    deepSeek,
     status: "analyzing",
     startedAt,
     telegramSource: {
@@ -692,6 +725,7 @@ try {
     runId,
     model: reasoningModel,
     codex,
+    deepSeek,
     status: "healthy",
     startedAt,
     finishedAt,

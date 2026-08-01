@@ -11,6 +11,7 @@ WorkingDirectory=/opt/astro
 EnvironmentFile=/etc/astro-signal.env
 Environment=ASTRO_STATE_DIR=/var/lib/astro-signal
 Environment=ASTRO_AUTORESEARCH_MIN_EXAMPLES=20
+Environment=ASTRO_AUTORESEARCH_MIN_BEHAVIOR_EXAMPLES=12
 ExecStart=/usr/bin/npm run astro:autoresearch
 TimeoutStartSec=180
 StateDirectory=astro-signal

@@ -4,6 +4,7 @@ import { access, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ensureConnectorCredentials } from "./connector-auth.mjs";
+import { callDeepSeekJson } from "./deepseek-client.mjs";
 import { consumeBudget } from "./provider-budget.mjs";
 
 const scriptsDirectory = dirname(fileURLToPath(import.meta.url));
@@ -28,6 +29,8 @@ const deepSeekBudgetPath = join(
   "deepseek-flash-budget.json",
 );
 const evidenceBriefPath = join(stateDirectory, "deepseek-evidence-brief.json");
+const backgroundThesisPath = join(stateDirectory, "deepseek-thesis.json");
+const autoresearchPath = join(stateDirectory, "autoresearch-shadow.json");
 const lightDailyCap = Math.max(
   1,
   Number.parseInt(process.env.ASTRO_LUNA_LIGHT_DAILY_CAP || "8", 10),
@@ -229,85 +232,39 @@ function validGate(value) {
 }
 
 async function deepSeekGate(prompt) {
-  const apiKey = process.env.DEEPSEEK_API_KEY?.trim();
-  if (!apiKey) return { available: false, reason: "not_configured" };
-  const configuredBaseUrl = process.env.DEEPSEEK_BASE_URL?.trim();
-  const usesOpenRouter =
-    apiKey.startsWith("sk-or-") ||
-    Boolean(configuredBaseUrl?.includes("openrouter.ai"));
-  const baseUrl =
-    configuredBaseUrl ||
-    (usesOpenRouter
-      ? "https://openrouter.ai/api/v1/chat/completions"
-      : "https://api.deepseek.com/chat/completions");
-  const model =
-    process.env.ASTRO_DEEPSEEK_MODEL?.trim() ||
-    (usesOpenRouter
-      ? "deepseek/deepseek-v4-flash-0731"
-      : "deepseek-v4-flash");
-  const budget = await consumeBudget(
-    deepSeekBudgetPath,
-    deepSeekDailyCap,
-  );
-  if (!budget.accepted) {
-    return { available: false, reason: "daily_cap", budget };
+  const result = await callDeepSeekJson({
+    budgetPath: deepSeekBudgetPath,
+    dailyCap: deepSeekDailyCap,
+    system:
+      "Return only valid JSON matching the requested evidence-gate shape. Do not provide trading instructions.",
+    prompt,
+    maxTokens: 1_200,
+    reasoningEffort: "none",
+    timeoutMs: 45_000,
+  });
+  if (!result.available) return result;
+  if (!validGate(result.value)) {
+    return {
+      available: false,
+      reason: "invalid_response",
+      budget: result.budget,
+    };
   }
-  try {
-    const response = await fetch(
-      baseUrl,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            {
-              role: "system",
-              content:
-                "Return only valid JSON matching the requested evidence-gate shape. Do not provide trading instructions.",
-            },
-            { role: "user", content: prompt },
-          ],
-          response_format: { type: "json_object" },
-          ...(usesOpenRouter
-            ? { reasoning: { effort: "none" } }
-            : { thinking: { type: "disabled" } }),
-          max_tokens: 1_200,
-          stream: false,
-        }),
-        signal: AbortSignal.timeout(45_000),
-      },
-    );
-    if (!response.ok) {
-      return {
-        available: false,
-        reason:
-          response.status === 429 ? "provider_rate_limit" : `http_${response.status}`,
-        budget,
-      };
-    }
-    const payload = await response.json();
-    const content = payload?.choices?.[0]?.message?.content;
-    if (typeof content !== "string" || !content.trim()) {
-      return { available: false, reason: "empty_response", budget };
-    }
-    const gate = JSON.parse(content);
-    if (!validGate(gate)) {
-      return { available: false, reason: "invalid_response", budget };
-    }
-    return { available: true, gate, budget, model };
-  } catch {
-    return { available: false, reason: "request_failed", budget };
-  }
+  return {
+    available: true,
+    gate: result.value,
+    budget: result.budget,
+    model: result.model,
+  };
 }
 
-const [telegramSource, xSource, forecast] = await Promise.all([
+const [telegramSource, xSource, forecast, backgroundThesis, autoresearch] =
+  await Promise.all([
   readJson(telegramSourcePath, {}),
   readJson(xSourcePath, {}),
   readJson(forecastPath, {}),
+  readJson(backgroundThesisPath, {}),
+  readJson(autoresearchPath, {}),
 ]);
 const telegramMessages = compactTelegram(telegramSource);
 const xPosts = compactX(xSource);
@@ -338,6 +295,28 @@ ${JSON.stringify({
   signal: forecast.signal ?? null,
   decision: forecast.decision ?? null,
   hermesProjection: forecast.hermes?.projection ?? null,
+})}
+
+DeepSeek background thesis and Astro School packet:
+${JSON.stringify({
+  updatedAt: backgroundThesis.updatedAt ?? null,
+  status: backgroundThesis.status ?? "missing",
+  school: backgroundThesis.school ?? null,
+  thesis: backgroundThesis.thesis ?? null,
+  lunaPacket: backgroundThesis.lunaPacket ?? null,
+})}
+
+Guarded autoresearch status:
+${JSON.stringify({
+  updatedAt: autoresearch.updatedAt ?? null,
+  status: autoresearch.status ?? "missing",
+  marketExamples:
+    autoresearch.marketExamples ?? autoresearch.eligibleExamples ?? 0,
+  behaviorExamples: autoresearch.behaviorExamples ?? 0,
+  champion: autoresearch.champion ?? null,
+  recentExperiments: Array.isArray(autoresearch.experiments)
+    ? autoresearch.experiments.slice(-3)
+    : [],
 })}
 
 Classify only whether a Luna Medium rebuild is justified.
@@ -473,6 +452,8 @@ await writeJsonAtomic(evidenceBriefPath, {
   brief: gate.brief,
   campaign: gate.campaign,
   lunaBrief: gate.lunaBrief,
+  backgroundThesisUpdatedAt: backgroundThesis.updatedAt ?? null,
+  autoresearchUpdatedAt: autoresearch.updatedAt ?? null,
 });
 if (!gate.material) {
   process.stdout.write(
@@ -600,12 +581,36 @@ ${JSON.stringify({
 Approved Telegram context:
 ${JSON.stringify(telegramMessages)}
 
+DeepSeek background thesis and distilled Astro School packet:
+${JSON.stringify({
+  updatedAt: backgroundThesis.updatedAt ?? null,
+  status: backgroundThesis.status ?? "missing",
+  school: backgroundThesis.school ?? null,
+  thesis: backgroundThesis.thesis ?? null,
+  lunaPacket: backgroundThesis.lunaPacket ?? null,
+})}
+
+Guarded shadow-research calibration:
+${JSON.stringify({
+  updatedAt: autoresearch.updatedAt ?? null,
+  status: autoresearch.status ?? "missing",
+  marketExamples:
+    autoresearch.marketExamples ?? autoresearch.eligibleExamples ?? 0,
+  behaviorExamples: autoresearch.behaviorExamples ?? 0,
+  champion: autoresearch.champion ?? null,
+  recentExperiments: Array.isArray(autoresearch.experiments)
+    ? autoresearch.experiments.slice(-5)
+    : [],
+})}
+
 Provider boundary:
 - Grok is only the X evidence scout.
 - You are Luna Medium, responsible for the separated Hermes thesis.
 - Call get_astro_playbook and search_astro_codex for the closest phase, execution sequence, and active trigger.
 - Use exact X status URLs for every public Astro evidence item.
 - Telegram-only material may inform Hermes but cannot become a public Astro quote or confirmed public signal.
+- DeepSeek background output is a research brief, not accepted evidence. Verify it against its cited sources and the protected Astro Codex before using it.
+- Shadow-research results may challenge confidence or horizon selection, but cannot override direct evidence or automatically change the live policy.
 - If the X scout is degraded, web search is a fallback only. Do not claim newest-X completeness.
 - Preserve the previous confirmed Astro state when no new exact public evidence exists.
 - Save with save_astro_forecast only if the evidence or scoreable Hermes map materially changed.

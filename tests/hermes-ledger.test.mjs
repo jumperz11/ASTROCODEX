@@ -7,6 +7,10 @@ import {
   hermesLedgerSummary,
   supersedeActivePredictions,
 } from "../scripts/hermes-ledger.mjs";
+import {
+  eligibleBehaviorPredictions,
+  scoreBehaviorPolicy,
+} from "../scripts/autoresearch-shadow.mjs";
 
 function timestamp(value) {
   return Math.floor(new Date(value).getTime() / 1000);
@@ -210,4 +214,33 @@ test("superseded maps stay resolved and a mutated commitment fails integrity", (
   )[0];
   assert.equal(tampered.integrity, "failed");
   assert.equal(hermesLedgerSummary([tampered]).market.resolved, 0);
+});
+
+test("shadow research can learn behavior even when a market map was superseded", () => {
+  const items = [true, false, true, true].map((hit, index) =>
+    prediction({
+      id: `behavior-${index}`,
+      integrity: "valid",
+      marketStatus: "superseded",
+      confidence: 60,
+      behaviorOutcome: {
+        status: hit ? "hit" : "wrong",
+        resolvedAt: `2026-08-0${index + 1}T00:00:00.000Z`,
+        reason: "Resolved direct behavior.",
+        matchedSource:
+          "https://x.com/astronomer_zero/status/2083131725987864687",
+      },
+    }),
+  );
+  const eligible = eligibleBehaviorPredictions({
+    hermesPredictions: items,
+  });
+  assert.equal(eligible.length, 4);
+  const score = scoreBehaviorPolicy(eligible, {
+    confidenceFloor: 50,
+    maxHorizonHours: 200,
+    requireBehaviorPrediction: true,
+  });
+  assert.equal(score.selected, 4);
+  assert.ok(score.score > 0);
 });

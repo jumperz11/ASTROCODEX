@@ -20,6 +20,7 @@
     "astro:vps:scan": "node scripts/run-vps-scan.mjs",
     "astro:x:scout": "node scripts/run-grok-x-scout.mjs",
     "astro:luna": "node scripts/run-luna-agent.mjs",
+    "astro:deepseek:background": "node scripts/run-deepseek-background.mjs",
     "astro:autoresearch": "node scripts/run-deepseek-autoresearch.mjs",
     "telegram:user:login": "node scripts/telegram-user-source.mjs login",
     "telegram:user:list": "node scripts/telegram-user-source.mjs list"

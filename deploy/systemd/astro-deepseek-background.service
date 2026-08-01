@@ -1,0 +1,33 @@
+[Unit]
+Description=Astro DeepSeek background thesis and school distiller
+After=network-online.target astro-telegram-user-ingest.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=astro
+Group=astro
+WorkingDirectory=/opt/astro
+EnvironmentFile=/etc/astro-signal.env
+Environment=ASTRO_STATE_DIR=/var/lib/astro-signal
+Environment=ASTRO_FORECAST_PATH=/var/lib/astro-signal/forecast.json
+Environment=ASTRO_CODEX_INDEX=/var/lib/astro-signal/codex-index.json
+Environment=ASTRO_TELEGRAM_SOURCE_PATH=/var/lib/astro-signal/telegram-source.json
+Environment=ASTRO_X_SOURCE_PATH=/var/lib/astro-signal/x-source.json
+Environment=ASTRO_DEEPSEEK_BACKGROUND_DAILY_CAP=120
+Environment=ASTRO_DEEPSEEK_SCHOOL_BATCH_SIZE=100
+Environment=ASTRO_DEEPSEEK_THESIS_REFRESH_HOURS=6
+ExecStart=/usr/bin/npm run astro:deepseek:background
+TimeoutStartSec=120
+StateDirectory=astro-signal
+StateDirectoryMode=0700
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+RestrictSUIDSGID=true
+LockPersonality=true
+UMask=0077

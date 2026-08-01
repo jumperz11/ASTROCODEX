@@ -16,13 +16,18 @@ The production loop runs entirely on the VPS:
   compact Luna briefing (100/day maximum). Luna Light is the bounded fallback
   (8/day), and Luna Medium alone may rebuild the Hermes strategy thesis
   (5/day).
+- `astro-deepseek-background.timer` keeps a durable internal Astro thesis
+  current and steadily distills the protected 14k+ message school archive in
+  cited batches. The worker is always scheduled, but skips paid calls when the
+  thesis is fresh and the school queue is empty.
 - The protected Astro Codex connector gives Luna Medium the archived playbook
   and historical search needed to connect the evidence.
 - `astro-signal.service` serves the last validated forecast through a
   token-protected HTTPS endpoint.
-- `astro-autoresearch.timer` runs one guarded nightly shadow experiment only
-  after at least 20 frozen outcomes exist. It uses a chronological holdout and
-  can never modify the live forecast or playbook.
+- `astro-autoresearch.timer` scores market paths and Astro-behavior predictions
+  as separate tracks. It runs a guarded nightly shadow experiment only after a
+  track has enough frozen outcomes, uses a chronological holdout, and can never
+  modify the live forecast or playbook.
 - `astro-watchdog.timer` checks freshness every five minutes and invokes
   `astro-recovery.service` if the API or scan loop becomes unhealthy.
 
@@ -49,6 +54,10 @@ model inference so every forecast can be audited.
   classification; Luna Medium is reserved for material strategy work.
 - A local, token-protected MCP connector exposes the Astro playbook and forecast
   store to Luna Medium, plus read-only search over the private Astro Codex index.
+- DeepSeek's background thesis, school progress, evidence packet, and
+  autoresearch calibration are stored as separate internal artifacts. Luna
+  receives them as research context and must verify their cited sources before
+  saving anything.
 - Any accepted public Astro claim must cite exact
   `x.com/astronomer_zero/status/...` URLs before the connector accepts a
   forecast.
@@ -69,7 +78,13 @@ npm run astro:codex:index -- /path/to/ChatExport /private/path/codex-index.json
 On the VPS, `ASTRO_CODEX_INDEX` points to that private index. The archive and
 index are never deployed with the public dashboard. Retrieved Codex messages
 are historical framework context only; they cannot establish a current
-position without a fresh direct X post.
+position without a fresh direct X post. The nightly rebuild carries forward
+older live Telegram entries after they leave the rolling ingestion window, so
+the school does not forget approved messages.
+
+The full component map, data ownership rules, schedules, failure behavior, and
+long-term prediction loop are documented in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## One-time setup
 

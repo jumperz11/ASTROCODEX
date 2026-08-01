@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import {
   buildCodexIndex,
+  carryForwardLiveEntries,
   parseTelegramHtml,
   searchCodex,
 } from "../scripts/astro-codex-index.mjs";
@@ -73,4 +74,37 @@ test("Night School merges approved live Telegram lessons into searchable memory"
   assert.deepEqual(results[0].media, [
     "/private/telegram-media/chart.png",
   ]);
+});
+
+test("Night School keeps live Telegram lessons after the rolling source window moves", () => {
+  const current = {
+    entries: [
+      {
+        id: 701,
+        ref: "telegram-live:-1001:701",
+        source: "AstronomerZero",
+        sources: ["AstronomerZero"],
+        date: "2026-08-01T10:00:00.000Z",
+        text: "Current lesson",
+        media: [],
+      },
+    ],
+  };
+  const previous = {
+    entries: [
+      {
+        id: 700,
+        ref: "telegram-live:-1001:700",
+        source: "AstronomerZero",
+        sources: ["AstronomerZero"],
+        date: "2026-07-31T10:00:00.000Z",
+        text: "Older live lesson",
+        media: ["/private/older.png"],
+      },
+    ],
+  };
+  const merged = carryForwardLiveEntries(current, previous);
+  assert.equal(merged.entryCount, 2);
+  assert.equal(merged.carriedForwardLiveCount, 1);
+  assert.equal(merged.mediaCount, 1);
 });
