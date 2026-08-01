@@ -167,6 +167,7 @@ function codexArgs({ effort, prompt, outputPath, schemaPath, search, images }) {
   args.push(
     "exec",
     "--ephemeral",
+    "--skip-git-repo-check",
     "--sandbox",
     "read-only",
     "--cd",
