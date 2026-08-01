@@ -3,7 +3,8 @@ import { join } from "node:path";
 import { callDeepSeekJson } from "./deepseek-client.mjs";
 import {
   buildThesisReviewSignal,
-  mergeApprovedLessons,
+  lessonFingerprint,
+  mergeHumanApprovedLessons,
   nextUnprocessedSchoolBatch,
   normalizeDeepSeekThesis,
   normalizeLessonReviews,
@@ -26,6 +27,7 @@ const forecastPath =
   process.env.ASTRO_FORECAST_PATH?.trim() ||
   join(stateDirectory, "forecast.json");
 const outputPath = join(stateDirectory, "deepseek-thesis.json");
+const learningReviewPath = join(stateDirectory, "learning-review.json");
 const evidenceBriefPath = join(
   stateDirectory,
   "deepseek-evidence-brief.json",
@@ -66,7 +68,7 @@ async function writeJsonAtomic(path, value) {
   await rename(temporaryPath, path);
 }
 
-const [index, telegram, x, forecast, previous, evidenceBrief] =
+const [index, telegram, x, forecast, previous, evidenceBrief, learningReview] =
   await Promise.all([
   readJson(indexPath, {}),
   readJson(telegramPath, {}),
@@ -80,6 +82,11 @@ const [index, telegram, x, forecast, previous, evidenceBrief] =
     lunaPacket: null,
   }),
   readJson(evidenceBriefPath, {}),
+  readJson(learningReviewPath, {
+    version: 1,
+    decisions: {},
+    posts: {},
+  }),
 ]);
 
 if (
@@ -110,22 +117,48 @@ const refreshDue =
   !Number.isFinite(previousUpdatedMs) ||
   Date.now() - previousUpdatedMs >= refreshMs;
 const sourceChanged = previous.sourceSignature !== sourceSignature;
+const humanApprovedLessons = mergeHumanApprovedLessons(
+  previous.lessons,
+  previous.lessonCandidates,
+  learningReview,
+  new Date().toISOString(),
+);
+const previousLessonSignature = JSON.stringify(
+  (Array.isArray(previous.lessons) ? previous.lessons : []).map(
+    (lesson) => lesson.fingerprint || lessonFingerprint(lesson),
+  ),
+);
+const approvedLessonSignature = JSON.stringify(
+  humanApprovedLessons.map(
+    (lesson) => lesson.fingerprint || lessonFingerprint(lesson),
+  ),
+);
+const humanReviewChanged =
+  previousLessonSignature !== approvedLessonSignature;
 
 if (!schoolBatch.length && !sourceChanged && !refreshDue) {
   const quiet = {
     ...previous,
+    lessons: humanApprovedLessons,
+    school: previous.school
+      ? {
+          ...previous.school,
+          lessonCount: humanApprovedLessons.length,
+        }
+      : previous.school,
     checkedAt: new Date().toISOString(),
     status: "healthy",
-    work: "quiet",
+    work: humanReviewChanged ? "human_review_sync" : "quiet",
     error: null,
   };
   await writeJsonAtomic(outputPath, quiet);
   process.stdout.write(
     `${JSON.stringify({
       status: "healthy",
-      work: "quiet",
+      work: quiet.work,
       schoolProcessed: previous.processedRefs?.length || 0,
       schoolTotal: index.entryCount,
+      lessons: humanApprovedLessons.length,
     })}\n`,
   );
   process.exit(0);
@@ -137,18 +170,30 @@ const recentTelegram = (Array.isArray(telegram?.messages)
 )
   .slice(-30)
   .map((message) => ({
+    ref: message.id,
     id: message.id,
     chatTitle: message.chatTitle,
     date: message.activityAt || message.editedAt || message.postedAt,
     text: String(message.text || "").slice(0, 1_500),
   }));
 const recentX = (Array.isArray(x?.posts) ? x.posts : []).slice(0, 8);
-const recentLessons = (Array.isArray(previous?.lessons)
-  ? previous.lessons
-  : []
-)
+const recentLessons = humanApprovedLessons
   .filter((lesson) => lesson?.quality?.status === "supported")
   .slice(-60);
+const liveLearningEvidence = recentTelegram
+  .filter((message) => message.ref && message.text)
+  .map((message) => ({
+    ref: message.ref,
+    source: message.chatTitle || "Approved Astro Telegram",
+    date: message.date || "Unknown date",
+    text: message.text,
+  }));
+const learningEvidence = [
+  ...schoolBatch,
+  ...liveLearningEvidence.filter(
+    (live) => !schoolBatch.some((entry) => entry.ref === live.ref),
+  ),
+];
 
 const prompt = `You are DeepSeek, the background evidence clerk and Astro School
 distiller for Astro Intelligence. You prepare a clean internal research packet
@@ -176,8 +221,8 @@ ${JSON.stringify({
 Previously distilled lessons:
 ${JSON.stringify(recentLessons)}
 
-Next Astro School archive batch:
-${JSON.stringify(schoolBatch)}
+Eligible learning evidence (next archive batch plus recent live Astro messages):
+${JSON.stringify(learningEvidence)}
 
 Return only this JSON:
 {
@@ -229,7 +274,9 @@ Rules:
 - Never invent a price or imply private access to Astro's intentions.
 - Return one to three next behaviors. Probabilities express model uncertainty
   and should total 100 across the returned candidates.
-- Every new lesson must cite only refs present in the supplied archive batch.`;
+- Every new lesson must cite only refs present in the supplied learning evidence.
+- A lesson is only a proposal. A human owner must approve it before Hermes may
+  use it in future predictions.`;
 
 const result = await callDeepSeekJson({
   budgetPath,
@@ -260,7 +307,7 @@ if (!result.available) {
 
 const normalized = normalizeDeepSeekThesis(
   result.value,
-  schoolBatch.map((entry) => entry.ref),
+  learningEvidence.map((entry) => entry.ref),
 );
 let lessonReviews = [];
 let reviewResult = null;
@@ -276,8 +323,8 @@ items supplied below.
 Candidates, addressed by zero-based candidateIndex:
 ${JSON.stringify(normalized.newLessons)}
 
-Exact archive evidence:
-${JSON.stringify(schoolBatch)}
+Exact source evidence:
+${JSON.stringify(learningEvidence)}
 
 Return only:
 {
@@ -337,7 +384,10 @@ beyond the cited text. Similarity is not support. Review every candidate.`,
   );
 }
 const stabilized = stabilizeDeepSeekThesis(normalized, {
-  previous,
+  previous: {
+    ...previous,
+    lessons: humanApprovedLessons,
+  },
   forecast,
   evidenceBrief,
 });
@@ -348,12 +398,6 @@ const processedRefs = [
   ]),
 ];
 const updatedAt = new Date().toISOString();
-const lessons = mergeApprovedLessons(
-  previous.lessons,
-  normalized.newLessons,
-  lessonReviews,
-  updatedAt,
-);
 const legacyLessonCandidates = (Array.isArray(previous.lessons)
   ? previous.lessons
   : []
@@ -371,13 +415,14 @@ const legacyLessonCandidates = (Array.isArray(previous.lessons)
       contradiction: "Unknown",
     },
   }));
-const lessonCandidates = [
+const rawLessonCandidates = [
   ...(Array.isArray(previous.lessonCandidates)
     ? previous.lessonCandidates
     : []),
   ...legacyLessonCandidates,
   ...normalized.newLessons.map((lesson, candidateIndex) => ({
     ...lesson,
+    fingerprint: lessonFingerprint(lesson),
     candidateAt: updatedAt,
     review: lessonReviews.find(
       (item) => item.candidateIndex === candidateIndex,
@@ -389,7 +434,31 @@ const lessonCandidates = [
       contradiction: "None",
     },
   })),
-].slice(-500);
+];
+const lessonCandidateMap = new Map();
+for (const candidate of rawLessonCandidates) {
+  const fingerprint = candidate.fingerprint || lessonFingerprint(candidate);
+  const prior = lessonCandidateMap.get(fingerprint);
+  lessonCandidateMap.set(fingerprint, {
+    ...(prior || {}),
+    ...candidate,
+    fingerprint,
+    candidateAt: prior?.candidateAt || candidate.candidateAt || updatedAt,
+    sourceRefs: [
+      ...new Set([
+        ...(prior?.sourceRefs || []),
+        ...(candidate.sourceRefs || []),
+      ]),
+    ].slice(0, 12),
+  });
+}
+const lessonCandidates = [...lessonCandidateMap.values()].slice(-500);
+const lessons = mergeHumanApprovedLessons(
+  humanApprovedLessons,
+  lessonCandidates,
+  learningReview,
+  updatedAt,
+);
 const budget = reviewResult?.budget ?? result.budget;
 const next = {
   version: 1,
@@ -418,6 +487,10 @@ const next = {
     batchSize: schoolBatch.length,
     lessonCount: lessons.length,
     candidateCount: lessonCandidates.length,
+    pendingHumanReview: lessonCandidates.filter((candidate) => {
+      const decision = learningReview?.decisions?.[candidate.fingerprint];
+      return candidate.review?.verdict === "supported" && !decision;
+    }).length,
   },
   processedRefs,
   lessons,

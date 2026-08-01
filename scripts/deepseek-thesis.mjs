@@ -27,6 +27,21 @@ export function lessonFingerprint(lesson) {
     .digest("hex");
 }
 
+export function lessonSourceReviewHash(review) {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        verdict: review?.verdict ?? null,
+        supportedRefs: Array.isArray(review?.supportedRefs)
+          ? review.supportedRefs
+          : [],
+        reason: review?.reason ?? null,
+        contradiction: review?.contradiction ?? null,
+      }),
+    )
+    .digest("hex");
+}
+
 export function normalizeLessonReviews(value, candidates = []) {
   const reviews = Array.isArray(value?.reviews) ? value.reviews : [];
   const seen = new Set();
@@ -116,6 +131,83 @@ export function mergeApprovedLessons(
               ]),
             ].slice(0, 12),
             quality: lesson.quality ?? previous.quality,
+          }
+        : { ...lesson, fingerprint },
+    );
+  }
+  return [...merged.values()].slice(-500);
+}
+
+export function mergeHumanApprovedLessons(
+  existingLessons,
+  candidates,
+  reviewState,
+  learnedAt,
+) {
+  const decisions =
+    reviewState?.decisions && typeof reviewState.decisions === "object"
+      ? reviewState.decisions
+      : {};
+  const approved = (Array.isArray(candidates) ? candidates : [])
+    .map((candidate) => {
+      const fingerprint =
+        candidate?.fingerprint || lessonFingerprint(candidate);
+      const sourceReview = candidate?.review;
+      const humanReview = decisions[fingerprint];
+      if (
+        sourceReview?.verdict !== "supported" ||
+        !Array.isArray(sourceReview.supportedRefs) ||
+        sourceReview.supportedRefs.length === 0 ||
+        humanReview?.status !== "approved" ||
+        (humanReview.sourceReviewHash &&
+          humanReview.sourceReviewHash !==
+            lessonSourceReviewHash(sourceReview))
+      ) {
+        return null;
+      }
+      return {
+        ...candidate,
+        fingerprint,
+        sourceRefs: sourceReview.supportedRefs,
+        learnedAt: humanReview.decidedAt || learnedAt,
+        quality: {
+          status: "supported",
+          reviewedAt: sourceReview.reviewedAt || candidate.candidateAt || learnedAt,
+          reason: sourceReview.reason,
+          contradiction: sourceReview.contradiction,
+          humanReview: {
+            status: "approved",
+            reviewerId: humanReview.reviewerId ?? null,
+            decidedAt: humanReview.decidedAt || learnedAt,
+          },
+        },
+      };
+    })
+    .filter(Boolean);
+
+  const merged = new Map();
+  for (const lesson of [
+    ...(Array.isArray(existingLessons)
+      ? existingLessons.filter(
+          (lesson) => lesson?.quality?.status === "supported",
+        )
+      : []),
+    ...approved,
+  ]) {
+    const fingerprint = lesson.fingerprint || lessonFingerprint(lesson);
+    const previous = merged.get(fingerprint);
+    merged.set(
+      fingerprint,
+      previous
+        ? {
+            ...previous,
+            ...lesson,
+            sourceRefs: [
+              ...new Set([
+                ...(previous.sourceRefs || []),
+                ...(lesson.sourceRefs || []),
+              ]),
+            ].slice(0, 12),
           }
         : { ...lesson, fingerprint },
     );

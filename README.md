@@ -18,9 +18,13 @@ The production loop runs entirely on the VPS:
   (5/day).
 - `astro-deepseek-background.timer` keeps a durable internal Astro thesis
   current and steadily distills the protected 14k+ message school archive in
-  cited batches. Candidate lessons pass a separate source-support review before
-  entering approved memory. The worker is always scheduled, but skips paid
+  cited batches. Candidate lessons pass a separate source-support review, then
+  wait in Telegram for the owner to approve or reject them. Only owner-approved
+  lessons enter Hermes memory. The worker is always scheduled, but skips paid
   calls when the thesis is fresh and the school queue is empty.
+- Telegram has two usable bot topics: **Signals** for current Astro/Hermes
+  changes and **Learning Review** for one-at-a-time DeepSeek lesson proposals.
+  Learning proposals can never create a current trade signal.
 - The protected Astro Codex connector gives Luna Medium the archived playbook
   and historical search needed to connect the evidence.
 - `astro-signal.service` serves the last validated forecast through a
@@ -63,6 +67,10 @@ model inference so every forecast can be audited.
   autoresearch calibration are stored as separate internal artifacts. Luna
   receives them as research context and must verify their cited sources before
   saving anything.
+- Live Telegram messages use two lanes. Position, TP, close, invalidation, and
+  thesis changes enter the current-evidence lane immediately. Reusable habits
+  may also enter the learning queue, but affect future predictions only after
+  owner approval.
 - Astro School wakes the evidence gate only at bounded 2,000-item milestones
   and initial-pass completion. Historical learning alone cannot become a
   confirmed Astro signal.

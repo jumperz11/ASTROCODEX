@@ -22,6 +22,7 @@
     "astro:luna": "node scripts/run-luna-agent.mjs",
     "astro:deepseek:background": "node scripts/run-deepseek-background.mjs",
     "astro:autoresearch": "node scripts/run-deepseek-autoresearch.mjs",
+    "astro:telegram:review": "node scripts/telegram-learning-review.mjs",
     "telegram:user:login": "node scripts/telegram-user-source.mjs login",
     "telegram:user:list": "node scripts/telegram-user-source.mjs list"
   },

@@ -23,6 +23,8 @@ Grok OAuth X scout ─────────┘             │
                                           ├─> DeepSeek background thesis
 Telegram export + live ledger ─> Codex ───┤   and cited school lessons
                                           │
+                           owner approval ─┤   approved Hermes memory only
+                                          │
 Coinbase candles ─────────────────────────┼─> two-minute event detector
                                           │            │
                                           │            v
@@ -51,6 +53,7 @@ Coinbase candles ─────────────────────
 | `x-source.json` | Grok OAuth scout | Exact new public Astro status URLs | Yes, after validation |
 | `codex-index.json` | Deterministic Night School indexer | Searchable archive and live-message memory | No; historical context only |
 | `deepseek-thesis.json` | DeepSeek background worker | Current internal thesis, reviewed lessons, rejected candidates, Luna packet, bounded review signal | No |
+| `learning-review.json` | Telegram review worker + owner | Pending lesson posts and immutable approve/reject decisions | No |
 | `deepseek-evidence-brief.json` | DeepSeek event gate | Materiality decision and compact campaign packet | No |
 | `forecast.json` | Luna Medium through the protected validator | Accepted Astro/Hermes research state | Only direct X evidence can populate confirmed Astro facts |
 | `history.json` | Deterministic VPS scanner | Immutable plays plus independent frozen market-path and Astro-behavior ledgers | No |
@@ -73,9 +76,10 @@ DeepSeek has three cheap, bounded roles:
 1. **Background thesis and school distillation**
    - Runs every ten minutes.
    - Processes the next unprocessed batch of protected archive entries.
-   - Sends each candidate lesson through a separate source-entailment review;
-     rejected and pre-gate legacy candidates remain auditable but cannot enter
-     approved memory.
+   - Sends each candidate lesson through a separate source-entailment review,
+     then to the Telegram **Learning Review** topic for owner approval.
+   - Rejected, pending, and pre-gate legacy candidates remain auditable but
+     cannot enter approved Hermes memory.
    - Updates a compact internal thesis from Telegram, X, the accepted forecast,
      and prior cited lessons.
    - Skips the API call once the school is complete and inputs remain fresh.
@@ -107,13 +111,27 @@ Luna Light is only a fallback evidence gate when DeepSeek is unavailable.
 ### Astro School loop
 
 The deterministic Codex index owns the raw memory. DeepSeek never replaces it.
-Each background run receives a bounded batch and may propose only lessons
-citing refs from that batch. A second bounded review sees the exact source text
-and promotes only fully supported lessons. Supported lessons deduplicate by
-their rule, conditions, and sequence. Rejected candidates remain in the audit
-trail. Processed refs are persisted, preventing repeated paid work. The nightly
-index rebuild carries forward live Telegram entries after they leave the
-rolling ingestion window, preventing long-term forgetting.
+Each background run receives a bounded archive batch plus recent allowlisted
+live Telegram messages and may propose only lessons citing those exact refs. A
+second bounded model review checks the lesson against the exact source text.
+Source-supported candidates then wait in Telegram. Only the configured owner
+can approve or reject them; only approved candidates enter Hermes memory.
+Supported lessons deduplicate by their rule, conditions, and sequence. Rejected
+and pending candidates remain in the audit trail. Processed refs are persisted,
+preventing repeated paid work. The nightly index rebuild carries forward live
+Telegram entries after they leave the rolling ingestion window, preventing
+long-term forgetting.
+
+### Live evidence versus learning
+
+Every message from the two approved Astro channels enters the deterministic
+live ledger first. Position, entry, TP, close, invalidation, or material thesis
+changes wake the current-evidence gate immediately and may update the Signals
+topic after Luna and the forecast validator agree. Educational commentary and
+reusable execution habits may also become lesson candidates, but those
+candidates cannot alter the current signal. A single Astro message may travel
+through both lanes: its present-tense trade facts affect the current map, while
+its reusable principle waits for owner approval before affecting future maps.
 
 ### Prediction loop
 
@@ -159,6 +177,7 @@ The winning result remains shadow-only until explicitly reviewed.
 | Telegram user ingestion | Continuous polling | None |
 | VPS scanner | Every 2 minutes | None unless a material trigger exists |
 | DeepSeek background | Every 10 minutes | One thesis call plus a source-review call when lesson candidates exist |
+| Telegram learning review | Continuous; one pending lesson at a time | None |
 | Grok X scout | Every 30 minutes | One bounded Grok OAuth call |
 | Watchdog | Every 5 minutes | None |
 | Codex index rebuild | Nightly around 02:15 UTC | None |
