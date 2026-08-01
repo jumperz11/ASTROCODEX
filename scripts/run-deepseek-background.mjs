@@ -294,8 +294,8 @@ Return only:
 
 Reject a candidate when its rule, conditions, sequence, or limitation goes
 beyond the cited text. Similarity is not support. Review every candidate.`,
-    maxTokens: 1_400,
-    reasoningEffort: "low",
+    maxTokens: 1_800,
+    reasoningEffort: "none",
     timeoutMs: 60_000,
   });
   if (!reviewResult.available) {
