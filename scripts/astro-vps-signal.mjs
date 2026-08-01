@@ -82,6 +82,14 @@ async function currentHealth() {
       telegramSources: Array.isArray(state.telegramSource?.sources)
         ? state.telegramSource.sources
         : [],
+      xSourceStatus: state.xSource?.status ?? "unknown",
+      xSourceLastSuccessAt: state.xSource?.lastSuccessAt ?? null,
+      xSourceNewestAt: state.xSource?.newestAcceptedAt ?? null,
+      xSourceBudget: state.xSource?.budget ?? null,
+      reasoner:
+        state.reasoner && typeof state.reasoner === "object"
+          ? state.reasoner
+          : null,
       activity: Array.isArray(state.activity) ? state.activity.slice(-60) : [],
       consecutiveFailures: Number(state.consecutiveFailures || 0),
       error: state.error ?? null,
@@ -110,6 +118,11 @@ async function currentHealth() {
       telegramSourceMessages: 0,
       telegramSourceMedia: 0,
       telegramSources: [],
+      xSourceStatus: "starting",
+      xSourceLastSuccessAt: null,
+      xSourceNewestAt: null,
+      xSourceBudget: null,
+      reasoner: null,
       activity: [],
       consecutiveFailures: 0,
       error: "No completed VPS scan is available yet.",
@@ -202,6 +215,11 @@ const server = createServer(async (request, response) => {
           telegramSourceMessages: health.telegramSourceMessages,
           telegramSourceMedia: health.telegramSourceMedia,
           telegramSources: health.telegramSources,
+          xSourceStatus: health.xSourceStatus,
+          xSourceLastSuccessAt: health.xSourceLastSuccessAt,
+          xSourceNewestAt: health.xSourceNewestAt,
+          xSourceBudget: health.xSourceBudget,
+          reasoner: health.reasoner,
           activity: health.activity,
           hermesAudit: latestHermesPrediction
             ? {

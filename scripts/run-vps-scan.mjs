@@ -24,11 +24,15 @@ const historyPath = join(stateDirectory, "history.json");
 const telegramSourcePath =
   process.env.ASTRO_TELEGRAM_SOURCE_PATH?.trim() ||
   join(stateDirectory, "telegram-source.json");
+const xSourcePath =
+  process.env.ASTRO_X_SOURCE_PATH?.trim() ||
+  join(stateDirectory, "x-source.json");
 const trackRecordSeedPath = join(projectRoot, "app", "track-record.json");
 const codexIndexPath =
   process.env.ASTRO_CODEX_INDEX?.trim() ||
   join(stateDirectory, "codex-index.json");
-const grokModel = process.env.ASTRO_GROK_MODEL?.trim() || "grok-4.5";
+const reasoningModel =
+  process.env.ASTRO_CODEX_MODEL?.trim() || "codex-luna";
 const timeoutMs = Math.max(
   60_000,
   Number.parseInt(process.env.ASTRO_AGENT_TIMEOUT_MS || "210000", 10),
@@ -147,6 +151,23 @@ async function telegramSourceSummary() {
   };
 }
 
+async function xSourceSummary() {
+  const source = await readJson(xSourcePath, {});
+  const posts = Array.isArray(source?.posts) ? source.posts : [];
+  return {
+    path: xSourcePath,
+    status: source?.status ?? "missing",
+    provider: source?.provider ?? "grok-oauth",
+    checkedAt: source?.checkedAt ?? null,
+    lastSuccessAt: source?.lastSuccessAt ?? null,
+    newestAcceptedAt: source?.newestAcceptedAt ?? null,
+    newestStatusId: source?.newestStatusId ?? null,
+    postCount: posts.length,
+    budget: source?.budget ?? null,
+    error: source?.error ?? null,
+  };
+}
+
 async function fetchCandles(granularity) {
   const response = await fetch(
     `https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=${granularity}`,
@@ -240,14 +261,18 @@ async function verifyCodexIndex() {
   };
 }
 
-function runAgent(market, trackRecord, hermesAudit, telegramSources) {
+function runAgent(
+  market,
+  trackRecord,
+  hermesAudit,
+  telegramSources,
+  xSources,
+) {
   return new Promise((resolve, reject) => {
-    const { XAI_API_KEY: ignoredApiKey, ...oauthEnvironment } = process.env;
-    void ignoredApiKey;
     const child = spawn(
       process.execPath,
       [
-        join(scriptsDirectory, "run-astro-agent.mjs"),
+        join(scriptsDirectory, "run-luna-agent.mjs"),
         `${researchPrompt}
 
 Verified Coinbase BTC-USD market snapshot (machine-supplied, not Astro evidence):
@@ -262,13 +287,16 @@ ${JSON.stringify(hermesAudit)}
 Private Telegram source ledger (private direct context; never present as a public X quote):
 ${JSON.stringify(telegramSources)}
 
+Grok X scout ledger (direct public evidence transport only):
+${JSON.stringify(xSources)}
+
 When messageCount is positive, read the JSON ledger at the supplied path and inspect recent allowlisted messages and referenced local chart media. Use them to improve Hermes scenarios, target mapping, and behavioral context. Do not reproduce paid message text in the saved public-facing summary. A Telegram-only claim may affect Hermes inference, but it cannot become public Astro evidence or create a confirmed public signal unless an exact public X status corroborates it.
 
 Use this snapshot only for the separate model thesis and thesisLevels. Keep Astro-confirmed levels in levels. Never present the market snapshot or model levels as Astro's words.`,
       ],
       {
         cwd: projectRoot,
-        env: oauthEnvironment,
+        env: process.env,
         stdio: ["ignore", "pipe", "pipe"],
       },
     );
@@ -450,7 +478,7 @@ let activity = nextActivity(previous.activity, {
 await writeState({
   ...previous,
   runId,
-  model: grokModel,
+  model: reasoningModel,
   status: "checking",
   startedAt,
   activity,
@@ -458,10 +486,11 @@ await writeState({
 });
 
 try {
-  const [marketFeed, codex, telegramSources] = await Promise.all([
+  const [marketFeed, codex, telegramSources, xSources] = await Promise.all([
     verifyMarketFeed(),
     verifyCodexIndex(),
     telegramSourceSummary(),
+    xSourceSummary(),
   ]);
   const market = marketFeed.snapshot;
   const candles = marketFeed.candles;
@@ -483,9 +512,6 @@ try {
     (await readJson(forecastPath))?.evidence,
   );
   const currentHermesAudit = hermesLedgerSummary(evaluatedHermesPredictions);
-  const lastAgentMs = new Date(previous.lastAgentAt || 0).getTime();
-  const agentDue =
-    !Number.isFinite(lastAgentMs) || Date.now() - lastAgentMs >= 10 * 60_000;
   const ledgerChanged =
     ledgerTriggerSignature(currentHistory?.hermesPredictions) !==
     ledgerTriggerSignature(evaluatedHermesPredictions);
@@ -496,12 +522,16 @@ try {
   const telegramChanged =
     Boolean(telegramSources.newestAcceptedAt) &&
     telegramSources.newestAcceptedAt !== previous.telegramSourceUpdatedAt;
+  const xChanged =
+    Boolean(xSources.newestAcceptedAt) &&
+    xSources.newestAcceptedAt !== previous.xSourceUpdatedAt;
   const existingForecast = await readJson(forecastPath);
   const shouldRunAgent =
-    agentDue ||
     ledgerChanged ||
     materialPriceMove ||
     telegramChanged ||
+    xChanged ||
+    process.env.ASTRO_FORCE_REASONER === "1" ||
     !existingForecast;
 
   if (!shouldRunAgent) {
@@ -529,7 +559,7 @@ try {
     await writeState({
       ...previous,
       runId,
-      model: grokModel,
+      model: reasoningModel,
       codex,
       status: "healthy",
       startedAt,
@@ -550,6 +580,8 @@ try {
         lastAnalyzedAt: previous.telegramSource?.lastAnalyzedAt ?? null,
         analyzedNewestAt: previous.telegramSource?.analyzedNewestAt ?? null,
       },
+      xSourceUpdatedAt: xSources.newestAcceptedAt,
+      xSource: xSources,
       changed: false,
       agentRun: false,
       activity,
@@ -561,7 +593,7 @@ try {
       `${JSON.stringify({
         status: "healthy",
         runId,
-        model: grokModel,
+        model: reasoningModel,
         checkedAt: finishedAt,
         changed: false,
         agentRun: false,
@@ -580,7 +612,7 @@ try {
   await writeState({
     ...previous,
     runId,
-    model: grokModel,
+    model: reasoningModel,
     codex,
     status: "analyzing",
     startedAt,
@@ -594,6 +626,7 @@ try {
       lastAnalyzedAt: previous.telegramSource?.lastAnalyzedAt ?? null,
       analyzedNewestAt: previous.telegramSource?.analyzedNewestAt ?? null,
     },
+    xSource: xSources,
     activity,
     error: null,
   });
@@ -604,6 +637,7 @@ try {
     currentTrackRecord,
     currentHermesAudit,
     telegramSources,
+    xSources,
   );
   const forecast = await readJson(forecastPath);
   const afterHash = forecastSemanticHash(forecast);
@@ -613,15 +647,23 @@ try {
     throw new Error(`Astro agent exceeded its time limit (${result.signal}).`);
   }
   if (result.code !== 0) {
-    if (/oauth|login|unauthorized|authentication/i.test(result.output)) {
-      throw new Error("Grok OAuth needs login again on the VPS.");
-    }
     if (!changed) {
       throw new Error(
-        "Astro agent failed without a newly validated forecast; the last signal remains live.",
+        "Luna failed without a newly validated forecast; the last signal remains live.",
       );
     }
   }
+  const providerResult = result.output
+    .split(/\r?\n/)
+    .reverse()
+    .map((line) => {
+      try {
+        return JSON.parse(line);
+      } catch {
+        return null;
+      }
+    })
+    .find(Boolean);
 
   const finishedAt = new Date().toISOString();
   const nextHistory = await updateHistory({
@@ -648,7 +690,7 @@ try {
   });
   await writeState({
     runId,
-    model: grokModel,
+    model: reasoningModel,
     codex,
     status: "healthy",
     startedAt,
@@ -670,6 +712,12 @@ try {
       lastAnalyzedAt: finishedAt,
       analyzedNewestAt: telegramSources.newestAcceptedAt,
     },
+    xSourceUpdatedAt: xSources.newestAcceptedAt,
+    xSource: xSources,
+    reasoner: providerResult ?? {
+      status: "unknown",
+      provider: "codex-luna",
+    },
     changed,
     agentRun: true,
     lastAgentAt: finishedAt,
@@ -682,7 +730,7 @@ try {
     `${JSON.stringify({
       status: "healthy",
       runId,
-      model: grokModel,
+      model: reasoningModel,
       codexEntries: codex.entries,
       checkedAt: finishedAt,
       changed,
@@ -702,7 +750,7 @@ try {
   await writeState({
     ...previous,
     runId,
-    model: grokModel,
+    model: reasoningModel,
     status: "error",
     startedAt,
     finishedAt,

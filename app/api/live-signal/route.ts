@@ -20,6 +20,11 @@ type RemoteSignalEnvelope = {
   telegramSourceMessages?: unknown;
   telegramSourceMedia?: unknown;
   telegramSources?: unknown;
+  xSourceStatus?: unknown;
+  xSourceLastSuccessAt?: unknown;
+  xSourceNewestAt?: unknown;
+  xSourceBudget?: unknown;
+  reasoner?: unknown;
   activity?: unknown;
   hermesAudit?: unknown;
 };
@@ -79,6 +84,11 @@ function response(
     telegramSourceMessages?: number;
     telegramSourceMedia?: number;
     telegramSources?: unknown[];
+    xSourceStatus?: string;
+    xSourceLastSuccessAt?: string | null;
+    xSourceNewestAt?: string | null;
+    xSourceBudget?: unknown;
+    reasoner?: unknown;
     activity?: unknown[];
     hermesAudit?: unknown;
   },
@@ -173,6 +183,30 @@ export async function GET() {
       telegramSources: Array.isArray(payload.telegramSources)
         ? payload.telegramSources
         : [],
+      xSourceStatus:
+        typeof payload.xSourceStatus === "string"
+          ? payload.xSourceStatus
+          : "unknown",
+      xSourceLastSuccessAt:
+        typeof payload.xSourceLastSuccessAt === "string"
+          ? payload.xSourceLastSuccessAt
+          : null,
+      xSourceNewestAt:
+        typeof payload.xSourceNewestAt === "string"
+          ? payload.xSourceNewestAt
+          : null,
+      xSourceBudget:
+        payload.xSourceBudget &&
+        typeof payload.xSourceBudget === "object" &&
+        !Array.isArray(payload.xSourceBudget)
+          ? payload.xSourceBudget
+          : null,
+      reasoner:
+        payload.reasoner &&
+        typeof payload.reasoner === "object" &&
+        !Array.isArray(payload.reasoner)
+          ? payload.reasoner
+          : null,
       activity: Array.isArray(payload.activity) ? payload.activity : [],
       hermesAudit:
         payload.hermesAudit &&

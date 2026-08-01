@@ -1,5 +1,5 @@
 [Unit]
-Description=Run the Astro evidence agent every two minutes
+Description=Run the free local Astro evidence gate every two minutes
 
 [Timer]
 OnBootSec=20

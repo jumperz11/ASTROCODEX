@@ -4,11 +4,20 @@
 
 The production loop runs entirely on the VPS:
 
-- `astro-scan.timer` starts a bounded Grok OAuth evidence scan every two minutes.
-- `astro-scan.service` checks the Coinbase BTC feed, researches Astro's current
-  public evidence with the pinned Grok 4.5 OAuth model, retrieves matching
-  historical context from the Astro Core Edge Codex, validates any changed
-  forecast, and atomically records health.
+- Telegram user ingestion watches exactly the two approved Astro channels
+  continuously without an AI call.
+- `astro-x-scout.timer` asks Grok OAuth only for new direct
+  `@astronomer_zero` X posts every 30 minutes. It cannot build a forecast and
+  is capped at 60 short checks per rolling day.
+- `astro-scan.timer` checks market and evidence state every two minutes using
+  local code. No model runs when nothing material changed.
+- On a real event, the latest configured DeepSeek V4 Flash route performs the
+  repetitive JSON evidence
+  classification (24/day maximum). Luna Light is the bounded fallback
+  (8/day), and Luna Medium alone may rebuild the Hermes strategy thesis
+  (5/day).
+- The protected Astro Codex connector gives Luna Medium the archived playbook
+  and historical search needed to connect the evidence.
 - `astro-signal.service` serves the last validated forecast through a
   token-protected HTTPS endpoint.
 - `astro-watchdog.timer` checks freshness every five minutes and invokes
@@ -28,10 +37,16 @@ model inference so every forecast can be audited.
 
 ## What is working
 
-- Grok is authenticated with the user's existing `grok.com` OAuth session.
+- Grok is authenticated with the user's existing `grok.com` OAuth session and
+  is restricted to direct X retrieval.
+- DeepSeek V4 Flash handles only repetitive evidence classification, with
+  thinking disabled and a hard rolling cap. Direct DeepSeek and
+  OpenRouter-compatible credentials are supported.
+- Codex CLI is authenticated on the VPS. Luna Light handles only fallback
+  classification; Luna Medium is reserved for material strategy work.
 - A local, token-protected MCP connector exposes the Astro playbook and forecast
-  store to Grok, plus read-only search over the private Astro Codex index.
-- Grok must cite exact
+  store to Luna Medium, plus read-only search over the private Astro Codex index.
+- Any accepted public Astro claim must cite exact
   `x.com/astronomer_zero/status/...` URLs before the connector accepts a
   forecast.
 - Forecasts must contain Astro, framework, and inference evidence plus exactly
@@ -59,6 +74,9 @@ Requirements:
 
 - Node.js `>=22.13.0`
 - The `grok` CLI installed and signed in with `grok login --oauth`
+- The Codex CLI installed and signed in with `codex login --device-auth`
+- Optional `DEEPSEEK_API_KEY` stored only in the VPS environment file. Without
+  it, Luna Light automatically handles the bounded evidence gate.
 
 Install dependencies and register the local connector:
 

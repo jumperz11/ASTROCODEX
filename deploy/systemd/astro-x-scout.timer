@@ -1,0 +1,12 @@
+[Unit]
+Description=Check Astro X through Grok at a bounded interval
+
+[Timer]
+OnBootSec=3min
+OnUnitInactiveSec=30min
+AccuracySec=30s
+Persistent=true
+Unit=astro-x-scout.service
+
+[Install]
+WantedBy=timers.target

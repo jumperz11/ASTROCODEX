@@ -628,6 +628,24 @@ type LiveSignalEnvelope = {
     messageCount?: number;
     mediaCount?: number;
   }>;
+  xSourceStatus?: string;
+  xSourceLastSuccessAt?: string | null;
+  xSourceNewestAt?: string | null;
+  xSourceBudget?: {
+    cap?: number;
+    used?: number;
+    remaining?: number;
+  } | null;
+  reasoner?: {
+    status?: string;
+    provider?: string;
+    stage?: string;
+    material?: boolean;
+    category?: string;
+    lightRemaining?: number;
+    mediumRemaining?: number;
+    error?: string;
+  } | null;
   activity?: HermesActivity[];
   hermesAudit?: HermesAudit | null;
 };
@@ -763,6 +781,11 @@ export default function Home() {
     telegramSourceMessages: 0,
     telegramSourceMedia: 0,
     telegramSources: [] as NonNullable<LiveSignalEnvelope["telegramSources"]>,
+    xSourceStatus: "unknown",
+    xSourceLastSuccessAt: null as string | null,
+    xSourceNewestAt: null as string | null,
+    xSourceBudget: null as LiveSignalEnvelope["xSourceBudget"],
+    reasoner: null as LiveSignalEnvelope["reasoner"],
     activity: [] as HermesActivity[],
     hermesAudit: null as HermesAudit | null,
   });
@@ -881,6 +904,11 @@ export default function Home() {
           telegramSources: Array.isArray(envelope.telegramSources)
             ? envelope.telegramSources
             : [],
+          xSourceStatus: envelope.xSourceStatus ?? "unknown",
+          xSourceLastSuccessAt: envelope.xSourceLastSuccessAt ?? null,
+          xSourceNewestAt: envelope.xSourceNewestAt ?? null,
+          xSourceBudget: envelope.xSourceBudget ?? null,
+          reasoner: envelope.reasoner ?? null,
           activity: Array.isArray(envelope.activity) ? envelope.activity : [],
           hermesAudit: envelope.hermesAudit ?? null,
         });
@@ -1292,6 +1320,11 @@ export default function Home() {
         telegramSources: Array.isArray(envelope.telegramSources)
           ? envelope.telegramSources
           : [],
+        xSourceStatus: envelope.xSourceStatus ?? "unknown",
+        xSourceLastSuccessAt: envelope.xSourceLastSuccessAt ?? null,
+        xSourceNewestAt: envelope.xSourceNewestAt ?? null,
+        xSourceBudget: envelope.xSourceBudget ?? null,
+        reasoner: envelope.reasoner ?? null,
         activity: Array.isArray(envelope.activity) ? envelope.activity : [],
         hermesAudit: envelope.hermesAudit ?? null,
       });
@@ -1734,31 +1767,29 @@ export default function Home() {
               </span>
             </article>
             <article>
-              <small>NEWEST POST</small>
-              <strong>
-                {relativeTime(systemStatus.telegramSourceNewestAt, clockNow)}
-              </strong>
-              <span>Accepted evidence</span>
+              <small>X SCOUT · GROK</small>
+              <strong>{systemStatus.xSourceStatus.toUpperCase()}</strong>
+              <span>
+                {typeof systemStatus.xSourceBudget?.remaining === "number"
+                  ? `${systemStatus.xSourceBudget.remaining} checks left`
+                  : relativeTime(systemStatus.xSourceLastSuccessAt, clockNow)}
+              </span>
             </article>
             <article>
-              <small>LAST HERMES READ</small>
-              <strong>
-                {relativeTime(
-                  systemStatus.telegramSourceLastAnalyzedAt,
-                  clockNow,
-                )}
-              </strong>
+              <small>LUNA · HERMES BRAIN</small>
+              <strong>{(systemStatus.reasoner?.stage || "STANDBY").toUpperCase()}</strong>
               <span>
-                {systemStatus.telegramSourceAnalyzedNewestAt ===
-                systemStatus.telegramSourceNewestAt
-                  ? "Caught up"
-                  : "Update pending"}
+                {systemStatus.reasoner?.status === "healthy"
+                  ? systemStatus.reasoner.material
+                    ? "Material evidence processed"
+                    : "No material change"
+                  : systemStatus.reasoner?.error || "Waiting for new evidence"}
               </span>
             </article>
             <article>
               <small>CURRENT RESULT</small>
               <strong>{opportunity.label}</strong>
-              <span>{systemStatus.model?.replace("grok-", "Grok ") || "Model"}</span>
+              <span>{systemStatus.model || "Codex Luna"}</span>
             </article>
           </div>
 

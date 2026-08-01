@@ -1,0 +1,31 @@
+[Unit]
+Description=Astro Grok OAuth X-only scout
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=astro
+Group=astro
+WorkingDirectory=/opt/astro
+Environment=PATH=/home/astro/.grok/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=ASTRO_STATE_DIR=/var/lib/astro-signal
+Environment=ASTRO_FORECAST_PATH=/var/lib/astro-signal/forecast.json
+Environment=ASTRO_X_SOURCE_PATH=/var/lib/astro-signal/x-source.json
+Environment=ASTRO_GROK_MODEL=grok-4.5
+Environment=ASTRO_GROK_X_DAILY_CAP=60
+ExecStart=/usr/bin/npm run astro:x:scout
+TimeoutStartSec=120
+StateDirectory=astro-signal
+StateDirectoryMode=0700
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home/astro/.grok
+ProtectKernelTunables=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+RestrictSUIDSGID=true
+LockPersonality=true
+UMask=0077

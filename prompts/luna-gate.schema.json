@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "material": {
+      "type": "boolean"
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["none", "low", "medium", "high"]
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "no_change",
+        "position",
+        "take_profit",
+        "close",
+        "thesis",
+        "conflict",
+        "market_checkpoint",
+        "forecast_resolution"
+      ]
+    },
+    "reason": {
+      "type": "string"
+    },
+    "evidenceRefs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 12
+    },
+    "needsXSearch": {
+      "type": "boolean"
+    },
+    "mediumReason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "material",
+    "severity",
+    "category",
+    "reason",
+    "evidenceRefs",
+    "needsXSearch",
+    "mediumReason"
+  ]
+}
