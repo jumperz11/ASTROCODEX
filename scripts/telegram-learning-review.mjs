@@ -76,6 +76,8 @@ export function renderLessonReview(candidate) {
   return [
     "🧠 HERMES LEARNING REVIEW",
     "",
+    `CATEGORY · ${compactText(candidate.category, "setup", 40).toUpperCase()}`,
+    "",
     "PROPOSED RULE",
     compactText(candidate.rule, "Unknown", 700),
     "",

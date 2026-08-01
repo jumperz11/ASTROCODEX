@@ -251,6 +251,7 @@ Return only this JSON:
   },
   "newLessons": [
     {
+      "category": "setup/entry/add/trim/close/flip/invalidation/avoidance/timing/communication/risk",
       "rule": "reusable Astro principle",
       "when": "conditions",
       "sequence": "observable execution or phase sequence",
@@ -276,7 +277,12 @@ Rules:
   and should total 100 across the returned candidates.
 - Every new lesson must cite only refs present in the supplied learning evidence.
 - A lesson is only a proposal. A human owner must approve it before Hermes may
-  use it in future predictions.`;
+  use it in future predictions.
+- Learn Astro's decision process, not whether a trade made money: what he
+  notices, waits for, avoids, enters, adds to, trims, closes, invalidates, and
+  changes after the market disagrees.
+- Preserve negative edge. A well-supported rule about when Astro refuses or
+  skips a setup is as valuable as an entry rule.`;
 
 const result = await callDeepSeekJson({
   budgetPath,

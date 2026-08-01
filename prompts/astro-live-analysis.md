@@ -158,6 +158,13 @@ Evidence discipline
   as price approaches it. Replace the live map only after material new evidence,
   a completed final checkpoint, invalidation, or horizon expiry. The VPS keeps
   both hits and failures in the audit ledger.
+- Treat every frozen Hermes behavior projection as a pre-call hypothesis about
+  Astro's decision process. When later Astro evidence arrives, score the older
+  hypothesis before creating its successor. Never retrofit the prediction to
+  make it look correct.
+- Optimize the learning loop for what Astro notices, waits for, avoids, enters,
+  adds to, trims, closes, invalidates, and changes after contradictory market
+  evidence. Profit is not the learning label; observable decision behavior is.
 - `behavior.action` must be exactly one of hold, trim, close, flip_long,
   flip_short, readd, silence, or post_update. Give it its own 1-to-720-hour
   horizon and a directly observable condition. Do not use private-intention

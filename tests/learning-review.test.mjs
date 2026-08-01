@@ -13,6 +13,7 @@ import {
 
 function candidate(overrides = {}) {
   const value = {
+    category: "trim",
     rule: "Trim at the first objective before holding a residual position.",
     when: "The first planned objective is reached.",
     sequence: "Enter, trim, then manage the residual.",
@@ -96,6 +97,7 @@ test("learning review messages stay plain and callbacks stay bounded", () => {
   const approve = callbackData("approve", lesson.fingerprint);
 
   assert.match(message, /HERMES LEARNING REVIEW/);
+  assert.match(message, /CATEGORY · TRIM/);
   assert.match(message, /PROPOSED RULE/);
   assert.match(message, /DO NOT USE IT WHEN/);
   assert.ok(message.length < 4000);

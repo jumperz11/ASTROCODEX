@@ -370,8 +370,24 @@ export function normalizeDeepSeekThesis(value, allowedLessonRefs = []) {
   const publicRefs = stringList(thesis.publicSourceRefs, 12, 300).filter((ref) =>
     PUBLIC_ASTRO_URL.test(ref),
   );
+  const lessonCategories = new Set([
+    "setup",
+    "entry",
+    "add",
+    "trim",
+    "close",
+    "flip",
+    "invalidation",
+    "avoidance",
+    "timing",
+    "communication",
+    "risk",
+  ]);
   const lessons = (Array.isArray(value?.newLessons) ? value.newLessons : [])
     .map((lesson) => ({
+      category: lessonCategories.has(lesson?.category)
+        ? lesson.category
+        : "setup",
       rule: text(lesson?.rule, "", 400),
       when: text(lesson?.when, "Unknown", 300),
       sequence: text(lesson?.sequence, "Unknown", 400),

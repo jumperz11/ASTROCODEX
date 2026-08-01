@@ -11,6 +11,10 @@ Astro Intelligence has three increasingly difficult jobs:
 3. Measure frozen predictions until the system can estimate Astro's next
    observable move before he posts it.
 
+The primary learning label is Astro's observable decision behavior—not profit.
+Hermes studies what he notices, waits for, avoids, enters, adds to, trims,
+closes, invalidates, and changes after contradictory evidence.
+
 The system is research-only. It never sends an order, chooses leverage, or
 promotes a model inference into an Astro-confirmed signal.
 
