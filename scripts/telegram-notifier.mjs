@@ -70,6 +70,77 @@ function hermesDirection(prediction) {
   return directionFromText(prediction?.summary || prediction?.thesis);
 }
 
+function plainAstroPosition(forecast) {
+  const position = String(forecast?.decision?.position || "").toLowerCase();
+  const tpState = String(
+    forecast?.execution?.takeProfit?.state || "",
+  ).toLowerCase();
+  const trimmed =
+    /trim|partial|one.third|1\/3|profit/.test(position) ||
+    /trim|partial|one.third|1\/3|profit/.test(tpState);
+
+  if (/\bshort\b/.test(position)) {
+    return trimmed
+      ? "Astro still holds part of his short. He already took some profit."
+      : "Astro still has a short open.";
+  }
+  if (/\blong\b/.test(position)) {
+    return trimmed
+      ? "Astro still holds part of his long. He already took some profit."
+      : "Astro still has a long open.";
+  }
+  if (/\bwait\b|\bflat\b|\bclosed\b|\bno position\b/.test(position)) {
+    return "Astro has no confirmed new position.";
+  }
+  return "Astro has not confirmed a new trade.";
+}
+
+function plainHermesPath(prediction, agreement) {
+  const direction = String(prediction?.direction || "").toLowerCase();
+  const prefix =
+    agreement.state === "AGREES"
+      ? "Hermes agrees:"
+      : agreement.state === "CONFLICT"
+        ? "Hermes disagrees:"
+        : "Hermes thinks:";
+
+  if (direction === "down_then_up") {
+    return `${prefix} price may fall first, then bounce.`;
+  }
+  if (direction === "up_then_down") {
+    return `${prefix} price may rise first, then pull back.`;
+  }
+  if (hermesDirection(prediction) === "short") {
+    return `${prefix} the next move may be lower.`;
+  }
+  if (hermesDirection(prediction) === "long") {
+    return `${prefix} the next move may be higher.`;
+  }
+  return "Hermes does not have a clear direction yet.";
+}
+
+function checkpointPriceLines(checkpoints) {
+  const remaining = checkpoints.filter(
+    (checkpoint) =>
+      !checkpoint.hitAt && Number.isFinite(Number(checkpoint.price)),
+  );
+  if (!remaining.length) return ["No new price target yet."];
+
+  return remaining.slice(0, 3).map((checkpoint, index) => {
+    if (index === 0) return `Next price area: ${formatPrice(checkpoint.price)}`;
+    if (index === 1) return `Then watch: ${formatPrice(checkpoint.price)}`;
+    return `Later: ${formatPrice(checkpoint.price)}`;
+  });
+}
+
+function plainWatchLine(forecast) {
+  const position = String(forecast?.decision?.position || "").toLowerCase();
+  if (/\bshort\b|\blong\b/.test(position)) {
+    return "Wait for Astro to post another profit take, a full close, or a new entry.";
+  }
+  return "Wait for a direct Astro post with an entry and price levels.";
+}
+
 function agreementRead(forecast, prediction) {
   const astro = astroDirection(forecast);
   const hermes = hermesDirection(prediction);
@@ -111,6 +182,7 @@ export function telegramSnapshot(forecast, history, market) {
     : [];
   const hitCount = checkpoints.filter((checkpoint) => checkpoint.hitAt).length;
   const signatureData = {
+    formatVersion: 2,
     forecastId: forecast?.generatedAt ?? null,
     signal: forecast?.signal?.state ?? null,
     evidence: evidence?.source ?? null,
@@ -123,43 +195,28 @@ export function telegramSnapshot(forecast, history, market) {
     .update(JSON.stringify(signatureData))
     .digest("hex");
   const agreement = agreementRead(forecast, prediction);
-  const targetLines = checkpoints.map((checkpoint, index) => {
-    const targetIndex = checkpoints
-      .slice(0, index + 1)
-      .filter((item) => item.kind === "target").length;
-    const label =
-      checkpoint.kind === "target"
-        ? `TP${Math.max(1, targetIndex)}`
-        : `T${index + 1}`;
-    return `${checkpoint.hitAt ? "✅" : "▫️"} ${label} ${formatPrice(
-      checkpoint.price,
-    )} · ${checkpoint.label}`;
-  });
+  const priceLines = checkpointPriceLines(checkpoints);
   const text = [
-    "🔔 ASTRO / HERMES UPDATE",
+    "🔔 ASTRO UPDATE",
     "",
-    "ASTRO · CONFIRMED",
-    `POSITION · ${forecast?.decision?.position || "Not public"}`,
-    `TARGETS / TP · ${forecast?.execution?.takeProfit?.level || "Not public"}`,
-    `TP STATE · ${forecast?.execution?.takeProfit?.state || "Not public"}`,
-    `CLOSE · ${forecast?.execution?.exit?.state || "Not public"} · ${
-      forecast?.execution?.exit?.level || "Not public"
-    }`,
+    "WHAT ASTRO IS DOING",
+    plainAstroPosition(forecast),
     "",
-    "HERMES · PREDICTION",
-    `PATH · ${(prediction?.direction || "Not resolved").toString().replaceAll("_", " ").toUpperCase()}`,
-    `CHECKPOINTS · ${hitCount}/${checkpoints.length} reached`,
-    ...targetLines,
+    "WHAT HERMES EXPECTS",
+    plainHermesPath(prediction, agreement),
     "",
-    `AGREEMENT · ${agreement.state}`,
-    agreement.difference,
+    ...priceLines,
     "",
-    `LIVE PRICE · ${formatPrice(market?.price)}`,
-    evidence?.source ? `SOURCE · ${evidence.source}` : null,
+    `Price now: ${formatPrice(market?.price)}`,
     "",
-    "Research alert only · no automatic trade.",
+    "WHAT TO DO NOW",
+    plainWatchLine(forecast),
+    "",
+    evidence?.source ? `Astro post: ${evidence.source}` : null,
+    "",
+    "Research only. No automatic trading.",
   ]
-    .filter(Boolean)
+    .filter((line) => line !== null && line !== undefined)
     .join("\n");
   return { signature, text: text.slice(0, 4000), signatureData };
 }
