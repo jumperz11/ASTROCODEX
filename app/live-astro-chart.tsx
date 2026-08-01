@@ -1294,7 +1294,7 @@ export default function LiveAstroChart({
                   "DIRECTION PENDING"}
               </strong>
             </div>
-            <button type="button" onClick={onOpenHermes}>Open full brain →</button>
+            <button type="button" onClick={onOpenHermes}>Back to summary →</button>
           </header>
           <div className="hermes-call-strip">
             <article>
@@ -1356,71 +1356,82 @@ export default function LiveAstroChart({
               </small>
             </div>
           )}
-          <div className="hermes-checkpoint-grid">
-            {(hermesProjection?.checkpoints || []).map((checkpoint, index) => (
-              <article key={`${checkpoint.label}-${checkpoint.price}`}>
-                <header>
-                  <span>{String(index + 1).padStart(2, "0")}</span>
-                  <small>{checkpoint.kind.toUpperCase()}</small>
-                </header>
-                <strong>{formatPrice(checkpoint.price)}</strong>
-                <h3>{checkpoint.label}</h3>
-                <p>{checkpoint.condition}</p>
-                <small>WITHIN {checkpoint.horizonHours}H</small>
-              </article>
-            ))}
-            {hermesProjection?.invalidation.price && (
-              <article className="invalidation">
-                <header><span>×</span><small>MODEL INVALIDATION</small></header>
-                <strong>{formatPrice(hermesProjection.invalidation.price)}</strong>
-                <h3>Hermes must rebuild</h3>
-                <p>{hermesProjection.invalidation.condition}</p>
-              </article>
-            )}
-          </div>
-          <div className="chart-hermes-path">
-            <article>
-              <small>WHAT HAPPENS FIRST</small>
-              <strong>{hermesCurrentPhase}</strong>
-            </article>
-            <i>→</i>
-            <article>
-              <small>WHAT MUST CONFIRM</small>
-              <strong>{hermesNextPhase}</strong>
-            </article>
-            <i>→</i>
-            <article>
-              <small>WHAT COMES LATER</small>
-              <strong>{hermesLongerMove}</strong>
-            </article>
-          </div>
-          <div className="hermes-reason-grid">
-            <article>
-              <small>1 · ASTRO DIRECT</small>
-              <strong>{astroConfirmed}</strong>
-              <span>Only direct Astro evidence enters this box.</span>
-            </article>
-            <article>
-              <small>2 · ASTRO SCHOOL MATCH</small>
-              <strong>{schoolMatch}</strong>
-              <span>Historical pattern; never treated as a new Astro call.</span>
-            </article>
-            <article>
-              <small>3 · MARKET CONDITION</small>
-              <strong>{marketContext}</strong>
-              <span>Price context used by Hermes only.</span>
-            </article>
-          </div>
-          <footer>
-            <div>
-              <small>CONFIRMATION</small>
-              <strong>{hermesConfirmation}</strong>
+          <details className="chart-brain-details">
+            <summary>
+              <span>
+                <small>WHY THIS PATH</small>
+                <strong>Open Hermes reasoning</strong>
+              </span>
+              <b>+</b>
+            </summary>
+            <div className="chart-brain-body">
+              <div className="hermes-checkpoint-grid">
+                {(hermesProjection?.checkpoints || []).map((checkpoint, index) => (
+                  <article key={`${checkpoint.label}-${checkpoint.price}`}>
+                    <header>
+                      <span>{String(index + 1).padStart(2, "0")}</span>
+                      <small>{checkpoint.kind.toUpperCase()}</small>
+                    </header>
+                    <strong>{formatPrice(checkpoint.price)}</strong>
+                    <h3>{checkpoint.label}</h3>
+                    <p>{checkpoint.condition}</p>
+                    <small>WITHIN {checkpoint.horizonHours}H</small>
+                  </article>
+                ))}
+                {hermesProjection?.invalidation.price && (
+                  <article className="invalidation">
+                    <header><span>×</span><small>MODEL INVALIDATION</small></header>
+                    <strong>{formatPrice(hermesProjection.invalidation.price)}</strong>
+                    <h3>Hermes must rebuild</h3>
+                    <p>{hermesProjection.invalidation.condition}</p>
+                  </article>
+                )}
+              </div>
+              <div className="chart-hermes-path">
+                <article>
+                  <small>WHAT HAPPENS FIRST</small>
+                  <strong>{hermesCurrentPhase}</strong>
+                </article>
+                <i>→</i>
+                <article>
+                  <small>WHAT MUST CONFIRM</small>
+                  <strong>{hermesNextPhase}</strong>
+                </article>
+                <i>→</i>
+                <article>
+                  <small>WHAT COMES LATER</small>
+                  <strong>{hermesLongerMove}</strong>
+                </article>
+              </div>
+              <div className="hermes-reason-grid">
+                <article>
+                  <small>1 · ASTRO DIRECT</small>
+                  <strong>{astroConfirmed}</strong>
+                  <span>Only direct Astro evidence enters this box.</span>
+                </article>
+                <article>
+                  <small>2 · ASTRO SCHOOL MATCH</small>
+                  <strong>{schoolMatch}</strong>
+                  <span>Historical pattern; never treated as a new Astro call.</span>
+                </article>
+                <article>
+                  <small>3 · MARKET CONDITION</small>
+                  <strong>{marketContext}</strong>
+                  <span>Price context used by Hermes only.</span>
+                </article>
+              </div>
+              <footer>
+                <div>
+                  <small>CONFIRMATION</small>
+                  <strong>{hermesConfirmation}</strong>
+                </div>
+                <div>
+                  <small>WRONG IF</small>
+                  <strong>{hermesFailure}</strong>
+                </div>
+              </footer>
             </div>
-            <div>
-              <small>WRONG IF</small>
-              <strong>{hermesFailure}</strong>
-            </div>
-          </footer>
+          </details>
         </section>
       ) : (
         <>

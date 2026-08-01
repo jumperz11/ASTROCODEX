@@ -1398,17 +1398,9 @@ export default function Home() {
     }
   }
 
-  if (["desk", "chart", "live", "history"].includes(activeView)) {
+  if (["desk", "chart", "history"].includes(activeView)) {
     const shortStatus =
       opportunity.label === "WAIT" ? "WAIT" : opportunity.label;
-    const watchLevel =
-      focusTargets[0]?.value || forecast.execution.takeProfit.level;
-    const deepSeekStatus =
-      systemStatus.reasoner?.provider?.includes("deepseek")
-        ? "DeepSeek checked"
-        : systemStatus.reasoner?.stage
-          ? "Hermes checked"
-          : "Standing by";
 
     return (
       <main className="neo-shell" id="top">
@@ -1423,13 +1415,12 @@ export default function Home() {
               ["desk", "Now"],
               ["chart", "Chart"],
               ["history", "History"],
-              ["live", "Live"],
             ].map(([view, label]) => (
               <button
                 className={activeView === view ? "active" : ""}
                 key={view}
                 onClick={() =>
-                  showView(view as "desk" | "chart" | "history" | "live")
+                  showView(view as "desk" | "chart" | "history")
                 }
               >
                 {label}
@@ -1452,40 +1443,40 @@ export default function Home() {
           </div>
         </header>
 
-        <section className="neo-brief" aria-label="Current Astro summary">
-          <article className={`neo-signal ${forecast.signal.state}`}>
-            <small>RIGHT NOW</small>
+        <section className="neo-context" aria-label="Current research summary">
+          <article className={`neo-context-signal ${forecast.signal.state}`}>
+            <small>STATE</small>
             <strong>{shortStatus}</strong>
           </article>
           <article>
-            <small>ASTRO</small>
+            <small>ASTRO NOW</small>
             <strong>{plainDashboard.where}</strong>
           </article>
           <article>
             <small>HERMES NEXT</small>
             <strong>{plainDashboard.next}</strong>
           </article>
-          <article>
-            <small>WATCH</small>
-            <strong>{watchLevel}</strong>
-          </article>
         </section>
 
         {activeView === "desk" && (
           <section className="neo-page neo-now">
-            <header className="neo-page-title">
+            <article className={`neo-action-card ${forecast.signal.state}`}>
               <div>
-                <span>YOUR CLEAR READ</span>
+                <span>CURRENT RESEARCH STATE</span>
+                <strong>{shortStatus}</strong>
                 <h1>{plainDashboard.you}</h1>
               </div>
-              <span className={`neo-freshness ${signalFreshness.tone}`}>
-                <i />
-                {signalFreshness.label}
-              </span>
-            </header>
+              <footer>
+                <span className={`neo-freshness ${signalFreshness.tone}`}>
+                  <i />
+                  {signalFreshness.label}
+                </span>
+                <small>Research alert only · no automatic trade</small>
+              </footer>
+            </article>
 
-            <div className="neo-now-grid">
-              <article className="neo-answer">
+            <div className="neo-snapshot-grid">
+              <article className="neo-snapshot astro">
                 <div className="neo-answer-top">
                   <span>ASTRO · CONFIRMED</span>
                   <b>{plainDashboard.freshEntry}</b>
@@ -1498,7 +1489,7 @@ export default function Home() {
                 </footer>
               </article>
 
-              <article className="neo-answer hermes">
+              <article className="neo-snapshot hermes">
                 <div className="neo-answer-top">
                   <span>HERMES · MODEL</span>
                   <b>{hermesAgreement.label}</b>
@@ -1510,21 +1501,27 @@ export default function Home() {
                   <span>{forecast.hermes.failure}</span>
                 </footer>
               </article>
+            </div>
 
-              <aside className="neo-levels">
-                <header>
-                  <span>LEVELS</span>
-                  <button onClick={() => showView("chart")}>Chart →</button>
-                </header>
-                {targetPlan.slice(0, 4).map((target) => (
-                  <div className={target.tone} key={target.label}>
+            <section className="neo-level-strip" aria-label="Important levels">
+              <header>
+                <div>
+                  <small>IMPORTANT LEVELS</small>
+                  <strong>Only the current plan</strong>
+                </div>
+                <button onClick={() => showView("chart")}>Open chart →</button>
+              </header>
+              <div>
+                {targetPlan.slice(0, 4).map((target, index) => (
+                  <article className={target.tone} key={target.label}>
+                    <i>{String(index + 1).padStart(2, "0")}</i>
                     <small>{target.label}</small>
                     <strong>{target.value}</strong>
                     <span>{target.state}</span>
-                  </div>
+                  </article>
                 ))}
-              </aside>
-            </div>
+              </div>
+            </section>
 
             <article className={`neo-update ${hasUnseenUpdate ? "new" : ""}`}>
               <div>
@@ -1549,6 +1546,50 @@ export default function Home() {
                 Source ↗
               </a>
             </article>
+
+            <details className="neo-monitor">
+              <summary>
+                <div>
+                  <i className={liveState.tone} />
+                  <span>
+                    <strong>{liveState.label}</strong>
+                    <small>{liveState.detail}</small>
+                  </span>
+                </div>
+                <b>System details</b>
+              </summary>
+              <div className="neo-monitor-health">
+                <span>
+                  Telegram · {systemStatus.telegramSourceStatus === "healthy" ? "2/2 live" : systemStatus.telegramSourceStatus}
+                </span>
+                <span>
+                  X · {systemStatus.xSourceStatus === "healthy" ? "connected" : systemStatus.xSourceStatus}
+                </span>
+                <span>
+                  Brain · {systemStatus.reasoner?.status === "healthy" ? "ready" : systemStatus.reasoner?.status || "standby"}
+                </span>
+              </div>
+              <div className="neo-monitor-feed" aria-live="polite">
+                {[...systemStatus.activity]
+                  .reverse()
+                  .slice(0, 5)
+                  .map((event, index) => (
+                    <article key={`${event.at}-${event.stage}-${index}`}>
+                      <time>
+                        {new Date(event.at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </time>
+                      <i className={event.status} />
+                      <div>
+                        <strong>{event.title}</strong>
+                        <p>{event.detail}</p>
+                      </div>
+                    </article>
+                  ))}
+              </div>
+            </details>
 
             {notice && <p className="neo-notice">{notice}</p>}
           </section>
@@ -1595,20 +1636,20 @@ export default function Home() {
               marketContext={forecast.thesis.regime}
               hermesProjection={forecast.hermes.projection}
               hermesAudit={systemStatus.hermesAudit}
-              onOpenHermes={() => showView("live")}
+              onOpenHermes={() => showView("desk")}
             />
 
-            <div className="neo-chart-notes">
+            <div className="neo-chart-summary">
               <article>
-                <small>ASTRO SAYS</small>
-                <strong>{forecast.thesis.astroConfirmed}</strong>
+                <small>FIRST</small>
+                <strong>{forecast.hermes.currentPhase}</strong>
               </article>
               <article>
-                <small>HERMES EXPECTS</small>
+                <small>THEN</small>
                 <strong>{forecast.hermes.nextPhase}</strong>
               </article>
               <article>
-                <small>READ CHANGES IF</small>
+                <small>WRONG IF</small>
                 <strong>{forecast.decision.risk}</strong>
               </article>
             </div>
@@ -1619,87 +1660,11 @@ export default function Home() {
           <section className="neo-page neo-history">
             <header className="neo-page-title">
               <div>
-                <span>WHAT ACTUALLY HAPPENED</span>
-                <h1>History</h1>
+                <span>VERIFIED OUTCOMES ONLY</span>
+                <h1>Right, wrong, open.</h1>
               </div>
             </header>
             <AstroHistory />
-          </section>
-        )}
-
-        {activeView === "live" && (
-          <section className="neo-page neo-live">
-            <header className="neo-page-title">
-              <div>
-                <span>REAL SYSTEM ACTIVITY</span>
-                <h1>Live</h1>
-              </div>
-              <span className="neo-worker-state">{deepSeekStatus}</span>
-            </header>
-
-            <div className="neo-health">
-              <article>
-                <i className={systemStatus.telegramSourceStatus} />
-                <small>TELEGRAM</small>
-                <strong>
-                  {systemStatus.telegramSourceStatus === "healthy"
-                    ? "Watching 2/2"
-                    : systemStatus.telegramSourceStatus}
-                </strong>
-              </article>
-              <article>
-                <i className={systemStatus.xSourceStatus} />
-                <small>X · GROK</small>
-                <strong>
-                  {systemStatus.xSourceStatus === "healthy"
-                    ? `${systemStatus.xSourceBudget?.remaining ?? "—"} left`
-                    : systemStatus.xSourceStatus}
-                </strong>
-              </article>
-              <article>
-                <i className={systemStatus.reasoner?.status || "standby"} />
-                <small>DEEPSEEK</small>
-                <strong>
-                  {systemStatus.reasoner?.provider?.includes("deepseek")
-                    ? `${systemStatus.reasoner.remaining ?? "—"} left`
-                    : "Standby"}
-                </strong>
-              </article>
-              <article>
-                <i className="healthy" />
-                <small>LUNA</small>
-                <strong>
-                  {systemStatus.reasoner?.stage === "medium"
-                    ? "Thinking"
-                    : "Saved"}
-                </strong>
-              </article>
-            </div>
-
-            <section className="neo-feed" aria-live="polite">
-              <header>
-                <strong>Latest activity</strong>
-                <span>Updates automatically</span>
-              </header>
-              {[...systemStatus.activity]
-                .reverse()
-                .slice(0, 10)
-                .map((event, index) => (
-                  <article key={`${event.at}-${event.stage}-${index}`}>
-                    <time>
-                      {new Date(event.at).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </time>
-                    <i className={event.status} />
-                    <div>
-                      <strong>{event.title}</strong>
-                      <p>{event.detail}</p>
-                    </div>
-                  </article>
-                ))}
-            </section>
           </section>
         )}
 
@@ -1708,13 +1673,12 @@ export default function Home() {
             ["desk", "Now"],
             ["chart", "Chart"],
             ["history", "History"],
-            ["live", "Live"],
           ].map(([view, label]) => (
             <button
               className={activeView === view ? "active" : ""}
               key={view}
               onClick={() =>
-                showView(view as "desk" | "chart" | "history" | "live")
+                showView(view as "desk" | "chart" | "history")
               }
             >
               {label}

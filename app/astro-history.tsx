@@ -419,10 +419,9 @@ export default function AstroHistory() {
     <section className="history-view">
       <div className="history-intro">
         <span className="eyebrow">TRACK RECORD</span>
-        <h1>What was right. What is still open.</h1>
         <p>
-          A clean, evidence-backed record. Open trades never count as wins, and
-          Astro&apos;s own claims stay separate from our verified score.
+          Astro calls and Hermes predictions are measured separately. Open
+          positions never count as wins.
         </p>
       </div>
 
@@ -438,18 +437,6 @@ export default function AstroHistory() {
           onClick={() => switchMode("hermes")}
         >
           Hermes maps
-        </button>
-        <button
-          className={mode === "days" ? "active" : ""}
-          onClick={() => switchMode("days")}
-        >
-          Day by day
-        </button>
-        <button
-          className={mode === "plays" ? "active" : ""}
-          onClick={() => switchMode("plays")}
-        >
-          Thesis changes
         </button>
       </div>
 
@@ -592,9 +579,8 @@ export default function AstroHistory() {
           <div className="hermes-score-truth">
             <span>NO SCORE YET IS HONEST</span>
             <p>
-              The current map is experimental. Official scoring begins with
-              scoring engine v2: immutable hashes, sequential checkpoints,
-              post-forecast candles, and a separate Astro-behavior result.
+              Market-path accuracy stays unclaimed until enough official maps
+              resolve. Astro-behavior outcomes are scored separately.
             </p>
           </div>
 

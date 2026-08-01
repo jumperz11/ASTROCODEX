@@ -34,16 +34,16 @@ test("server-renders the Astro Intelligence research terminal", async () => {
   const html = await response.text();
   assert.match(html, /<title>Astro Intelligence<\/title>/i);
   assert.match(html, /Astro Intelligence/i);
-  assert.match(html, /YOUR CLEAR READ/);
+  assert.match(html, /CURRENT RESEARCH STATE/);
   assert.match(html, /ASTRO · CONFIRMED/);
   assert.match(html, />WAIT</);
   assert.match(html, /NO · EXISTING POSITION/);
   assert.match(html, /HERMES · MODEL/);
-  assert.match(html, /LEVELS/);
-  assert.match(html, /RIGHT NOW/);
+  assert.match(html, /IMPORTANT LEVELS/);
+  assert.match(html, /ASTRO NOW/);
   assert.match(html, />Chart</);
-  assert.match(html, />Live</);
   assert.match(html, />History</);
+  assert.doesNotMatch(html, />Live</);
   assert.match(html, /LATEST UPDATE/);
   assert.match(html, /Source ↗/i);
   assert.match(
