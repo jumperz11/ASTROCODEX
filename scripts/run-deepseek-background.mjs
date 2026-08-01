@@ -224,8 +224,8 @@ const result = await callDeepSeekJson({
   system:
     "Return only valid JSON for an internal evidence and curriculum packet. No trading instructions.",
   prompt,
-  maxTokens: 2_200,
-  reasoningEffort: "low",
+  maxTokens: 3_000,
+  reasoningEffort: "none",
   timeoutMs: 75_000,
 });
 
