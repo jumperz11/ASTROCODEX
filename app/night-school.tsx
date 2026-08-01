@@ -97,6 +97,22 @@ type SchoolAudit = {
       candidateScore: number | null;
     }>;
   };
+  systemSpine?: {
+    status: "healthy" | "degraded" | "missing";
+    schemaVersion: number | null;
+    lastSyncAt: string | null;
+    counts: {
+      events: number;
+      campaigns: number;
+      campaignTransitions: number;
+      hypotheses: number;
+      lessons: number;
+      lessonUses: number;
+      syncRuns: number;
+    } | null;
+    parity: { ok?: boolean } | null;
+    error: string | null;
+  };
 };
 
 function dateLabel(value: string | null) {
@@ -242,8 +258,9 @@ export default function NightSchool() {
           <span>ASTRO NIGHT SCHOOL · AUDITABLE MEMORY</span>
           <h1>Is Hermes actually learning?</h1>
           <p>
-            Every lesson shows its Astro source, its review status, whether
-            Hermes used it, and what happened to the next frozen prediction.
+            Every lesson shows its Astro source, whether Hermes tested it, and
+            what happened to the next frozen prediction. You never need to
+            certify a trading rule as true.
           </p>
         </div>
         <div className={`school-verdict ${verdict.tone}`}>
@@ -336,8 +353,8 @@ export default function NightSchool() {
           </article>
           <article>
             <span>3</span>
-            <strong>You approve it</strong>
-            <p>Only approved new lessons enter Hermes memory. Older lessons stay visibly marked.</p>
+            <strong>You choose test or hide</strong>
+            <p>Evidence and later frozen outcomes—not your trading expertise—decide whether a rule earns trust.</p>
           </article>
           <article>
             <span>4</span>
@@ -378,8 +395,8 @@ export default function NightSchool() {
                     {lesson.sources.length} source
                     {lesson.sources.length === 1 ? "" : "s"} ·{" "}
                     {lesson.review.human === "approved"
-                      ? "approved by you"
-                      : "source-checked before manual review"}
+                      ? "queued for testing"
+                      : "source-checked research"}
                   </small>
                   <i>+</i>
                 </summary>
@@ -419,7 +436,7 @@ export default function NightSchool() {
             ))}
             {!audit.lessons.length && (
               <div className="school-empty">
-                <strong>No approved memory yet.</strong>
+                <strong>No source-checked memory yet.</strong>
                 <p>Night School will show a lesson only after its source survives review.</p>
               </div>
             )}
@@ -427,6 +444,30 @@ export default function NightSchool() {
         </section>
 
         <aside className="school-research">
+          <section>
+            <header>
+              <small>SYSTEM SPINE</small>
+              <span>
+                {(audit.systemSpine?.status ?? "missing").toUpperCase()}
+              </span>
+            </header>
+            <strong>
+              {audit.systemSpine?.parity?.ok
+                ? "Every migrated record is connected"
+                : "The live signal is safe; the audit copy needs attention"}
+            </strong>
+            <p>
+              {audit.systemSpine?.counts
+                ? `${audit.systemSpine.counts.events.toLocaleString()} evidence revisions · ${audit.systemSpine.counts.hypotheses.toLocaleString()} frozen hypotheses · ${audit.systemSpine.counts.lessonUses.toLocaleString()} exact lesson links.`
+                : audit.systemSpine?.error ??
+                  "The canonical audit ledger is waiting for its first VPS sync."}
+            </p>
+            <div>
+              <small>LAST PARITY CHECK</small>
+              <p>{dateLabel(audit.systemSpine?.lastSyncAt ?? null)}</p>
+            </div>
+          </section>
+
           <section>
             <header>
               <small>CURRENT NIGHT RESEARCH</small>

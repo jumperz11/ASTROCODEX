@@ -74,7 +74,7 @@ export function activeReviewPost(reviewState) {
 
 export function renderLessonReview(candidate) {
   return [
-    "🧠 HERMES LEARNING REVIEW",
+    "🧠 HERMES LESSON TEST",
     "",
     `CATEGORY · ${compactText(candidate.category, "setup", 40).toUpperCase()}`,
     "",
@@ -97,12 +97,31 @@ export function renderLessonReview(candidate) {
       500,
     ),
     "",
-    "Approve only if this is a reusable Astro habit—not just a one-off trade.",
+    "You are not certifying this as true.",
+    "TEST IT lets Hermes measure the rule on future frozen predictions.",
+    "HIDE IT keeps the rule out of your review feed.",
   ].join("\n").slice(0, 3900);
 }
 
 export function callbackData(action, fingerprint) {
   return `learn:${action}:${String(fingerprint).slice(0, 24)}`;
+}
+
+function lessonTestKeyboard(candidate) {
+  return {
+    inline_keyboard: [
+      [
+        {
+          text: "🧪 Test it",
+          callback_data: callbackData("approve", candidate.fingerprint),
+        },
+        {
+          text: "🙈 Hide it",
+          callback_data: callbackData("reject", candidate.fingerprint),
+        },
+      ],
+    ],
+  };
 }
 
 export function parseLearningCallback(value) {
@@ -259,20 +278,46 @@ async function run() {
           callback_query_id: callback.id,
           text:
             status === "approved"
-              ? "Approved. Hermes will use this in future predictions."
-              : "Rejected. This will not enter Hermes memory.",
+              ? "Queued for testing. Evidence—not this button—decides if it earns trust."
+              : "Hidden. This rule will stay out of your review feed.",
         });
         await telegram("editMessageText", {
           chat_id: chatId,
           message_id: callback.message?.message_id,
           text: `${renderLessonReview(candidate)}\n\n${
-            status === "approved" ? "✅ APPROVED BY YOU" : "❌ REJECTED BY YOU"
+            status === "approved" ? "🧪 QUEUED FOR TESTING" : "🙈 HIDDEN BY YOU"
           }`,
           reply_markup: { inline_keyboard: [] },
         });
       }
 
-      if (!activeReviewPost(state)) {
+      const pendingPost = activeReviewPost(state);
+      if (pendingPost) {
+        const candidate = candidateByPrefix(
+          thesis,
+          pendingPost.fingerprint,
+        );
+        const refreshedText = candidate
+          ? renderLessonReview(candidate)
+          : pendingPost.text;
+        if (candidate && refreshedText !== pendingPost.text) {
+          await telegram("editMessageText", {
+            chat_id: chatId,
+            message_id: pendingPost.messageId,
+            text: refreshedText,
+            reply_markup: lessonTestKeyboard(candidate),
+          });
+          state.posts[candidate.fingerprint] = {
+            ...pendingPost,
+            text: refreshedText,
+          };
+          await writeJsonAtomic(statePath, {
+            ...state,
+            checkedAt: new Date().toISOString(),
+            error: null,
+          });
+        }
+      } else {
         const candidate = reviewableLessonCandidates(thesis, state)[0];
         if (candidate) {
           const text = renderLessonReview(candidate);
@@ -281,26 +326,7 @@ async function run() {
             message_thread_id: threadId,
             text,
             disable_web_page_preview: true,
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  {
-                    text: "✅ Approve",
-                    callback_data: callbackData(
-                      "approve",
-                      candidate.fingerprint,
-                    ),
-                  },
-                  {
-                    text: "❌ Reject",
-                    callback_data: callbackData(
-                      "reject",
-                      candidate.fingerprint,
-                    ),
-                  },
-                ],
-              ],
-            },
+            reply_markup: lessonTestKeyboard(candidate),
           });
           state.posts[candidate.fingerprint] = {
             fingerprint: candidate.fingerprint,

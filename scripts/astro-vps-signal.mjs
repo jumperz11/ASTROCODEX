@@ -4,6 +4,10 @@ import { createServer } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildSchoolAudit } from "./school-audit.mjs";
+import {
+  defaultLedgerPath,
+  readLedgerHealth,
+} from "./astro-event-ledger.mjs";
 
 const scriptsDirectory = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(scriptsDirectory, "..");
@@ -18,6 +22,7 @@ const deepSeekThesisPath = join(stateDirectory, "deepseek-thesis.json");
 const learningReviewPath = join(stateDirectory, "learning-review.json");
 const codexIndexPath = join(stateDirectory, "codex-index.json");
 const autoresearchPath = join(stateDirectory, "autoresearch-shadow.json");
+const eventLedgerPath = defaultLedgerPath(stateDirectory);
 const signalToken = process.env.ASTRO_SIGNAL_TOKEN?.trim() ?? "";
 const host = process.env.ASTRO_SIGNAL_HOST?.trim() || "127.0.0.1";
 const port = Number.parseInt(process.env.ASTRO_SIGNAL_PORT || "8789", 10);
@@ -95,6 +100,10 @@ async function currentHealth() {
         state.reasoner && typeof state.reasoner === "object"
           ? state.reasoner
           : null,
+      ledger:
+        state.ledger && typeof state.ledger === "object"
+          ? state.ledger
+          : readLedgerHealth(eventLedgerPath),
       activity: Array.isArray(state.activity) ? state.activity.slice(-60) : [],
       consecutiveFailures: Number(state.consecutiveFailures || 0),
       error: state.error ?? null,
@@ -128,6 +137,7 @@ async function currentHealth() {
       xSourceNewestAt: null,
       xSourceBudget: null,
       reasoner: null,
+      ledger: readLedgerHealth(eventLedgerPath),
       activity: [],
       consecutiveFailures: 0,
       error: "No completed VPS scan is available yet.",
@@ -182,6 +192,7 @@ const server = createServer(async (request, response) => {
         history,
         forecast,
       });
+      schoolAudit.systemSpine = readLedgerHealth(eventLedgerPath);
       response
         .writeHead(200, {
           "Content-Type": "application/json",
@@ -245,6 +256,7 @@ const server = createServer(async (request, response) => {
           xSourceNewestAt: health.xSourceNewestAt,
           xSourceBudget: health.xSourceBudget,
           reasoner: health.reasoner,
+          ledger: health.ledger,
           activity: health.activity,
           hermesAudit: latestHermesPrediction
             ? {

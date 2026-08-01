@@ -15,6 +15,10 @@ import {
   marketProjectionMateriallyChanged,
   supersedeActivePredictions,
 } from "./hermes-ledger.mjs";
+import {
+  defaultLedgerPath,
+  syncRuntimeLedger,
+} from "./astro-event-ledger.mjs";
 import { notifyTelegram } from "./telegram-notifier.mjs";
 
 const scriptsDirectory = dirname(fileURLToPath(import.meta.url));
@@ -37,6 +41,8 @@ const codexIndexPath =
   process.env.ASTRO_CODEX_INDEX?.trim() ||
   join(stateDirectory, "codex-index.json");
 const deepSeekThesisPath = join(stateDirectory, "deepseek-thesis.json");
+const learningReviewPath = join(stateDirectory, "learning-review.json");
+const eventLedgerPath = defaultLedgerPath(stateDirectory);
 const reasoningModel =
   process.env.ASTRO_CODEX_MODEL?.trim() || "codex-luna";
 const timeoutMs = Math.max(
@@ -65,6 +71,44 @@ async function writeJsonAtomic(path, value) {
 
 async function writeState(state) {
   await writeJsonAtomic(statePath, state);
+}
+
+async function syncArchitectureLedger({
+  observedAt,
+  forecast,
+  history,
+}) {
+  try {
+    const [telegram, x, thesis, review] = await Promise.all([
+      readJson(telegramSourcePath, {}),
+      readJson(xSourcePath, {}),
+      readJson(deepSeekThesisPath, {}),
+      readJson(learningReviewPath, {}),
+    ]);
+    return syncRuntimeLedger({
+      path: eventLedgerPath,
+      observedAt,
+      forecast,
+      history,
+      telegram,
+      x,
+      thesis,
+      review,
+    });
+  } catch (error) {
+    return {
+      status: "degraded",
+      schemaVersion: null,
+      lastSyncAt: observedAt,
+      runId: null,
+      counts: null,
+      parity: { ok: false },
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unknown event-ledger sync failure.",
+    };
+  }
 }
 
 function nextActivity(existing, event) {
@@ -696,6 +740,11 @@ try {
       market,
       previous: previous.telegram,
     });
+    const ledger = await syncArchitectureLedger({
+      observedAt: finishedAt,
+      forecast: existingForecast,
+      history: nextHistory,
+    });
     activity = nextActivity(activity, {
       runId,
       stage: "decision",
@@ -703,6 +752,17 @@ try {
       title: "No material trigger",
       detail: "No new Astro evidence or market change required a full Hermes rebuild.",
     });
+    if (ledger.status !== "healthy") {
+      activity = nextActivity(activity, {
+        runId,
+        stage: "architecture",
+        status: "warning",
+        title: "Event spine needs attention",
+        detail:
+          ledger.error ||
+          "The JSON signal is safe, but the audit ledger did not reach parity.",
+      });
+    }
     await writeState({
       ...previous,
       runId,
@@ -734,6 +794,7 @@ try {
       agentRun: false,
       activity,
       telegram,
+      ledger,
       consecutiveFailures: 0,
       error: null,
     });
@@ -831,6 +892,11 @@ try {
     market,
     previous: previous.telegram,
   });
+  const ledger = await syncArchitectureLedger({
+    observedAt: finishedAt,
+    forecast,
+    history: nextHistory,
+  });
   activity = nextActivity(activity, {
     runId,
     stage: "decision",
@@ -840,6 +906,17 @@ try {
       ? "New evidence materially changed the accepted dashboard read."
       : "Hermes found no material reason to replace the accepted forecast.",
   });
+  if (ledger.status !== "healthy") {
+    activity = nextActivity(activity, {
+      runId,
+      stage: "architecture",
+      status: "warning",
+      title: "Event spine needs attention",
+      detail:
+        ledger.error ||
+        "The accepted signal is safe, but the audit ledger did not reach parity.",
+    });
+  }
   await writeState({
     runId,
     model: reasoningModel,
@@ -879,6 +956,7 @@ try {
     lastAgentAt: finishedAt,
     activity,
     telegram,
+    ledger,
     consecutiveFailures: 0,
     error: null,
   });

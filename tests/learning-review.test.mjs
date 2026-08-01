@@ -96,10 +96,11 @@ test("learning review messages stay plain and callbacks stay bounded", () => {
   const message = renderLessonReview(lesson);
   const approve = callbackData("approve", lesson.fingerprint);
 
-  assert.match(message, /HERMES LEARNING REVIEW/);
+  assert.match(message, /HERMES LESSON TEST/);
   assert.match(message, /CATEGORY · TRIM/);
   assert.match(message, /PROPOSED RULE/);
   assert.match(message, /DO NOT USE IT WHEN/);
+  assert.match(message, /not certifying this as true/i);
   assert.ok(message.length < 4000);
   assert.ok(approve.length <= 64);
   assert.deepEqual(parseLearningCallback(approve), {
