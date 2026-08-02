@@ -777,7 +777,10 @@ try {
       ? telegramSources.newestMessageId
       : deferredRetry
         ? pendingAnalysis.entityRef
-        : null;
+        : process.env.ASTRO_FORCE_REASONER === "1" &&
+            xSources.newestStatusId
+          ? `x:${xSources.newestStatusId}`
+          : null;
 
   if (!shouldRunAgent) {
     const finishedAt = new Date().toISOString();
@@ -952,7 +955,13 @@ try {
     })
     .find(Boolean);
   const changed = afterHash !== beforeHash;
-  const providerFailure = Boolean(result.signal) || result.code !== 0;
+  const providerStatus = String(providerResult?.status || "").toLowerCase();
+  const providerFailure =
+    Boolean(result.signal) ||
+    result.code !== 0 ||
+    ["degraded", "error", "failed", "rate_limited", "unavailable"].includes(
+      providerStatus,
+    );
   const analysisDeferred = !changed && providerFailure;
   const normalizedProviderResult = providerResult ||
     (providerFailure
