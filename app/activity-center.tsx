@@ -162,6 +162,27 @@ function serviceName(service?: ConsoleEvent["service"]) {
   );
 }
 
+function plainConsoleEvent(event: ConsoleEvent) {
+  if (event.kind === "no_change") {
+    return {
+      title: "No new Astro post · Hermes did not need to run",
+      detail:
+        "The monitor completed its routine check and kept the last validated plan.",
+    };
+  }
+  if (
+    event.kind === "analysis_kept" ||
+    event.kind === "plan_confirmed"
+  ) {
+    return {
+      title: "Hermes read the update · plan confirmed",
+      detail:
+        "The new evidence supported the existing thesis, so no replacement forecast was saved.",
+    };
+  }
+  return { title: event.title, detail: event.detail };
+}
+
 function lessonConnection(connection: LearningLesson["connection"]) {
   if (connection === "used_in_accepted_forecast") return "USED IN CURRENT PLAN";
   if (connection === "selected_for_current_research") return "BEING TESTED";
@@ -375,8 +396,8 @@ export default function ActivityCenter({
                 <time>{relativeTime(event.at, now)}</time>
                 <div>
                   <span>{serviceName(event.service)}</span>
-                  <strong>{event.title}</strong>
-                  <p>{event.detail}</p>
+                  <strong>{plainConsoleEvent(event).title}</strong>
+                  <p>{plainConsoleEvent(event).detail}</p>
                 </div>
               </article>
             )) : (

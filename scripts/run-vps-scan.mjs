@@ -1110,7 +1110,9 @@ try {
     },
     changed,
     agentRun: true,
-    lastAgentAt: finishedAt,
+    lastAgentAt: analysisDeferred
+      ? previous.lastAgentAt ?? null
+      : finishedAt,
     activity,
     telegram,
     ledger,

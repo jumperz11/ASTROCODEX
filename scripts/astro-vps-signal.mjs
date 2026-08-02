@@ -113,12 +113,12 @@ function buildAstroItems({ state, telegram, x, runtimeEvents }) {
       const recordedOutcome = eventOutcomeFor(runtimeEvents, id);
       const outcome =
         recordedOutcome ??
-        (reasonerDeferred
-          ? "deferred"
-          : xWasAnalyzed
-            ? xChangedAfterLatest
-              ? "changed"
-              : "confirmed"
+        (xWasAnalyzed
+          ? xChangedAfterLatest
+            ? "changed"
+            : "confirmed"
+          : reasonerDeferred
+            ? "deferred"
             : "queued");
       return {
         id,
