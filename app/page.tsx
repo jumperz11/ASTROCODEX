@@ -7,6 +7,7 @@ import LiveAstroChart from "./live-astro-chart";
 import NightSchool from "./night-school";
 import LearningPulse from "./learning-pulse";
 import PositionsView from "./positions-view";
+import ActivityCenter, { type AstroItem } from "./activity-center";
 
 type Evidence = {
   type: "astro" | "framework" | "inference";
@@ -676,6 +677,7 @@ type LiveSignalEnvelope = {
     error?: string;
   } | null;
   activity?: HermesActivity[];
+  astroItems?: AstroItem[];
   liveEventCursor?: string | null;
   hermesAudit?: HermesAudit | null;
 };
@@ -796,6 +798,7 @@ export default function Home() {
     xSourceBudget: null as LiveSignalEnvelope["xSourceBudget"],
     reasoner: null as LiveSignalEnvelope["reasoner"],
     activity: [] as HermesActivity[],
+    astroItems: [] as AstroItem[],
     liveEventCursor: null as string | null,
     hermesAudit: null as HermesAudit | null,
   });
@@ -805,6 +808,7 @@ export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const soundAlertsEnabledRef = useRef(false);
   const lastObservedForecastRef = useRef<string | null>(null);
+  const lastObservedAstroItemRef = useRef<string | null>(null);
   const lastObservedLiveEventRef = useRef<string | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
@@ -917,6 +921,35 @@ export default function Home() {
           }
           return normalized;
         });
+        const astroItems = Array.isArray(envelope.astroItems)
+          ? envelope.astroItems
+          : [];
+        const newestAstroItem = astroItems[0] ?? null;
+        const previouslyObservedAstroItem =
+          lastObservedAstroItemRef.current;
+        lastObservedAstroItemRef.current = newestAstroItem?.id ?? null;
+        if (
+          newestAstroItem &&
+          previouslyObservedAstroItem &&
+          previouslyObservedAstroItem !== newestAstroItem.id
+        ) {
+          setHasUnseenUpdate(true);
+        }
+        if (newestAstroItem && !previouslyObservedAstroItem) {
+          const seenItem = window.localStorage.getItem(
+            "astro-intel-seen-source-item",
+          );
+          const itemTime = new Date(
+            newestAstroItem.activityAt || newestAstroItem.postedAt || 0,
+          ).getTime();
+          if (
+            seenItem !== newestAstroItem.id &&
+            Number.isFinite(itemTime) &&
+            Date.now() - itemTime <= 60 * 60_000
+          ) {
+            setHasUnseenUpdate(true);
+          }
+        }
         setSignalCheckedAt(envelope.checkedAt);
         setSystemStatus({
           degraded: Boolean(envelope.degraded) || envelope.source !== "vps",
@@ -946,6 +979,7 @@ export default function Home() {
           xSourceBudget: envelope.xSourceBudget ?? null,
           reasoner: envelope.reasoner ?? null,
           activity: Array.isArray(envelope.activity) ? envelope.activity : [],
+          astroItems,
           liveEventCursor: envelope.liveEventCursor ?? null,
           hermesAudit: envelope.hermesAudit ?? null,
         });
@@ -1037,6 +1071,9 @@ export default function Home() {
             envelope.xSourceBudget ?? current.xSourceBudget,
           reasoner: envelope.reasoner ?? current.reasoner,
           activity: events.length ? events : current.activity,
+          astroItems: Array.isArray(envelope.astroItems)
+            ? envelope.astroItems
+            : current.astroItems,
           liveEventCursor: cursor ?? current.liveEventCursor,
         }));
       } catch {
@@ -1292,6 +1329,7 @@ export default function Home() {
       })[0] ?? null
     );
   }, [forecast.evidence]);
+  const latestAstroItem = systemStatus.astroItems[0] ?? null;
   const signalFreshness = useMemo(() => {
     if (!signalCheckedAt) {
       return { label: "VPS CONNECTING", tone: "scheduled" };
@@ -1351,15 +1389,31 @@ export default function Home() {
         tone: "working",
       };
     }
+    if (latestActivity?.kind === "analysis_deferred") {
+      return {
+        label: "POST SEEN · REVIEW QUEUED",
+        detail:
+          "The update is saved, but the deeper Hermes review reached its current usage limit.",
+        tone: "error",
+      };
+    }
     if (
       latestActivity?.kind === "no_change" ||
       latestActivity?.kind === "analysis_kept" ||
+      latestActivity?.kind === "plan_confirmed" ||
       latestActivity?.stage === "no_change" ||
-      latestActivity?.stage === "analysis_kept"
+      latestActivity?.stage === "analysis_kept" ||
+      latestActivity?.stage === "plan_confirmed"
     ) {
       return {
-        label: "NO CHANGE",
-        detail: "Hermes checked the newest information and kept the saved plan.",
+        label:
+          latestActivity?.kind === "plan_confirmed"
+            ? "NEW POST · PLAN CONFIRMED"
+            : "PLAN KEPT",
+        detail:
+          latestActivity?.kind === "plan_confirmed"
+            ? "Hermes read the new Astro update. It supports the existing plan."
+            : "Hermes checked the newest information and kept the saved plan.",
         tone: "quiet",
       };
     }
@@ -1412,6 +1466,10 @@ export default function Home() {
         }
         return normalized;
       });
+      const astroItems = Array.isArray(envelope.astroItems)
+        ? envelope.astroItems
+        : [];
+      lastObservedAstroItemRef.current = astroItems[0]?.id ?? null;
       setSignalCheckedAt(envelope.checkedAt);
       setSystemStatus({
         degraded: Boolean(envelope.degraded) || envelope.source !== "vps",
@@ -1441,6 +1499,7 @@ export default function Home() {
         xSourceBudget: envelope.xSourceBudget ?? null,
         reasoner: envelope.reasoner ?? null,
         activity: Array.isArray(envelope.activity) ? envelope.activity : [],
+        astroItems,
         liveEventCursor: envelope.liveEventCursor ?? null,
         hermesAudit: envelope.hermesAudit ?? null,
       });
@@ -1486,6 +1545,12 @@ export default function Home() {
       "astro-intel-seen-forecast",
       forecast.generatedAt,
     );
+    if (latestAstroItem) {
+      window.localStorage.setItem(
+        "astro-intel-seen-source-item",
+        latestAstroItem.id,
+      );
+    }
     setHasUnseenUpdate(false);
   }
 
@@ -1516,7 +1581,7 @@ export default function Home() {
     }
   }
 
-  if (["desk", "chart", "history"].includes(activeView)) {
+  if (["desk", "chart", "live", "history"].includes(activeView)) {
     const shortStatus =
       opportunity.label === "WAIT" ? "WAIT" : opportunity.label;
 
@@ -1532,7 +1597,7 @@ export default function Home() {
             {[
               ["desk", "Now"],
               ["chart", "Chart"],
-              ["live", "Live"],
+              ["live", "Updates"],
               ["history", "History"],
             ].map(([view, label]) => (
               <button
@@ -1658,20 +1723,28 @@ export default function Home() {
               </button>
             </nav>
 
-            <LearningPulse onOpen={() => showView("playbook")} />
+            <LearningPulse onOpen={() => showView("live")} />
 
             <article className={`home-latest ${hasUnseenUpdate ? "new" : ""}`}>
               <div>
                 <small>
-                  {hasUnseenUpdate ? "NEW ASTRO UPDATE" : "LATEST ASTRO UPDATE"} ·{" "}
-                  {relativeTime(latestAstroEvidence?.time, clockNow)}
+                  {hasUnseenUpdate ? "NEW ASTRO POST" : "LATEST ASTRO POST"} ·{" "}
+                  {relativeTime(
+                    latestAstroItem?.activityAt ||
+                      latestAstroItem?.postedAt ||
+                      latestAstroEvidence?.time,
+                    clockNow,
+                  )}
                 </small>
                 <strong>
-                  {latestAstroEvidence?.label || forecast.headline}
+                  {latestAstroItem?.text ||
+                    latestAstroEvidence?.label ||
+                    forecast.headline}
                 </strong>
               </div>
               <a
                 href={
+                  latestAstroItem?.url ||
                   latestAstroEvidence?.source ||
                   forecast.sources[0]?.url ||
                   "https://x.com/astronomer_zero"
@@ -1753,6 +1826,33 @@ export default function Home() {
           </section>
         )}
 
+        {activeView === "live" && (
+          <section className="neo-page neo-activity">
+            <ActivityCenter
+              items={systemStatus.astroItems}
+              activity={systemStatus.activity}
+              reasoner={systemStatus.reasoner}
+              now={clockNow}
+              sourceSummary={{
+                telegram:
+                  systemStatus.telegramSourceStatus === "healthy"
+                    ? `checked ${relativeTime(
+                        systemStatus.telegramSourceLastSuccessAt,
+                        clockNow,
+                      )}`
+                    : "reconnecting",
+                x:
+                  systemStatus.xSourceStatus === "healthy"
+                    ? `checked ${relativeTime(
+                        systemStatus.xSourceLastSuccessAt,
+                        clockNow,
+                      )}`
+                    : systemStatus.xSourceStatus.replaceAll("_", " "),
+              }}
+            />
+          </section>
+        )}
+
         {activeView === "history" && (
           <section className="neo-page neo-history">
             <header className="neo-page-title">
@@ -1769,7 +1869,7 @@ export default function Home() {
           {[
             ["desk", "Now"],
             ["chart", "Chart"],
-            ["live", "Live"],
+            ["live", "Updates"],
             ["history", "History"],
           ].map(([view, label]) => (
             <button

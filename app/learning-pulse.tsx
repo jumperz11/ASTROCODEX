@@ -134,7 +134,7 @@ export default function LearningPulse({ onOpen }: { onOpen: () => void }) {
           <small>HERMES LEARNING</small>
           <h2>Is it actually getting smarter?</h2>
         </div>
-        <button onClick={onOpen}>Open Night School →</button>
+        <button onClick={onOpen}>Open Learning →</button>
       </header>
 
       <div className="home-learning-grid">

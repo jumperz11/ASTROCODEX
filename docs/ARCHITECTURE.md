@@ -26,6 +26,22 @@ better results on later unseen answer keys count.
 The system is research-only. It never sends an order, chooses leverage, or
 promotes a model inference into an Astro-confirmed signal.
 
+## Operator truth loop
+
+Every newly captured Astro item has three independently visible states:
+
+1. **Seen** — Telegram ingestion or the Grok X scout stored the source item.
+2. **Read** — the evidence gate and, when justified, Hermes completed analysis.
+3. **Result** — the accepted plan changed, the existing plan was confirmed, or
+   deeper review was explicitly deferred.
+
+The private Updates surface reads these states from source ledgers and recorded
+runtime events. It also exposes an AI Console that names the responsible
+provider and reports only real actions and outcomes. A routine source poll may
+say "no new post"; it must never be presented as Hermes analyzing a post.
+Provider limits must appear as queued/deferred analysis, not as plan
+confirmation.
+
 ## Canonical pipeline
 
 ```text

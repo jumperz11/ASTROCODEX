@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import "./globals.css";
 
 const description =
-  "Astro now, Hermes next, the levels that matter, and what changed.";
+  "See every Astro post, every real AI action, and whether Hermes is learning.";
 
 export async function generateMetadata(): Promise<Metadata> {
   const incoming = await headers();
@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const protocol =
     incoming.get("x-forwarded-proto") ??
     (host.startsWith("localhost") ? "http" : "https");
-  const image = `${protocol}://${host}/og.png`;
+  const image = `${protocol}://${host}/og-v4.png`;
 
   return {
     title: "Astro Intelligence",
@@ -24,23 +24,21 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     openGraph: {
       title: "Astro Intelligence",
-      description:
-        "What Astro said. What the framework implies. What may happen next.",
+      description,
       type: "website",
       images: [
         {
           url: image,
-          width: 1693,
-          height: 929,
-          alt: "Astro Intelligence — live BTC chart with public Astro overlays",
+          width: 1731,
+          height: 909,
+          alt: "Astro Intelligence — Astro posts, AI Console, and Learning",
         },
       ],
     },
     twitter: {
       card: "summary_large_image",
       title: "Astro Intelligence",
-      description:
-        "What Astro said. What the framework implies. What may happen next.",
+      description,
       images: [image],
     },
   };

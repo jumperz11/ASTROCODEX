@@ -26,6 +26,7 @@ type RemoteSignalEnvelope = {
   xSourceBudget?: unknown;
   reasoner?: unknown;
   activity?: unknown;
+  astroItems?: unknown;
   liveEventCursor?: unknown;
   hermesAudit?: unknown;
 };
@@ -91,6 +92,7 @@ function response(
     xSourceBudget?: unknown;
     reasoner?: unknown;
     activity?: unknown[];
+    astroItems?: unknown[];
     liveEventCursor?: string | null;
     hermesAudit?: unknown;
   },
@@ -210,6 +212,7 @@ export async function GET() {
           ? payload.reasoner
           : null,
       activity: Array.isArray(payload.activity) ? payload.activity : [],
+      astroItems: Array.isArray(payload.astroItems) ? payload.astroItems : [],
       liveEventCursor:
         typeof payload.liveEventCursor === "string"
           ? payload.liveEventCursor

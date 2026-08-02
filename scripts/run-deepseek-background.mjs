@@ -537,8 +537,8 @@ emitLiveEvent({
   service: "school",
   kind: "school_progress",
   status: "done",
-  title: "Night School studied more Astro history",
-  detail: `${schoolBatch.length} archive items were reviewed. Live Astro updates still have priority.`,
+  title: "DeepSeek studied more Astro history",
+  detail: `DeepSeek reviewed ${schoolBatch.length} archive items and updated its source-checked lesson candidates. Live Astro updates still have priority.`,
   dedupeKey: updatedAt,
 });
 process.stdout.write(

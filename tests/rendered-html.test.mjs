@@ -42,9 +42,9 @@ test("server-renders the Astro Intelligence research terminal", async () => {
   assert.match(html, /THE CURRENT PATH/);
   assert.match(html, /IS IT ACTUALLY GETTING SMARTER/i);
   assert.match(html, />Chart</);
-  assert.match(html, />Live</);
+  assert.match(html, />Updates</);
   assert.match(html, />History</);
-  assert.match(html, /LATEST ASTRO UPDATE/);
+  assert.match(html, /LATEST ASTRO POST/);
   assert.match(html, /Read source ↗/i);
   assert.match(
     html,

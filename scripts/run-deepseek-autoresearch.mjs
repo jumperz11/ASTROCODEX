@@ -9,12 +9,17 @@ import {
   scorePolicy,
 } from "./autoresearch-shadow.mjs";
 import { callDeepSeekJson } from "./deepseek-client.mjs";
+import {
+  defaultLedgerPath,
+  recordRuntimeEvent,
+} from "./astro-event-ledger.mjs";
 
 const stateDirectory =
   process.env.ASTRO_STATE_DIR?.trim() || "/var/lib/astro-signal";
 const historyPath = join(stateDirectory, "history.json");
 const researchPath = join(stateDirectory, "autoresearch-shadow.json");
 const budgetPath = join(stateDirectory, "autoresearch-deepseek-budget.json");
+const eventLedgerPath = defaultLedgerPath(stateDirectory);
 const minimumMarketExamples = Math.max(
   12,
   Number.parseInt(process.env.ASTRO_AUTORESEARCH_MIN_EXAMPLES || "20", 10),
@@ -42,6 +47,14 @@ async function writeJsonAtomic(path, value) {
     mode: 0o600,
   });
   await rename(temporaryPath, path);
+}
+
+function emitLiveEvent(event) {
+  try {
+    return recordRuntimeEvent(eventLedgerPath, event);
+  } catch {
+    return null;
+  }
 }
 
 async function proposeExperiment(records, previous, track) {
@@ -121,6 +134,15 @@ if (!track) {
       "Market and behavior outcomes are collected separately. No experiment runs until one track has enough frozen outcomes.",
   };
   await writeJsonAtomic(researchPath, result);
+  emitLiveEvent({
+    at: result.updatedAt,
+    service: "school",
+    kind: "research_waiting",
+    status: "quiet",
+    title: "DeepSeek checked whether Hermes is improving",
+    detail: `There are ${behaviorEligible.length}/${minimumBehaviorExamples} scored behavior predictions and ${marketEligible.length}/${minimumMarketExamples} scored market maps. No strategy experiment ran yet.`,
+    dedupeKey: result.updatedAt,
+  });
   process.stdout.write(`${JSON.stringify(result)}\n`);
   process.exit(0);
 }
@@ -193,4 +215,17 @@ const next = {
     "Shadow results never change live forecasts without explicit human review.",
 };
 await writeJsonAtomic(researchPath, next);
+emitLiveEvent({
+  at: experiment.id,
+  service: "school",
+  kind: "research_experiment",
+  status: improved ? "done" : "quiet",
+  title: improved
+    ? "DeepSeek found a better shadow rule"
+    : "DeepSeek tested a rule · no improvement",
+  detail: improved
+    ? "The rule improved the held-out score in shadow testing. It still cannot change the live strategy automatically."
+    : "The candidate rule did not beat the current shadow baseline, so it was rejected.",
+  dedupeKey: experiment.id,
+});
 process.stdout.write(`${JSON.stringify(experiment)}\n`);

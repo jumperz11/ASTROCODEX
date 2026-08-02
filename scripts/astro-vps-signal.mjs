@@ -61,6 +61,148 @@ async function readJson(path) {
   return JSON.parse(await readFile(path, "utf8"));
 }
 
+function asText(value, fallback = "") {
+  return typeof value === "string" ? value.trim() : fallback;
+}
+
+function eventOutcomeFor(runtimeEvents, entityRef) {
+  const matched = [...runtimeEvents]
+    .reverse()
+    .find(
+      (event) =>
+        event?.entityRef === entityRef &&
+        [
+          "forecast_changed",
+          "plan_confirmed",
+          "analysis_kept",
+          "analysis_deferred",
+        ].includes(event?.kind),
+    );
+  if (!matched) return null;
+  if (matched.kind === "forecast_changed") return "changed";
+  if (matched.kind === "analysis_deferred") return "deferred";
+  return "confirmed";
+}
+
+function buildAstroItems({ state, telegram, x, runtimeEvents }) {
+  const xAcceptedAt = x?.newestAcceptedAt ?? null;
+  const lastAgentAt = state?.lastAgentAt ?? null;
+  const xWasAnalyzed =
+    Boolean(xAcceptedAt && lastAgentAt) &&
+    new Date(lastAgentAt).getTime() >= new Date(xAcceptedAt).getTime();
+  const xChangedAfterLatest =
+    xWasAnalyzed &&
+    Boolean(state?.lastChangedAt) &&
+    new Date(state.lastChangedAt).getTime() >= new Date(xAcceptedAt).getTime();
+  const telegramAnalyzedNewestAt =
+    state?.telegramSource?.analyzedNewestAt ?? null;
+  const telegramAnalyzedAt =
+    state?.telegramSource?.lastAnalyzedAt ?? null;
+  const reasonerDeferred =
+    state?.reasoner?.material === true &&
+    ["rate_limited", "degraded"].includes(state?.reasoner?.status);
+
+  const xItems = (Array.isArray(x?.posts) ? x.posts : [])
+    .map((post) => {
+      const statusId =
+        asText(post?.statusId) ||
+        asText(post?.url).match(/\/status\/(\d+)$/)?.[1] ||
+        "";
+      if (!statusId || !asText(post?.text)) return null;
+      const id = `x:${statusId}`;
+      const recordedOutcome = eventOutcomeFor(runtimeEvents, id);
+      const outcome =
+        recordedOutcome ??
+        (reasonerDeferred
+          ? "deferred"
+          : xWasAnalyzed
+            ? xChangedAfterLatest
+              ? "changed"
+              : "confirmed"
+            : "queued");
+      return {
+        id,
+        source: "x",
+        channels: ["Public X"],
+        postedAt: post?.postedAt ?? null,
+        activityAt: post?.postedAt ?? null,
+        seenAt: x?.lastSuccessAt ?? x?.checkedAt ?? null,
+        analyzedAt: xWasAnalyzed ? lastAgentAt : null,
+        outcome,
+        text: asText(post?.text).slice(0, 4_000),
+        url: asText(post?.url) || null,
+        hasMedia: false,
+      };
+    })
+    .filter(Boolean);
+  const xByUrl = new Map(
+    xItems.filter((item) => item.url).map((item) => [item.url, item]),
+  );
+
+  const telegramItems = (Array.isArray(telegram?.messages)
+    ? telegram.messages
+    : []
+  )
+    .map((message) => {
+      const body = asText(message?.text);
+      if (!body) return null;
+      const directXUrl = body.match(
+        /https:\/\/(?:www\.)?x\.com\/astronomer_zero\/status\/\d+/i,
+      )?.[0];
+      const mirrored = directXUrl ? xByUrl.get(directXUrl) : null;
+      const channel = asText(message?.chatTitle, "Astro Telegram");
+      if (mirrored && body === directXUrl) {
+        if (!mirrored.channels.includes(channel)) {
+          mirrored.channels.push(channel);
+        }
+        return null;
+      }
+      const id =
+        asText(message?.id) ||
+        `telegram:${asText(message?.chatId)}:${message?.messageId ?? "unknown"}`;
+      const activityAt =
+        message?.activityAt ?? message?.editedAt ?? message?.postedAt ?? null;
+      const analyzed =
+        Boolean(activityAt && telegramAnalyzedNewestAt) &&
+        new Date(activityAt).getTime() <=
+          new Date(telegramAnalyzedNewestAt).getTime();
+      const recordedOutcome = eventOutcomeFor(runtimeEvents, id);
+      const username = asText(message?.chatUsername).replace(/^@/, "");
+      const telegramUrl =
+        username && message?.messageId
+          ? `https://t.me/${username}/${message.messageId}`
+          : null;
+      return {
+        id,
+        source: "telegram",
+        channels: [channel],
+        postedAt: message?.postedAt ?? null,
+        activityAt,
+        seenAt: telegram?.lastSuccessAt ?? null,
+        analyzedAt: analyzed ? telegramAnalyzedAt : null,
+        outcome:
+          recordedOutcome ??
+          (reasonerDeferred && !analyzed
+            ? "deferred"
+            : analyzed
+              ? "confirmed"
+              : "queued"),
+        text: body.slice(0, 4_000),
+        url: directXUrl ?? telegramUrl,
+        hasMedia: Boolean(message?.mediaPath),
+      };
+    })
+    .filter(Boolean);
+
+  return [...xItems, ...telegramItems]
+    .sort(
+      (left, right) =>
+        new Date(right.activityAt ?? right.postedAt ?? 0).getTime() -
+        new Date(left.activityAt ?? left.postedAt ?? 0).getTime(),
+    )
+    .slice(0, 120);
+}
+
 async function currentHealth() {
   try {
     const [state, liveTelegram, liveX] = await Promise.all([
@@ -68,7 +210,13 @@ async function currentHealth() {
       readJson(telegramSourcePath).catch(() => ({})),
       readJson(xSourcePath).catch(() => ({})),
     ]);
-    const runtimeEvents = readRuntimeEvents(eventLedgerPath, { limit: 60 });
+    const runtimeEvents = readRuntimeEvents(eventLedgerPath, { limit: 200 });
+    const astroItems = buildAstroItems({
+      state,
+      telegram: liveTelegram,
+      x: liveX,
+      runtimeEvents,
+    });
     const telegramMessages = Array.isArray(liveTelegram.messages)
       ? liveTelegram.messages
       : [];
@@ -141,6 +289,7 @@ async function currentHealth() {
           : Array.isArray(state.activity)
             ? state.activity.slice(-60)
             : [],
+      astroItems,
       liveEventCursor: runtimeEvents.at(-1)?.id ?? null,
       consecutiveFailures: Number(state.consecutiveFailures || 0),
       error: state.error ?? null,
@@ -176,6 +325,7 @@ async function currentHealth() {
       reasoner: null,
       ledger: readLedgerHealth(eventLedgerPath),
       activity: [],
+      astroItems: [],
       liveEventCursor: null,
       consecutiveFailures: 0,
       error: "No completed VPS scan is available yet.",
@@ -276,6 +426,7 @@ const server = createServer(async (request, response) => {
           xSourceBudget: health.xSourceBudget,
           reasoner: health.reasoner,
           activity: health.activity,
+          astroItems: health.astroItems,
           liveEventCursor: health.liveEventCursor,
         }),
       );
@@ -330,6 +481,7 @@ const server = createServer(async (request, response) => {
           reasoner: health.reasoner,
           ledger: health.ledger,
           activity: health.activity,
+          astroItems: health.astroItems,
           liveEventCursor: health.liveEventCursor,
           hermesAudit: latestHermesPrediction
             ? {

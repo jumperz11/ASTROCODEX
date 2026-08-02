@@ -247,6 +247,10 @@ try {
             discoveredPosts.length === 1 ? "" : "s"
           }. Hermes will compare it with the current plan.`
         : "The newest known public Astro post is unchanged.",
+    entityRef:
+      discoveredPosts.length > 0 && newestStatusId
+        ? `x:${newestStatusId}`
+        : null,
     dedupeKey: checkedAt,
   });
   process.stdout.write(

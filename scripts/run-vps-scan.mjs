@@ -191,6 +191,14 @@ async function telegramSourceSummary() {
       mediaCount: Number(chat.mediaCount || 0),
     }));
   const lastSuccessAt = source?.lastSuccessAt ?? source?.updatedAt ?? null;
+  const newestAcceptedAt = source?.newestAcceptedAt ?? null;
+  const newestMessage = messages
+    .filter(
+      (message) =>
+        (message?.activityAt ?? message?.editedAt ?? message?.postedAt) ===
+        newestAcceptedAt,
+    )
+    .at(-1);
   const lastSuccessMs = new Date(lastSuccessAt || 0).getTime();
   const stale =
     !Number.isFinite(lastSuccessMs) ||
@@ -213,7 +221,8 @@ async function telegramSourceSummary() {
     status: "healthy",
     lastSuccessAt,
     stale: false,
-    newestAcceptedAt: source?.newestAcceptedAt ?? null,
+    newestAcceptedAt,
+    newestMessageId: newestMessage?.id ?? null,
     messageCount: messages.length,
     mediaCount: messages.filter((message) => message?.mediaPath).length,
     allowedChats,
@@ -750,6 +759,11 @@ try {
     schoolReviewChanged ||
     process.env.ASTRO_FORCE_REASONER === "1" ||
     !existingForecast;
+  const analysisEntityRef = xChanged
+    ? `x:${xSources.newestStatusId}`
+    : telegramChanged
+      ? telegramSources.newestMessageId
+      : null;
 
   if (!shouldRunAgent) {
     const finishedAt = new Date().toISOString();
@@ -789,11 +803,12 @@ try {
       detail: "No new Astro evidence or market change required a full Hermes rebuild.",
     });
     emitLiveEvent({
-      service: "hermes",
-      kind: "no_change",
+      service: "scanner",
+      kind: "check_complete",
       status: "quiet",
-      title: "Nothing changed",
-      detail: "No new evidence changed the current read. Hermes is staying with the saved plan.",
+      title: "Source check complete · no new Astro post",
+      detail:
+        "The monitor checked the approved sources. Nothing new required Hermes analysis.",
       dedupeKey: `${runId}:decision`,
     });
     if (ledger.status !== "healthy") {
@@ -872,6 +887,7 @@ try {
     detail: schoolReviewChanged
       ? "A new Astro School review is being compared with the saved plan."
       : "New evidence is being compared with Astro history and the saved plan.",
+    entityRef: analysisEntityRef,
     dedupeKey: `${runId}:analysis`,
   });
   await writeState({
@@ -931,6 +947,9 @@ try {
       }
     })
     .find(Boolean);
+  const analysisDeferred =
+    providerResult?.material === true &&
+    ["rate_limited", "degraded"].includes(providerResult?.status);
 
   const finishedAt = new Date().toISOString();
   const nextHistory = await updateHistory({
@@ -964,21 +983,48 @@ try {
   activity = nextActivity(activity, {
     runId,
     stage: "decision",
-    status: changed ? "done" : "quiet",
-    title: changed ? "Forecast updated" : "Analysis complete · no change",
-    detail: changed
+    status: analysisDeferred ? "warning" : changed ? "done" : "quiet",
+    title: analysisDeferred
+      ? "Deeper review queued"
+      : changed
+        ? "Forecast updated"
+        : xChanged || telegramChanged
+          ? "Astro update read · plan confirmed"
+          : "Analysis complete · plan kept",
+    detail: analysisDeferred
+      ? "The new information was captured, but the deeper Hermes review reached its usage limit. The saved plan was not presented as newly confirmed."
+      : changed
       ? "New evidence materially changed the accepted dashboard read."
-      : "Hermes found no material reason to replace the accepted forecast.",
+      : xChanged || telegramChanged
+        ? "Hermes read the new direct Astro update and kept the current plan because it supports the same thesis."
+        : "Hermes found no material reason to replace the accepted forecast.",
   });
   emitLiveEvent({
     service: "hermes",
-    kind: changed ? "forecast_changed" : "analysis_kept",
-    status: changed ? "done" : "quiet",
-    importance: changed ? "important" : "normal",
-    title: changed ? "The saved plan changed" : "Hermes kept the current plan",
-    detail: changed
+    kind: analysisDeferred
+      ? "analysis_deferred"
+      : changed
+        ? "forecast_changed"
+        : xChanged || telegramChanged
+          ? "plan_confirmed"
+          : "analysis_kept",
+    status: analysisDeferred ? "warning" : changed ? "done" : "quiet",
+    importance: analysisDeferred || changed ? "important" : "normal",
+    title: analysisDeferred
+      ? "Hermes review is queued"
+      : changed
+        ? "The saved plan changed"
+        : xChanged || telegramChanged
+          ? "New Astro update · existing plan confirmed"
+          : "Hermes kept the current plan",
+    detail: analysisDeferred
+      ? "The update is safely stored, but a deeper model review did not complete. The previous validated plan remains visible."
+      : changed
       ? "New evidence changed what Hermes expects. The chart and plain-language plan were updated."
-      : "The new information did not justify replacing the frozen prediction.",
+      : xChanged || telegramChanged
+        ? "Hermes read the new post. It supports the same direction and did not require a replacement forecast."
+        : "The new information did not justify replacing the frozen prediction.",
+    entityRef: analysisEntityRef,
     dedupeKey: `${runId}:decision`,
   });
   if (ledger.status !== "healthy") {
@@ -1017,14 +1063,50 @@ try {
       messageCount: telegramSources.messageCount,
       mediaCount: telegramSources.mediaCount,
       sources: telegramSources.allowedChats,
-      lastAnalyzedAt: finishedAt,
-      analyzedNewestAt: telegramSources.newestAcceptedAt,
+      lastAnalyzedAt: analysisDeferred
+        ? previous.telegramSource?.lastAnalyzedAt ?? null
+        : finishedAt,
+      analyzedNewestAt: analysisDeferred
+        ? previous.telegramSource?.analyzedNewestAt ?? null
+        : telegramSources.newestAcceptedAt,
     },
     xSourceUpdatedAt: xSources.newestAcceptedAt,
-    xSource: xSources,
+    xSource: {
+      ...xSources,
+      lastAnalyzedAt: analysisDeferred
+        ? previous.xSource?.lastAnalyzedAt ?? null
+        : finishedAt,
+      analyzedNewestAt: analysisDeferred
+        ? previous.xSource?.analyzedNewestAt ?? null
+        : xSources.newestAcceptedAt,
+      analyzedStatusId: analysisDeferred
+        ? previous.xSource?.analyzedStatusId ?? null
+        : xSources.newestStatusId,
+    },
     reasoner: providerResult ?? {
       status: "unknown",
       provider: "codex-luna",
+    },
+    lastAnalysis: {
+      at: finishedAt,
+      status: analysisDeferred
+        ? "deferred"
+        : changed
+          ? "changed"
+          : "confirmed",
+      entityRef: analysisEntityRef,
+      trigger: {
+        telegram: telegramChanged,
+        x: xChanged,
+        market: materialPriceMove,
+        ledger: ledgerChanged,
+        school: schoolReviewChanged,
+      },
+      sourceNewest: {
+        telegram: telegramSources.newestAcceptedAt,
+        x: xSources.newestAcceptedAt,
+      },
+      forecastGeneratedAt: forecast?.generatedAt ?? null,
     },
     changed,
     agentRun: true,

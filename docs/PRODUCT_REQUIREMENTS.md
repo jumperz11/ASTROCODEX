@@ -98,6 +98,18 @@ Live activity reports real system events only: source checks, accepted new
 items, reasoning runs, forecast decisions, notification delivery, and errors.
 It never exposes fabricated chain-of-thought.
 
+The Updates page has three modes:
+
+- **Astro posts:** the latest connected X and Telegram items with visible
+  `seen → read → changed/confirmed/deferred` processing.
+- **AI Console:** plain-English actions attributed to Grok, Hermes/Luna,
+  DeepSeek, the Telegram reader, and the alert bot.
+- **Learning:** archive progress, scored answer keys, source-backed lessons,
+  and whether each lesson is merely saved, being tested, or used now.
+
+A new post must remain visible even when it confirms the existing plan and
+therefore does not create a new forecast.
+
 ## 5. Source authority
 
 Sources are ranked by what they are allowed to prove.

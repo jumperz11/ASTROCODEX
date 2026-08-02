@@ -16,6 +16,7 @@ type RemoteEventsEnvelope = {
   xSourceBudget?: unknown;
   reasoner?: unknown;
   activity?: unknown;
+  astroItems?: unknown;
   liveEventCursor?: unknown;
 };
 
@@ -40,6 +41,7 @@ export async function GET() {
       {
         status: "degraded",
         activity: [],
+        astroItems: [],
         liveEventCursor: null,
       },
       503,
@@ -109,6 +111,7 @@ export async function GET() {
           ? payload.reasoner
           : null,
       activity: Array.isArray(payload.activity) ? payload.activity : [],
+      astroItems: Array.isArray(payload.astroItems) ? payload.astroItems : [],
       liveEventCursor: stringOrNull(payload.liveEventCursor),
     });
   } catch {
@@ -116,6 +119,7 @@ export async function GET() {
       {
         status: "degraded",
         activity: [],
+        astroItems: [],
         liveEventCursor: null,
       },
       503,
