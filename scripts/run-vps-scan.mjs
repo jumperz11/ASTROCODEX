@@ -26,6 +26,7 @@ import {
   pendingAnalysisStillCurrent,
 } from "./analysis-queue.mjs";
 import { notifyTelegram } from "./telegram-notifier.mjs";
+import { directEvidenceReview } from "./source-review.mjs";
 
 const scriptsDirectory = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(scriptsDirectory, "..");
@@ -750,9 +751,21 @@ try {
   const telegramChanged =
     Boolean(telegramSources.newestAcceptedAt) &&
     telegramSources.newestAcceptedAt !== previous.telegramSourceUpdatedAt;
+  const directReview = directEvidenceReview(
+    await readJson(xSourcePath, {}),
+    existingForecast,
+  );
+  const reconciliationVersion = Number(
+    previous.xSource?.reconciliationVersion || 0,
+  );
+  const directReviewNeeded =
+    directReview.needed && reconciliationVersion < 1;
+  const previousXAttemptedAt =
+    previous.xSource?.lastAttemptedNewestAt ??
+    (reconciliationVersion >= 1 ? previous.xSourceUpdatedAt : null);
   const xChanged =
     Boolean(xSources.newestAcceptedAt) &&
-    xSources.newestAcceptedAt !== previous.xSourceUpdatedAt;
+    xSources.newestAcceptedAt !== previousXAttemptedAt;
   const schoolReviewToken = deepSeek.reviewSignal?.token ?? null;
   const schoolReviewChanged =
     Boolean(schoolReviewToken) &&
@@ -767,11 +780,12 @@ try {
     materialPriceMove ||
     telegramChanged ||
     xChanged ||
+    directReviewNeeded ||
     schoolReviewChanged ||
     deferredRetry ||
     process.env.ASTRO_FORCE_REASONER === "1" ||
     !existingForecast;
-  const analysisEntityRef = xChanged
+  const analysisEntityRef = xChanged || directReviewNeeded
     ? `x:${xSources.newestStatusId}`
     : telegramChanged
       ? telegramSources.newestMessageId
@@ -866,7 +880,15 @@ try {
         analyzedNewestAt: previous.telegramSource?.analyzedNewestAt ?? null,
       },
       xSourceUpdatedAt: xSources.newestAcceptedAt,
-      xSource: xSources,
+      xSource: {
+        ...xSources,
+        lastAttemptedNewestAt:
+          previous.xSource?.lastAttemptedNewestAt ?? xSources.newestAcceptedAt,
+        reconciliationVersion: Math.max(
+          1,
+          Number(previous.xSource?.reconciliationVersion || 0),
+        ),
+      },
       changed: false,
       agentRun: false,
       pendingAnalysis,
@@ -1035,14 +1057,14 @@ try {
       ? "Deeper review queued"
       : changed
         ? "Forecast updated"
-        : xChanged || telegramChanged
+        : xChanged || telegramChanged || directReviewNeeded
           ? "Astro update read · plan confirmed"
           : "Analysis complete · plan kept",
     detail: analysisDeferred
       ? "The new information was captured, but the deeper Hermes review reached its usage limit. The saved plan was not presented as newly confirmed."
       : changed
       ? "New evidence materially changed the accepted dashboard read."
-      : xChanged || telegramChanged
+      : xChanged || telegramChanged || directReviewNeeded
         ? "Hermes read the new direct Astro update and kept the current plan because it supports the same thesis."
         : "Hermes found no material reason to replace the accepted forecast.",
   });
@@ -1052,7 +1074,7 @@ try {
       ? "analysis_deferred"
       : changed
         ? "forecast_changed"
-        : xChanged || telegramChanged
+        : xChanged || telegramChanged || directReviewNeeded
           ? "plan_confirmed"
           : "analysis_kept",
     status: analysisDeferred ? "warning" : changed ? "done" : "quiet",
@@ -1120,6 +1142,8 @@ try {
     xSourceUpdatedAt: xSources.newestAcceptedAt,
     xSource: {
       ...xSources,
+      lastAttemptedNewestAt: xSources.newestAcceptedAt,
+      reconciliationVersion: 1,
       lastAnalyzedAt: analysisDeferred
         ? previous.xSource?.lastAnalyzedAt ?? null
         : finishedAt,
@@ -1157,7 +1181,7 @@ try {
       entityRef: analysisEntityRef,
       trigger: {
         telegram: telegramChanged,
-        x: xChanged,
+        x: xChanged || directReviewNeeded,
         market: materialPriceMove,
         ledger: ledgerChanged,
         school: schoolReviewChanged,

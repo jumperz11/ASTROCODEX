@@ -6,6 +6,10 @@ import { fileURLToPath } from "node:url";
 import { ensureConnectorCredentials } from "./connector-auth.mjs";
 import { callDeepSeekJson } from "./deepseek-client.mjs";
 import { consumeBudget } from "./provider-budget.mjs";
+import {
+  directEvidenceReview,
+  enforceDirectReview,
+} from "./source-review.mjs";
 
 const scriptsDirectory = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(scriptsDirectory, "..");
@@ -476,6 +480,8 @@ if (deepSeekResult.available) {
     process.exit(0);
   }
 }
+const directReview = directEvidenceReview(xSource, forecast);
+gate = enforceDirectReview(gate, directReview);
 await writeJsonAtomic(evidenceBriefPath, {
   updatedAt: new Date().toISOString(),
   provider: gateProvider,
