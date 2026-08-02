@@ -940,18 +940,6 @@ try {
   );
   const forecast = await readJson(forecastPath);
   const afterHash = forecastSemanticHash(forecast);
-  const changed = afterHash !== beforeHash;
-
-  if (result.signal) {
-    throw new Error(`Astro agent exceeded its time limit (${result.signal}).`);
-  }
-  if (result.code !== 0) {
-    if (!changed) {
-      throw new Error(
-        "Luna failed without a newly validated forecast; the last signal remains live.",
-      );
-    }
-  }
   const providerResult = result.output
     .split(/\r?\n/)
     .reverse()
@@ -966,6 +954,18 @@ try {
   const analysisDeferred =
     providerResult?.material === true &&
     ["rate_limited", "degraded"].includes(providerResult?.status);
+  const changed = afterHash !== beforeHash;
+
+  if (result.signal) {
+    throw new Error(`Astro agent exceeded its time limit (${result.signal}).`);
+  }
+  if (result.code !== 0 && !changed) {
+    if (!analysisDeferred) {
+      throw new Error(
+        "Luna failed without a newly validated forecast; the last signal remains live.",
+      );
+    }
+  }
 
   const finishedAt = new Date().toISOString();
   const nextHistory = await updateHistory({

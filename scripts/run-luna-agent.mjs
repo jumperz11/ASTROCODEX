@@ -141,6 +141,13 @@ function codexFailureReason(result, providerLabel = "Luna Medium") {
   return `${providerLabel} exited unsuccessfully (code ${result?.code ?? "unknown"}).`;
 }
 
+function providerDiagnostic(result) {
+  return `${result?.stdout || ""}\n${result?.stderr || ""}`
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(-1_200);
+}
+
 function compactTelegram(source) {
   const messages = Array.isArray(source?.messages) ? source.messages : [];
   return messages.slice(-24).map((message) => ({
@@ -663,7 +670,9 @@ Provider boundary:
       prompt: mediumPrompt,
       outputPath: mediumOutputPath,
       schemaPath: null,
-      search: Boolean(gate.needsXSearch || xSource.status !== "healthy"),
+      search:
+        !mediumFallback &&
+        Boolean(gate.needsXSearch || xSource.status !== "healthy"),
       images: imagePaths,
     }),
     {
@@ -677,6 +686,13 @@ Provider boundary:
     .catch(() => 0);
   const changed = after > before;
   if (mediumResult.signal || mediumResult.code !== 0) {
+    process.stderr.write(
+      `${JSON.stringify({
+        provider: mediumFallback ? "codex-luna-light-fallback" : "codex-luna",
+        stage: mediumFallback ? "fallback" : "medium",
+        diagnostic: providerDiagnostic(mediumResult),
+      })}\n`,
+    );
     throw new Error(
       codexFailureReason(
         mediumResult,
