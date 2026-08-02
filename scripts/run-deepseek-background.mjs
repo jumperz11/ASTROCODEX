@@ -40,7 +40,7 @@ const evidenceBriefPath = join(
 const budgetPath = join(stateDirectory, "deepseek-background-budget.json");
 const dailyCap = Math.max(
   1,
-  Number.parseInt(process.env.ASTRO_DEEPSEEK_BACKGROUND_DAILY_CAP || "120", 10),
+  Number.parseInt(process.env.ASTRO_DEEPSEEK_BACKGROUND_DAILY_CAP || "144", 10),
 );
 const batchSize = Math.max(
   20,

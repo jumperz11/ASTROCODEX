@@ -101,6 +101,10 @@ function buildAstroItems({ state, telegram, x, runtimeEvents }) {
   const reasonerDeferred =
     state?.reasoner?.material === true &&
     ["rate_limited", "degraded"].includes(state?.reasoner?.status);
+  const pendingEntityRef =
+    typeof state?.pendingAnalysis?.entityRef === "string"
+      ? state.pendingAnalysis.entityRef
+      : null;
 
   const xItems = (Array.isArray(x?.posts) ? x.posts : [])
     .map((post) => {
@@ -117,7 +121,7 @@ function buildAstroItems({ state, telegram, x, runtimeEvents }) {
           ? xChangedAfterLatest
             ? "changed"
             : "confirmed"
-          : reasonerDeferred
+          : reasonerDeferred && pendingEntityRef === id
             ? "deferred"
             : "queued");
       return {
@@ -182,7 +186,7 @@ function buildAstroItems({ state, telegram, x, runtimeEvents }) {
         analyzedAt: analyzed ? telegramAnalyzedAt : null,
         outcome:
           recordedOutcome ??
-          (reasonerDeferred && !analyzed
+          (reasonerDeferred && !analyzed && pendingEntityRef === id
             ? "deferred"
             : analyzed
               ? "confirmed"
@@ -281,6 +285,14 @@ async function currentHealth() {
       reasoner:
         state.reasoner && typeof state.reasoner === "object"
           ? state.reasoner
+          : null,
+      pendingAnalysis:
+        state.pendingAnalysis && typeof state.pendingAnalysis === "object"
+          ? state.pendingAnalysis
+          : null,
+      lastAnalysis:
+        state.lastAnalysis && typeof state.lastAnalysis === "object"
+          ? state.lastAnalysis
           : null,
       ledger: readLedgerHealth(eventLedgerPath),
       activity:

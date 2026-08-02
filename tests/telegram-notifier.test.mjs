@@ -160,3 +160,22 @@ test("Telegram notifier sends once when lifecycle state changes", async () => {
   if (originalChat === undefined) delete process.env.TELEGRAM_CHAT_ID;
   else process.env.TELEGRAM_CHAT_ID = originalChat;
 });
+
+test("Telegram notifier explains a queued Astro review", () => {
+  const snapshot = telegramSnapshot(
+    forecast,
+    history,
+    { price: 62800 },
+    {
+      entityRef: "x:2083999999999999999",
+      reason: "Luna Medium is at its daily limit.",
+    },
+  );
+  assert.match(snapshot.text, /ASTRO UPDATE SEEN/);
+  assert.match(snapshot.text, /deeper review is queued/i);
+  assert.match(snapshot.text, /last validated plan remains active/i);
+  assert.match(
+    snapshot.text,
+    /https:\/\/x\.com\/astronomer_zero\/status\/2083999999999999999/,
+  );
+});

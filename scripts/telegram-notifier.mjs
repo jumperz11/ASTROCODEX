@@ -183,7 +183,20 @@ function agreementRead(forecast, prediction) {
   };
 }
 
-export function telegramSnapshot(forecast, history, market) {
+function pendingSourceUrl(pendingAnalysis) {
+  const entityRef = String(pendingAnalysis?.entityRef || "");
+  const match = entityRef.match(/^x:(\d+)$/);
+  return match
+    ? `https://x.com/astronomer_zero/status/${match[1]}`
+    : null;
+}
+
+export function telegramSnapshot(
+  forecast,
+  history,
+  market,
+  pendingAnalysis = null,
+) {
   const evidence = latestDirectEvidence(forecast);
   const prediction = latestOfficialPrediction(history);
   const behaviorPrediction = latestOfficialBehavior(history);
@@ -204,29 +217,46 @@ export function telegramSnapshot(forecast, history, market) {
       behaviorPrediction?.behaviorOutcome?.status ??
       prediction?.behaviorOutcome?.status ??
       null,
+    pendingEntityRef: pendingAnalysis?.entityRef ?? null,
+    pendingStatus: pendingAnalysis ? "queued" : null,
   };
   const signature = createHash("sha256")
     .update(JSON.stringify(signatureData))
     .digest("hex");
   const agreement = agreementRead(forecast, prediction);
   const priceLines = checkpointPriceLines(checkpoints);
+  const pendingUrl = pendingSourceUrl(pendingAnalysis);
   const text = [
-    "🔔 ASTRO UPDATE",
+    pendingAnalysis ? "🔔 ASTRO UPDATE SEEN" : "🔔 ASTRO UPDATE",
     "",
-    "WHAT ASTRO IS DOING",
-    plainAstroPosition(forecast),
+    ...(pendingAnalysis
+      ? [
+          "Hermes saw the new Astro source, but the deeper review is queued.",
+          "The last validated plan remains active. No new entry or exit was saved.",
+          "",
+          `Reason: ${pendingAnalysis.reason || "model slot unavailable"}`,
+          `Price now: ${formatPrice(market?.price)}`,
+        ]
+      : [
+          "WHAT ASTRO IS DOING",
+          plainAstroPosition(forecast),
+          "",
+          "WHAT HERMES EXPECTS",
+          plainHermesPath(prediction, agreement),
+          "",
+          ...priceLines,
+          "",
+          `Price now: ${formatPrice(market?.price)}`,
+          "",
+          "WHAT TO DO NOW",
+          plainWatchLine(forecast),
+        ]),
     "",
-    "WHAT HERMES EXPECTS",
-    plainHermesPath(prediction, agreement),
-    "",
-    ...priceLines,
-    "",
-    `Price now: ${formatPrice(market?.price)}`,
-    "",
-    "WHAT TO DO NOW",
-    plainWatchLine(forecast),
-    "",
-    evidence?.source ? `Astro post: ${evidence.source}` : null,
+    pendingUrl
+      ? `Astro source: ${pendingUrl}`
+      : evidence?.source
+        ? `Astro post: ${evidence.source}`
+        : null,
     "",
     "Research only. No automatic trading.",
   ]
@@ -239,6 +269,7 @@ export async function notifyTelegram({
   forecast,
   history,
   market,
+  pendingAnalysis = null,
   previous = null,
   fetchImpl = fetch,
 }) {
@@ -248,7 +279,12 @@ export async function notifyTelegram({
     process.env.TELEGRAM_MESSAGE_THREAD_ID || "",
     10,
   );
-  const snapshot = telegramSnapshot(forecast, history, market);
+  const snapshot = telegramSnapshot(
+    forecast,
+    history,
+    market,
+    pendingAnalysis,
+  );
   if (!botToken || !chatId) {
     return {
       enabled: false,

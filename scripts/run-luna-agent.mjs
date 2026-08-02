@@ -117,28 +117,28 @@ function run(command, args, options = {}) {
   });
 }
 
-function codexFailureReason(result) {
-  if (result?.signal) return `Luna Medium timed out (${result.signal}).`;
+function codexFailureReason(result, providerLabel = "Luna Medium") {
+  if (result?.signal) return `${providerLabel} timed out (${result.signal}).`;
   const diagnostic = `${result?.stdout || ""}\n${result?.stderr || ""}`;
   if (/login|auth|unauthorized/i.test(diagnostic)) {
     return "Codex login is required on the VPS.";
   }
   if (/usage limit|rate limit|too many requests|quota/i.test(diagnostic)) {
-    return "Luna Medium reached its provider usage limit.";
+    return `${providerLabel} reached its provider usage limit.`;
   }
   if (/not inside a trusted directory/i.test(diagnostic)) {
-    return "Luna Medium rejected the archived VPS workspace.";
+    return `${providerLabel} rejected the archived VPS workspace.`;
   }
   if (/context window|too many tokens|input.{0,20}too long|maximum context/i.test(diagnostic)) {
-    return "Luna Medium input exceeded the model context window.";
+    return `${providerLabel} input exceeded the model context window.`;
   }
   if (/permission denied|operation not permitted/i.test(diagnostic)) {
-    return "Luna Medium could not read a required protected input.";
+    return `${providerLabel} could not read a required protected input.`;
   }
   if (/mcp.{0,80}(failed|error)|tool.{0,80}(failed|error)/i.test(diagnostic)) {
-    return "Luna Medium could not complete a protected connector call.";
+    return `${providerLabel} could not complete a protected connector call.`;
   }
-  return `Luna Medium exited unsuccessfully (code ${result?.code ?? "unknown"}).`;
+  return `${providerLabel} exited unsuccessfully (code ${result?.code ?? "unknown"}).`;
 }
 
 function compactTelegram(source) {
@@ -514,18 +514,27 @@ if (!(await codexExists())) {
 }
 
 const mediumBudget = await consumeBudget(mediumBudgetPath, mediumDailyCap);
+let fallbackLightRemaining = null;
+let mediumFallback = false;
 if (!mediumBudget.accepted) {
-  process.stdout.write(
-    `${JSON.stringify({
-      status: "rate_limited",
-      provider: "codex-luna",
-      stage: "medium",
-      material: true,
-      category: gate.category,
-      remaining: 0,
-    })}\n`,
-  );
-  process.exit(0);
+  const fallbackBudget = await consumeBudget(lightBudgetPath, lightDailyCap);
+  if (!fallbackBudget.accepted) {
+    process.stdout.write(
+      `${JSON.stringify({
+        status: "rate_limited",
+        provider: "codex-luna",
+        stage: "medium",
+        material: true,
+        category: gate.category,
+        remaining: 0,
+        error:
+          "Luna Medium is full and the low-cost Hermes fallback is also full.",
+      })}\n`,
+    );
+    process.exit(0);
+  }
+  mediumFallback = true;
+  fallbackLightRemaining = fallbackBudget.remaining;
 }
 
 const credentials = await ensureConnectorCredentials();
@@ -588,6 +597,12 @@ try {
     stateDirectory,
     `luna-medium-${process.pid}-${Date.now()}.txt`,
   );
+  const providerNote = mediumFallback
+    ? `Fallback boundary: Luna Medium is at its daily limit. You are the
+low-cost Hermes fallback running at low effort. Process the direct source
+carefully, keep confidence modest, and save only a validated research update.
+Do not turn a source announcement into an entry without a level or condition.`
+    : "You are Luna Medium and may use the full research workflow.";
   const mediumPrompt = `${template
     .replace("{{NOW}}", new Date().toISOString())
     .replace("{{QUESTION}}", question)}
@@ -629,8 +644,9 @@ ${JSON.stringify({
 })}
 
 Provider boundary:
+- ${providerNote}
 - Grok is only the X evidence scout.
-- You are Luna Medium, responsible for the separated Hermes thesis.
+- You are the Hermes strategy reviewer, responsible for the separated Hermes thesis.
 - Call get_astro_playbook and search_astro_codex for the closest phase, execution sequence, and active trigger.
 - Use exact X status URLs for every public Astro evidence item.
 - Telegram-only material may inform Hermes but cannot become a public Astro quote or confirmed public signal.
@@ -643,7 +659,7 @@ Provider boundary:
   const mediumResult = await run(
     codexBin,
     codexArgs({
-      effort: "medium",
+      effort: mediumFallback ? "low" : "medium",
       prompt: mediumPrompt,
       outputPath: mediumOutputPath,
       schemaPath: null,
@@ -661,13 +677,18 @@ Provider boundary:
     .catch(() => 0);
   const changed = after > before;
   if (mediumResult.signal || mediumResult.code !== 0) {
-    throw new Error(codexFailureReason(mediumResult));
+    throw new Error(
+      codexFailureReason(
+        mediumResult,
+        mediumFallback ? "Hermes low-cost fallback" : "Luna Medium",
+      ),
+    );
   }
   process.stdout.write(
     `${JSON.stringify({
       status: "healthy",
-      provider: "codex-luna",
-      stage: "medium",
+      provider: mediumFallback ? "codex-luna-light-fallback" : "codex-luna",
+      stage: mediumFallback ? "fallback" : "medium",
       material: true,
       category: gate.category,
       changed,
@@ -675,7 +696,8 @@ Provider boundary:
       brief: gate.brief,
       campaign: gate.campaign,
       lightRemaining,
-      mediumRemaining: mediumBudget.remaining,
+      mediumRemaining: mediumBudget.accepted ? mediumBudget.remaining : 0,
+      fallbackLightRemaining,
     })}\n`,
   );
 } catch (error) {

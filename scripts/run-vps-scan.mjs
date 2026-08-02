@@ -20,6 +20,11 @@ import {
   recordRuntimeEvent,
   syncRuntimeLedger,
 } from "./astro-event-ledger.mjs";
+import {
+  deferredRetryDue,
+  pendingAnalysisFromState,
+  pendingAnalysisStillCurrent,
+} from "./analysis-queue.mjs";
 import { notifyTelegram } from "./telegram-notifier.mjs";
 
 const scriptsDirectory = dirname(fileURLToPath(import.meta.url));
@@ -728,6 +733,7 @@ try {
     evaluatedHermesPredictions,
     evaluatedBehaviorPredictions,
   );
+  const pendingAnalysis = pendingAnalysisFromState(previous);
   const ledgerChanged =
     ledgerTriggerSignature(
       currentHistory?.hermesPredictions,
@@ -751,19 +757,27 @@ try {
   const schoolReviewChanged =
     Boolean(schoolReviewToken) &&
     schoolReviewToken !== previous.deepSeekReviewToken;
+  const deferredRetry =
+    pendingAnalysisStillCurrent(pendingAnalysis, {
+      telegramNewestAt: telegramSources.newestAcceptedAt,
+      xNewestAt: xSources.newestAcceptedAt,
+    }) && deferredRetryDue(pendingAnalysis);
   const shouldRunAgent =
     ledgerChanged ||
     materialPriceMove ||
     telegramChanged ||
     xChanged ||
     schoolReviewChanged ||
+    deferredRetry ||
     process.env.ASTRO_FORCE_REASONER === "1" ||
     !existingForecast;
   const analysisEntityRef = xChanged
     ? `x:${xSources.newestStatusId}`
     : telegramChanged
       ? telegramSources.newestMessageId
-      : null;
+      : deferredRetry
+        ? pendingAnalysis.entityRef
+        : null;
 
   if (!shouldRunAgent) {
     const finishedAt = new Date().toISOString();
@@ -778,6 +792,7 @@ try {
       forecast: existingForecast,
       history: nextHistory,
       market,
+      pendingAnalysis,
       previous: previous.telegram,
     });
     if (telegram?.status === "sent") {
@@ -851,6 +866,7 @@ try {
       xSource: xSources,
       changed: false,
       agentRun: false,
+      pendingAnalysis,
       activity,
       telegram,
       ledger,
@@ -963,6 +979,19 @@ try {
     forecast,
     history: nextHistory,
     market,
+    pendingAnalysis: analysisDeferred
+      ? {
+          entityRef: analysisEntityRef,
+          queuedAt: finishedAt,
+          sourceNewest: {
+            telegram: telegramSources.newestAcceptedAt,
+            x: xSources.newestAcceptedAt,
+          },
+          reason:
+            providerResult?.error ||
+            "The deeper Hermes review is waiting for an available model slot.",
+        }
+      : null,
     previous: previous.telegram,
   });
   if (telegram?.status === "sent") {
@@ -1083,6 +1112,19 @@ try {
         ? previous.xSource?.analyzedStatusId ?? null
         : xSources.newestStatusId,
     },
+    pendingAnalysis: analysisDeferred
+      ? {
+          entityRef: analysisEntityRef,
+          queuedAt: finishedAt,
+          sourceNewest: {
+            telegram: telegramSources.newestAcceptedAt,
+            x: xSources.newestAcceptedAt,
+          },
+          reason:
+            providerResult?.error ||
+            "The deeper Hermes review is waiting for an available model slot.",
+        }
+      : null,
     reasoner: providerResult ?? {
       status: "unknown",
       provider: "codex-luna",
