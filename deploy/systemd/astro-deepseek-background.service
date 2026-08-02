@@ -14,7 +14,7 @@ Environment=ASTRO_FORECAST_PATH=/var/lib/astro-signal/forecast.json
 Environment=ASTRO_CODEX_INDEX=/var/lib/astro-signal/codex-index.json
 Environment=ASTRO_TELEGRAM_SOURCE_PATH=/var/lib/astro-signal/telegram-source.json
 Environment=ASTRO_X_SOURCE_PATH=/var/lib/astro-signal/x-source.json
-Environment=ASTRO_DEEPSEEK_BACKGROUND_DAILY_CAP=120
+Environment=ASTRO_DEEPSEEK_BACKGROUND_DAILY_CAP=144
 Environment=ASTRO_DEEPSEEK_SCHOOL_BATCH_SIZE=100
 Environment=ASTRO_DEEPSEEK_THESIS_REFRESH_HOURS=6
 ExecStart=/usr/bin/npm run astro:deepseek:background
