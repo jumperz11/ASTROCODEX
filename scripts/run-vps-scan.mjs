@@ -951,20 +951,29 @@ try {
       }
     })
     .find(Boolean);
-  const analysisDeferred =
-    providerResult?.material === true &&
-    ["rate_limited", "degraded"].includes(providerResult?.status);
   const changed = afterHash !== beforeHash;
-
-  if (result.signal) {
-    throw new Error(`Astro agent exceeded its time limit (${result.signal}).`);
-  }
-  if (result.code !== 0 && !changed) {
-    if (!analysisDeferred) {
-      throw new Error(
-        "Luna failed without a newly validated forecast; the last signal remains live.",
-      );
-    }
+  const providerFailure = Boolean(result.signal) || result.code !== 0;
+  const analysisDeferred = !changed && providerFailure;
+  const normalizedProviderResult = providerResult ||
+    (providerFailure
+      ? {
+          status: "degraded",
+          provider: "codex-luna",
+          stage: "unknown",
+          material: true,
+          category: "position",
+          error: result.signal
+            ? `Astro agent timed out (${result.signal}).`
+            : "The Hermes provider failed before returning a result.",
+        }
+      : null);
+  if (providerFailure && result.output) {
+    process.stderr.write(
+      `${JSON.stringify({
+        stage: "reasoner",
+        provider: normalizedProviderResult,
+      })}\n`,
+    );
   }
 
   const finishedAt = new Date().toISOString();
@@ -988,7 +997,7 @@ try {
             x: xSources.newestAcceptedAt,
           },
           reason:
-            providerResult?.error ||
+          normalizedProviderResult?.error ||
             "The deeper Hermes review is waiting for an available model slot.",
         }
       : null,
@@ -1121,11 +1130,11 @@ try {
             x: xSources.newestAcceptedAt,
           },
           reason:
-            providerResult?.error ||
+            normalizedProviderResult?.error ||
             "The deeper Hermes review is waiting for an available model slot.",
         }
       : null,
-    reasoner: providerResult ?? {
+    reasoner: normalizedProviderResult ?? {
       status: "unknown",
       provider: "codex-luna",
     },
