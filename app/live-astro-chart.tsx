@@ -167,23 +167,6 @@ function eventPrices(event: AstroEvent) {
     .filter((value) => Number.isFinite(value));
 }
 
-function pricesFromText(text: string) {
-  const normalized = text.replaceAll(",", "");
-  return [
-    ...normalized.matchAll(/\b(\d{2,3}(?:\.\d+)?)k\b|\b(\d{5,6})\b/gi),
-  ]
-    .map((match) =>
-      match[1] ? Number(match[1]) * 1_000 : Number(match[2]),
-    )
-    .filter(
-      (value, index, values) =>
-        Number.isFinite(value) &&
-        value >= 10_000 &&
-        value <= 250_000 &&
-        values.indexOf(value) === index,
-    );
-}
-
 function levelWasCompleted(level: ParsedLevel, events: AstroEvent[]) {
   if (level.kind !== "trim") return false;
   return events.some((event) => {
@@ -355,6 +338,8 @@ export default function LiveAstroChart({
   marketContext,
   hermesProjection,
   hermesAudit,
+  hermesAnchorPrice = null,
+  hermesAnchorTime = null,
   onOpenHermes,
 }: {
   events: AstroEvent[];
@@ -380,6 +365,8 @@ export default function LiveAstroChart({
   marketContext: string;
   hermesProjection?: HermesProjection;
   hermesAudit?: HermesAudit | null;
+  hermesAnchorPrice?: number | null;
+  hermesAnchorTime?: string | null;
   onOpenHermes: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -403,7 +390,6 @@ export default function LiveAstroChart({
   const [feedNote, setFeedNote] = useState("Loading Coinbase candles…");
   const [zoneRects, setZoneRects] = useState<ZoneRect[]>([]);
   const [overlayMode, setOverlayMode] = useState<OverlayMode>("hermes");
-  const [latestCandleTime, setLatestCandleTime] = useState<number | null>(null);
   const hermesMapUnavailable =
     hermesAudit?.integrity === "failed" ||
     ["partial", "invalidated", "expired", "superseded"].includes(
@@ -554,147 +540,93 @@ export default function LiveAstroChart({
     [eventMarkers, overlayMode],
   );
   const hermesProjectionPlan = useMemo(() => {
-    if (price === null) return null;
+    const mapAnchorPrice = Number(hermesAnchorPrice);
+    if (!hermesProjection || !Number.isFinite(mapAnchorPrice)) return null;
 
-    const forecastTimestamp = Math.floor(
-      new Date(forecastTime).getTime() / 1000,
+    const mapTimestamp = new Date(hermesAnchorTime || forecastTime).getTime();
+    if (!Number.isFinite(mapTimestamp)) return null;
+    const anchorTimestamp = Math.floor(mapTimestamp / 1_000 / timeframe) * timeframe;
+    const currentIsDown = ["down", "down_then_up"].includes(
+      hermesProjection.direction,
     );
-    const anchorTimestamp =
-      latestCandleTime ??
-      (Number.isFinite(forecastTimestamp)
-        ? Math.floor(forecastTimestamp / timeframe) * timeframe
-        : 0);
-    const hermesText =
-      `${hermesCurrentPhase} ${hermesNextPhase} ${hermesLongerMove} ${hermesConfirmation}`.toLowerCase();
-    const currentIsDown = hermesProjection
-      ? ["down", "down_then_up"].includes(hermesProjection.direction)
-      : /\bshort\b|downside|lower|drawdown|sell/.test(
-          hermesCurrentPhase.toLowerCase(),
-        );
-    const longerIsUp = hermesProjection
-      ? ["up", "down_then_up"].includes(hermesProjection.direction)
-      : /\blong\b|upside|higher|reclaim|new ath|bull/.test(
-          hermesLongerMove.toLowerCase(),
-        );
-    const mentioned = pricesFromText(hermesText).filter(
-      (value) => value > price * 0.78 && value < price * 1.24,
+    const longerIsUp = ["up", "down_then_up"].includes(
+      hermesProjection.direction,
     );
-    const modelPrices = parsedThesisLevels
-      .map((level) => level.price)
-      .filter((value) => value > price * 0.78 && value < price * 1.24);
-    const allPrices = [...mentioned, ...modelPrices].filter(
-      (value, index, values) => values.indexOf(value) === index,
-    );
-    const below = allPrices
-      .filter((value) => value < price * 0.999)
-      .sort((left, right) => right - left);
-    const above = allPrices
-      .filter((value) => value > price * 1.001)
-      .sort((left, right) => left - right);
-
-    const stableCheckpoints = hermesProjection?.checkpoints
+    const stableCheckpoints = hermesProjection.checkpoints
       .filter(
         (checkpoint) =>
           Number.isFinite(checkpoint.price) &&
-          checkpoint.price > price * 0.78 &&
-          checkpoint.price < price * 1.24,
+          Number.isFinite(checkpoint.horizonHours),
       )
       .sort((left, right) => left.horizonHours - right.horizonHours);
-    const transitionCheckpoint = stableCheckpoints?.find(
+    if (stableCheckpoints.length < 2) return null;
+
+    const transitionCheckpoint = stableCheckpoints.find(
       (checkpoint) => checkpoint.kind === "transition",
-    );
-    const confirmationCheckpoint = stableCheckpoints?.find(
+    ) ?? stableCheckpoints[0];
+    const confirmationCheckpoint = stableCheckpoints.find(
       (checkpoint) => checkpoint.kind === "confirmation",
+    ) ?? stableCheckpoints.find(
+      (checkpoint) => checkpoint.horizonHours > transitionCheckpoint.horizonHours,
     );
     const targetCheckpoint = [...(stableCheckpoints ?? [])]
       .reverse()
-      .find((checkpoint) => checkpoint.kind === "target");
-    const transitionPrice =
-      transitionCheckpoint?.price ??
-      stableCheckpoints?.[0]?.price ??
-      (currentIsDown
-        ? below.at(-1) ?? price * 0.975
-        : above[0] ?? price * 1.02);
-    const campaignTarget =
-      targetCheckpoint?.price ??
-      stableCheckpoints?.at(-1)?.price ??
-      (longerIsUp
-        ? above.at(-1) ?? Math.max(price * 1.065, transitionPrice * 1.08)
-        : below.at(-1) ?? Math.min(price * 0.935, transitionPrice * 0.94));
+      .find((checkpoint) => checkpoint.kind === "target") ??
+      stableCheckpoints.at(-1)!;
     const transitionTime =
       anchorTimestamp +
-      Math.max(timeframe * 2, (transitionCheckpoint?.horizonHours ?? 72) * 3_600);
-    const confirmationTime = Math.max(
-      transitionTime + timeframe * 2,
-      anchorTimestamp +
-        (confirmationCheckpoint?.horizonHours ?? 168) * 3_600,
-    );
+      Math.max(timeframe * 2, transitionCheckpoint.horizonHours * 3_600);
+    const confirmationTime = confirmationCheckpoint
+      ? Math.max(
+          transitionTime + timeframe * 2,
+          anchorTimestamp + confirmationCheckpoint.horizonHours * 3_600,
+        )
+      : null;
     const targetTime = Math.max(
-      confirmationTime + timeframe * 2,
-      anchorTimestamp + (targetCheckpoint?.horizonHours ?? 336) * 3_600,
+      (confirmationTime ?? transitionTime) + timeframe * 2,
+      anchorTimestamp + targetCheckpoint.horizonHours * 3_600,
     );
-    const confirmationPrice =
-      confirmationCheckpoint?.price ??
-      transitionPrice + (campaignTarget - transitionPrice) * 0.18;
-    const curvedPoints: LineData<UTCTimestamp>[] = [
-      { time: anchorTimestamp as UTCTimestamp, value: price },
-      {
-        time: Math.floor(
-          anchorTimestamp + (transitionTime - anchorTimestamp) * 0.5,
-        ) as UTCTimestamp,
-        value: price + (transitionPrice - price) * 0.52,
-      },
-      {
-        time: transitionTime as UTCTimestamp,
-        value: transitionPrice,
-      },
-      {
-        time: confirmationTime as UTCTimestamp,
-        value: confirmationPrice,
-      },
-      {
-        time: Math.floor(
-          confirmationTime + (targetTime - confirmationTime) * 0.5,
-        ) as UTCTimestamp,
-        value: confirmationPrice + (campaignTarget - confirmationPrice) * 0.5,
-      },
-      {
-        time: targetTime as UTCTimestamp,
-        value: campaignTarget,
-      },
+    const transitionPoint: LineData<UTCTimestamp> = {
+      time: transitionTime as UTCTimestamp,
+      value: transitionCheckpoint.price,
+    };
+    const confirmationPoint = confirmationCheckpoint && confirmationTime
+      ? {
+          time: confirmationTime as UTCTimestamp,
+          value: confirmationCheckpoint.price,
+        }
+      : null;
+    const targetPoint: LineData<UTCTimestamp> = {
+      time: targetTime as UTCTimestamp,
+      value: targetCheckpoint.price,
+    };
+    const frozenPoints: LineData<UTCTimestamp>[] = [
+      { time: anchorTimestamp as UTCTimestamp, value: mapAnchorPrice },
+      transitionPoint,
+      ...(confirmationPoint ? [confirmationPoint] : []),
+      targetPoint,
     ];
-    const uncertainty = Math.max(price * 0.012, 600);
-    const branchPoints = (
-      direction: 1 | -1,
-    ): LineData<UTCTimestamp>[] =>
-      curvedPoints.map((point, index) => ({
-        time: point.time,
-        value:
-          point.value +
-          direction * uncertainty * Math.pow(index / (curvedPoints.length - 1), 1.35),
-      }));
 
     return {
-      points: curvedPoints,
-      upper: branchPoints(1),
-      lower: branchPoints(-1),
-      transitionPrice,
-      campaignTarget,
+      points: frozenPoints,
+      upper: [],
+      lower: [],
+      anchorPrice: mapAnchorPrice,
+      transitionPoint,
+      confirmationPoint,
+      targetPoint,
+      transitionPrice: transitionCheckpoint.price,
+      campaignTarget: targetCheckpoint.price,
       currentIsDown,
       longerIsUp,
-      confidence: hermesProjection?.confidence ?? predictedProbability,
+      confidence: hermesProjection.confidence ?? predictedProbability,
     };
   }, [
     forecastTime,
-    hermesConfirmation,
-    hermesCurrentPhase,
-    hermesLongerMove,
-    hermesNextPhase,
+    hermesAnchorPrice,
+    hermesAnchorTime,
     hermesProjection,
-    latestCandleTime,
-    parsedThesisLevels,
     predictedProbability,
-    price,
     timeframe,
   ]);
 
@@ -774,7 +706,7 @@ export default function LiveAstroChart({
       color: "rgba(122, 162, 255, 0.58)",
       lineWidth: 3,
       lineStyle: LineStyle.Dashed,
-      lineType: LineType.Curved,
+      lineType: LineType.Simple,
       crosshairMarkerVisible: false,
       lastValueVisible: false,
       priceLineVisible: false,
@@ -784,7 +716,7 @@ export default function LiveAstroChart({
       color: "rgba(122, 162, 255, 0.34)",
       lineWidth: 2,
       lineStyle: LineStyle.Dashed,
-      lineType: LineType.Curved,
+      lineType: LineType.Simple,
       crosshairMarkerVisible: false,
       lastValueVisible: false,
       priceLineVisible: false,
@@ -794,7 +726,7 @@ export default function LiveAstroChart({
       color: "rgba(196, 125, 255, 0.30)",
       lineWidth: 2,
       lineStyle: LineStyle.Dashed,
-      lineType: LineType.Curved,
+      lineType: LineType.Simple,
       crosshairMarkerVisible: false,
       lastValueVisible: false,
       priceLineVisible: false,
@@ -850,13 +782,13 @@ export default function LiveAstroChart({
       lineWidth: 4,
       title: "HERMES PATH",
     });
-    hermesUpperSeries.applyOptions({ visible: hermesVisible });
-    hermesLowerSeries.applyOptions({ visible: hermesVisible });
+    hermesUpperSeries.applyOptions({ visible: false });
+    hermesLowerSeries.applyOptions({ visible: false });
 
     if (overlayMode === "hermes" && hermesProjectionPlan) {
       projectionSeries.setData(hermesProjectionPlan.points);
-      hermesUpperSeries.setData(hermesProjectionPlan.upper);
-      hermesLowerSeries.setData(hermesProjectionPlan.lower);
+      hermesUpperSeries.setData([]);
+      hermesLowerSeries.setData([]);
       projectionMarkers.setMarkers([
         {
           color: "#ffb000",
@@ -867,7 +799,7 @@ export default function LiveAstroChart({
           text: `1 · ${compactChartPrice(
             hermesProjectionPlan.transitionPrice,
           )}`,
-          time: hermesProjectionPlan.points[2].time,
+          time: hermesProjectionPlan.transitionPoint.time,
         },
         {
           color: "#f3f0e8",
@@ -876,9 +808,12 @@ export default function LiveAstroChart({
           shape: "square",
           size: 1,
           text: `2 · ${compactChartPrice(
-            hermesProjectionPlan.points[3].value,
+            hermesProjectionPlan.confirmationPoint?.value ??
+              hermesProjectionPlan.transitionPoint.value,
           )}`,
-          time: hermesProjectionPlan.points[3].time,
+          time:
+            hermesProjectionPlan.confirmationPoint?.time ??
+            hermesProjectionPlan.transitionPoint.time,
         },
         {
           color: hermesProjectionPlan.longerIsUp ? "#52e6a7" : "#ff6b66",
@@ -887,9 +822,9 @@ export default function LiveAstroChart({
           shape: "arrowUp",
           size: 1,
           text: `3 · ${compactChartPrice(
-            hermesProjectionPlan.campaignTarget,
+            hermesProjectionPlan.targetPoint.value,
           )}`,
-          time: hermesProjectionPlan.points.at(-1)!.time,
+          time: hermesProjectionPlan.targetPoint.time,
         },
       ]);
     } else {
@@ -1053,11 +988,6 @@ export default function LiveAstroChart({
 
         series.setData(candles);
         currentCandleRef.current = candles.at(-1) ?? null;
-        setLatestCandleTime(
-          currentCandleRef.current
-            ? Number(currentCandleRef.current.time)
-            : null,
-        );
         setPrice(currentCandleRef.current?.close ?? null);
         chart.timeScale().fitContent();
         updateZonesRef.current();
@@ -1119,7 +1049,6 @@ export default function LiveAstroChart({
                   };
 
             currentCandleRef.current = nextCandle;
-            setLatestCandleTime(bucket);
             series.update(nextCandle);
             updateZonesRef.current();
             setPrice(nextPrice);
@@ -1267,13 +1196,12 @@ export default function LiveAstroChart({
                 {hermesProjectionPlan.longerIsUp ? "CAMPAIGN ↑" : "CAMPAIGN ↓"}
               </strong>
               <span>
-                {hermesProjectionPlan.confidence}% LEADING PATH · {hermesHorizon}
+                {hermesProjectionPlan.confidence}% LEADING PATH · ANCHORED AT {compactChartPrice(hermesProjectionPlan.anchorPrice)} · {hermesHorizon}
               </span>
             </div>
             <div className="chart-hermes-legend">
               <span><i className="main" />Expected route</span>
-              <span><i className="rail" />Alternative range</span>
-              <small>Model inference · not Astro’s drawing</small>
+              <small>Frozen map from the saved review · not Astro’s drawing</small>
             </div>
           </>
         )}
@@ -1288,6 +1216,15 @@ export default function LiveAstroChart({
             <span>{hermesAudit.outcomeReason || "The expected route failed."}</span>
           </div>
         )}
+        {overlayMode === "hermes" &&
+          !hermesMapUnavailable &&
+          !hermesProjectionPlan && (
+            <div className="chart-hermes-rebuilding">
+              <small>NO FROZEN MAP</small>
+              <strong>Hermes has not saved an anchored route</strong>
+              <span>The chart will not draw a live-price guess.</span>
+            </div>
+          )}
         {feedState === "error" && (
           <div className="chart-feed-error">
             Live market data is temporarily unavailable. Astro’s validated map remains below.
@@ -1538,7 +1475,7 @@ export default function LiveAstroChart({
         ) : (
           <>
             <span>DOTTED · HERMES CHECKPOINTS</span>
-            <span>GHOST PATH · HERMES PREDICTION</span>
+            <span>FROZEN PATH · SAVED HERMES MAP</span>
           </>
         )}
         <span>READ · {forecastLabel}</span>

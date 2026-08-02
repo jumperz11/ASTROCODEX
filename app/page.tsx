@@ -1806,6 +1806,8 @@ export default function Home() {
               marketContext={forecast.thesis.regime}
               hermesProjection={forecast.hermes.projection}
               hermesAudit={systemStatus.hermesAudit}
+              hermesAnchorPrice={systemStatus.hermesAudit?.anchorPrice ?? null}
+              hermesAnchorTime={systemStatus.hermesAudit?.createdAt ?? forecast.generatedAt}
               onOpenHermes={() => showView("desk")}
             />
 
@@ -2076,6 +2078,8 @@ export default function Home() {
             marketContext={forecast.thesis.regime}
             hermesProjection={forecast.hermes.projection}
             hermesAudit={systemStatus.hermesAudit}
+            hermesAnchorPrice={systemStatus.hermesAudit?.anchorPrice ?? null}
+            hermesAnchorTime={systemStatus.hermesAudit?.createdAt ?? forecast.generatedAt}
             onOpenHermes={() => showView("hermes")}
           />
 
