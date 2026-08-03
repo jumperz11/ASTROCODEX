@@ -136,9 +136,8 @@ function checkpointPriceLines(checkpoints) {
   if (!remaining.length) return ["No new price target yet."];
 
   return remaining.slice(0, 3).map((checkpoint, index) => {
-    if (index === 0) return `Next price area: ${formatPrice(checkpoint.price)}`;
-    if (index === 1) return `Then watch: ${formatPrice(checkpoint.price)}`;
-    return `Later: ${formatPrice(checkpoint.price)}`;
+    const label = index === 0 ? "T1" : index === 1 ? "T2" : "TP";
+    return `HERMES ${label}: ${formatPrice(checkpoint.price)}`;
   });
 }
 
@@ -245,7 +244,6 @@ export function telegramSnapshot(
           executionLine("ASTRO TP", forecast?.execution?.takeProfit),
           executionLine("ASTRO SL / EXIT", forecast?.execution?.exit),
           "HERMES: PAUSED · waiting for review",
-          `Price now: ${formatPrice(market?.price)}`,
         ]
       : [
           "ASTRO NOW",
@@ -259,8 +257,6 @@ export function telegramSnapshot(
           plainHermesPath(prediction, agreement),
           "",
           ...priceLines,
-          "",
-          `Price now: ${formatPrice(market?.price)}`,
           "",
           "YOUR NEXT CHECK",
           plainWatchLine(forecast),

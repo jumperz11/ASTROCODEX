@@ -67,9 +67,9 @@ test("Telegram snapshot separates Astro and Hermes targets", () => {
   assert.match(snapshot.text, /ASTRO SL \/ EXIT: /);
   assert.match(snapshot.text, /HERMES NEXT/);
   assert.match(snapshot.text, /Hermes agrees: price may fall first, then bounce/);
-  assert.match(snapshot.text, /Next price area: \$62,358/);
-  assert.match(snapshot.text, /Then watch: \$64,600/);
-  assert.match(snapshot.text, /Price now: \$62,800/);
+  assert.match(snapshot.text, /HERMES T1: \$62,358/);
+  assert.match(snapshot.text, /HERMES T2: \$64,600/);
+  assert.doesNotMatch(snapshot.text, /Coinbase|Price now/);
   assert.match(snapshot.text, /YOUR NEXT CHECK/);
   assert.match(snapshot.text, /ASTRO NOW\n.+\n\nASTRO IN:/);
   assert.doesNotMatch(snapshot.text, /CHECKPOINTS|AGREEMENT ·|TP STATE/);
