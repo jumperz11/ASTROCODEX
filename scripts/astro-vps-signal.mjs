@@ -488,6 +488,7 @@ const server = createServer(async (request, response) => {
           reasonerBlocked: health.reasonerBlocked,
           unreviewedSources: health.unreviewedSources,
           checkedAt: health.checkedAt,
+          forecastGeneratedAt: health.forecastGeneratedAt,
           runId: health.runId,
           telegramSourceStatus: health.telegramSourceStatus,
           telegramSourceLastSuccessAt: health.telegramSourceLastSuccessAt,
@@ -532,6 +533,7 @@ const server = createServer(async (request, response) => {
         JSON.stringify({
           forecast,
           checkedAt: health.checkedAt,
+          forecastGeneratedAt: health.forecastGeneratedAt,
           status: health.status,
           dataReady: health.dataReady,
           dataStatus: health.dataStatus,
