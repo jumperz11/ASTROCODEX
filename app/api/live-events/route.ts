@@ -2,6 +2,11 @@ export const dynamic = "force-dynamic";
 
 type RemoteEventsEnvelope = {
   status?: unknown;
+  dataReady?: unknown;
+  dataStatus?: unknown;
+  reviewPending?: unknown;
+  reasonerBlocked?: unknown;
+  unreviewedSources?: unknown;
   checkedAt?: unknown;
   runId?: unknown;
   telegramSourceStatus?: unknown;
@@ -15,6 +20,7 @@ type RemoteEventsEnvelope = {
   xSourceNewestAt?: unknown;
   xSourceBudget?: unknown;
   reasoner?: unknown;
+  pendingAnalysis?: unknown;
   activity?: unknown;
   astroItems?: unknown;
   liveEventCursor?: unknown;
@@ -69,6 +75,15 @@ export async function GET() {
     return privateJson({
       status:
         typeof payload.status === "string" ? payload.status : "unknown",
+      degraded: payload.dataReady === false,
+      dataReady: payload.dataReady !== false,
+      dataStatus:
+        typeof payload.dataStatus === "string"
+          ? payload.dataStatus
+          : "unknown",
+      reviewPending: payload.reviewPending === true,
+      reasonerBlocked: payload.reasonerBlocked === true,
+      unreviewedSources: payload.unreviewedSources,
       checkedAt: stringOrNull(payload.checkedAt),
       runId: stringOrNull(payload.runId),
       telegramSourceStatus:
@@ -109,6 +124,12 @@ export async function GET() {
         typeof payload.reasoner === "object" &&
         !Array.isArray(payload.reasoner)
           ? payload.reasoner
+          : null,
+      pendingAnalysis:
+        payload.pendingAnalysis &&
+        typeof payload.pendingAnalysis === "object" &&
+        !Array.isArray(payload.pendingAnalysis)
+          ? payload.pendingAnalysis
           : null,
       activity: Array.isArray(payload.activity) ? payload.activity : [],
       astroItems: Array.isArray(payload.astroItems) ? payload.astroItems : [],

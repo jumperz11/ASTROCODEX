@@ -6,6 +6,11 @@ type RemoteSignalEnvelope = {
   forecast?: unknown;
   checkedAt?: unknown;
   status?: unknown;
+  dataReady?: unknown;
+  dataStatus?: unknown;
+  reviewPending?: unknown;
+  reasonerBlocked?: unknown;
+  unreviewedSources?: unknown;
   runId?: unknown;
   model?: unknown;
   codexEntries?: unknown;
@@ -25,6 +30,7 @@ type RemoteSignalEnvelope = {
   xSourceNewestAt?: unknown;
   xSourceBudget?: unknown;
   reasoner?: unknown;
+  pendingAnalysis?: unknown;
   activity?: unknown;
   astroItems?: unknown;
   liveEventCursor?: unknown;
@@ -72,6 +78,11 @@ function response(
     source: "vps" | "bundled";
     degraded?: boolean;
     status?: string;
+    dataReady?: boolean;
+    dataStatus?: string;
+    reviewPending?: boolean;
+    reasonerBlocked?: boolean;
+    unreviewedSources?: unknown;
     runId?: string | null;
     model?: string | null;
     codexEntries?: number;
@@ -91,6 +102,7 @@ function response(
     xSourceNewestAt?: string | null;
     xSourceBudget?: unknown;
     reasoner?: unknown;
+    pendingAnalysis?: unknown;
     activity?: unknown[];
     astroItems?: unknown[];
     liveEventCursor?: string | null;
@@ -145,6 +157,15 @@ export async function GET() {
       checkedAt,
       source: "vps",
       status: typeof payload.status === "string" ? payload.status : "healthy",
+      degraded: payload.dataReady === false,
+      dataReady: payload.dataReady !== false,
+      dataStatus:
+        typeof payload.dataStatus === "string"
+          ? payload.dataStatus
+          : "unknown",
+      reviewPending: payload.reviewPending === true,
+      reasonerBlocked: payload.reasonerBlocked === true,
+      unreviewedSources: payload.unreviewedSources,
       runId: typeof payload.runId === "string" ? payload.runId : null,
       model: typeof payload.model === "string" ? payload.model : null,
       codexEntries: Number.isInteger(payload.codexEntries)
@@ -210,6 +231,12 @@ export async function GET() {
         typeof payload.reasoner === "object" &&
         !Array.isArray(payload.reasoner)
           ? payload.reasoner
+          : null,
+      pendingAnalysis:
+        payload.pendingAnalysis &&
+        typeof payload.pendingAnalysis === "object" &&
+        !Array.isArray(payload.pendingAnalysis)
+          ? payload.pendingAnalysis
           : null,
       activity: Array.isArray(payload.activity) ? payload.activity : [],
       astroItems: Array.isArray(payload.astroItems) ? payload.astroItems : [],

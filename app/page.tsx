@@ -637,6 +637,11 @@ type LiveSignalEnvelope = {
   source: "vps" | "bundled";
   degraded?: boolean;
   status?: string;
+  dataReady?: boolean;
+  dataStatus?: string;
+  reviewPending?: boolean;
+  reasonerBlocked?: boolean;
+  unreviewedSources?: { telegram?: boolean; x?: boolean } | null;
   runId?: string | null;
   model?: string | null;
   codexEntries?: number;
@@ -675,6 +680,12 @@ type LiveSignalEnvelope = {
     lightRemaining?: number;
     mediumRemaining?: number;
     error?: string;
+  } | null;
+  pendingAnalysis?: {
+    entityRef?: string | null;
+    queuedAt?: string | null;
+    sourceNewest?: { telegram?: string | null; x?: string | null };
+    reason?: string | null;
   } | null;
   activity?: HermesActivity[];
   astroItems?: AstroItem[];
@@ -778,6 +789,11 @@ export default function Home() {
   const [systemStatus, setSystemStatus] = useState({
     degraded: true,
     pipelineStatus: "starting",
+    dataReady: false,
+    dataStatus: "starting",
+    reviewPending: false,
+    reasonerBlocked: false,
+    unreviewedSources: { telegram: false, x: false },
     model: null as string | null,
     codexEntries: 0,
     codexMedia: 0,
@@ -797,6 +813,7 @@ export default function Home() {
     xSourceNewestAt: null as string | null,
     xSourceBudget: null as LiveSignalEnvelope["xSourceBudget"],
     reasoner: null as LiveSignalEnvelope["reasoner"],
+    pendingAnalysis: null as LiveSignalEnvelope["pendingAnalysis"],
     activity: [] as HermesActivity[],
     astroItems: [] as AstroItem[],
     liveEventCursor: null as string | null,
@@ -952,8 +969,19 @@ export default function Home() {
         }
         setSignalCheckedAt(envelope.checkedAt);
         setSystemStatus({
-          degraded: Boolean(envelope.degraded) || envelope.source !== "vps",
+          degraded:
+            Boolean(envelope.degraded) ||
+            envelope.dataReady === false ||
+            envelope.source !== "vps",
           pipelineStatus: envelope.status ?? "unknown",
+          dataReady: envelope.dataReady !== false,
+          dataStatus: envelope.dataStatus ?? "unknown",
+          reviewPending: envelope.reviewPending === true,
+          reasonerBlocked: envelope.reasonerBlocked === true,
+          unreviewedSources: envelope.unreviewedSources ?? {
+            telegram: false,
+            x: false,
+          },
           model: envelope.model ?? null,
           codexEntries: Number(envelope.codexEntries || 0),
           codexMedia: Number(envelope.codexMedia || 0),
@@ -978,6 +1006,7 @@ export default function Home() {
           xSourceNewestAt: envelope.xSourceNewestAt ?? null,
           xSourceBudget: envelope.xSourceBudget ?? null,
           reasoner: envelope.reasoner ?? null,
+          pendingAnalysis: envelope.pendingAnalysis ?? null,
           activity: Array.isArray(envelope.activity) ? envelope.activity : [],
           astroItems,
           liveEventCursor: envelope.liveEventCursor ?? null,
@@ -1039,7 +1068,20 @@ export default function Home() {
         }
         setSystemStatus((current) => ({
           ...current,
+          degraded:
+            envelope.dataReady === false
+              ? true
+              : envelope.dataReady === true
+                ? false
+                : current.degraded,
           pipelineStatus: envelope.status ?? current.pipelineStatus,
+          dataReady: envelope.dataReady ?? current.dataReady,
+          dataStatus: envelope.dataStatus ?? current.dataStatus,
+          reviewPending: envelope.reviewPending ?? current.reviewPending,
+          reasonerBlocked:
+            envelope.reasonerBlocked ?? current.reasonerBlocked,
+          unreviewedSources:
+            envelope.unreviewedSources ?? current.unreviewedSources,
           runId: envelope.runId ?? current.runId,
           telegramSourceStatus:
             envelope.telegramSourceStatus ??
@@ -1070,6 +1112,8 @@ export default function Home() {
           xSourceBudget:
             envelope.xSourceBudget ?? current.xSourceBudget,
           reasoner: envelope.reasoner ?? current.reasoner,
+          pendingAnalysis:
+            envelope.pendingAnalysis ?? current.pendingAnalysis,
           activity: events.length ? events : current.activity,
           astroItems: Array.isArray(envelope.astroItems)
             ? envelope.astroItems
@@ -1338,6 +1382,12 @@ export default function Home() {
     if (!Number.isFinite(checked)) {
       return { label: "CHECK TIME UNKNOWN", tone: "stale" };
     }
+    if (systemStatus.reasonerBlocked) {
+      return { label: "REVIEW BLOCKED", tone: "stale" };
+    }
+    if (systemStatus.reviewPending) {
+      return { label: "REVIEW QUEUED", tone: "aging" };
+    }
     const ageMinutes = Math.max(0, Math.floor((clockNow - checked) / 60_000));
     if (ageMinutes <= 3) {
       return { label: "LIVE · CHECKED NOW", tone: "live" };
@@ -1346,9 +1396,35 @@ export default function Home() {
       return { label: `CHECKED ${ageMinutes}M AGO`, tone: "aging" };
     }
     return { label: `LATE · ${ageMinutes}M AGO`, tone: "stale" };
-  }, [clockNow, signalCheckedAt]);
+  }, [
+    clockNow,
+    signalCheckedAt,
+    systemStatus.reasonerBlocked,
+    systemStatus.reviewPending,
+  ]);
   const latestActivity = systemStatus.activity.at(-1) ?? null;
   const liveState = useMemo(() => {
+    if (
+      latestActivity?.kind === "analysis_deferred" ||
+      systemStatus.reasonerBlocked
+    ) {
+      return {
+        label: "REVIEW BLOCKED",
+        detail:
+          latestActivity?.detail ||
+          "New Astro information is saved, but no model slot is available to review it yet.",
+        tone: "error",
+      };
+    }
+    if (systemStatus.reviewPending) {
+      return {
+        label: "REVIEW QUEUED",
+        detail:
+          latestActivity?.detail ||
+          "New Astro information is saved. Hermes has not approved a new plan yet.",
+        tone: "error",
+      };
+    }
     if (systemStatus.degraded || systemStatus.pipelineStatus === "error") {
       return {
         label: "NEEDS ATTENTION",
@@ -1387,14 +1463,6 @@ export default function Home() {
         label: "THE PLAN CHANGED",
         detail: "The chart and the simple answer now show the new saved read.",
         tone: "working",
-      };
-    }
-    if (latestActivity?.kind === "analysis_deferred") {
-      return {
-        label: "POST SEEN · REVIEW QUEUED",
-        detail:
-          "The update is saved, but the deeper Hermes review reached its current usage limit.",
-        tone: "error",
       };
     }
     if (
@@ -1443,6 +1511,8 @@ export default function Home() {
   }, [
     latestActivity,
     systemStatus.degraded,
+    systemStatus.reasonerBlocked,
+    systemStatus.reviewPending,
     systemStatus.pipelineStatus,
   ]);
 
@@ -1615,7 +1685,13 @@ export default function Home() {
           <div className="neo-tools">
             <span className={systemStatus.degraded ? "stale" : "live"}>
               <i />
-              {systemStatus.degraded ? "Saved" : "Live"}
+              {systemStatus.reasonerBlocked
+                ? "Review blocked"
+                : systemStatus.reviewPending
+                  ? "Review queued"
+                  : systemStatus.degraded
+                    ? "Saved"
+                    : "Live"}
             </span>
             <button
               aria-label="Refresh"
@@ -1939,7 +2015,13 @@ export default function Home() {
         <div className="app-menu-status">
           <p>
             <i className={`connection-dot ${systemStatus.degraded ? "stale" : forecast.mode}`} />
-            {systemStatus.degraded ? "Protected snapshot" : "Systems live"}
+            {systemStatus.reasonerBlocked
+              ? "Review blocked"
+              : systemStatus.reviewPending
+                ? "Review queued"
+                : systemStatus.degraded
+                  ? "Protected snapshot"
+                  : "Systems live"}
           </p>
           <button
             aria-pressed={soundAlertsEnabled}

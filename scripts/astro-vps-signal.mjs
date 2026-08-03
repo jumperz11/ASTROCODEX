@@ -65,6 +65,18 @@ function asText(value, fallback = "") {
   return typeof value === "string" ? value.trim() : fallback;
 }
 
+function timestampMs(value) {
+  const parsed = new Date(value || 0).getTime();
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function sourceIsUnreviewed(newestAt, analyzedAt) {
+  const newest = timestampMs(newestAt);
+  if (newest === null) return false;
+  const analyzed = timestampMs(analyzedAt);
+  return analyzed === null || newest > analyzed;
+}
+
 function eventOutcomeFor(runtimeEvents, entityRef) {
   const matched = [...runtimeEvents]
     .reverse()
@@ -239,9 +251,60 @@ async function currentHealth() {
     const stale =
       !Number.isFinite(lastSuccessfulMs) ||
       Date.now() - lastSuccessfulMs > staleAfterMs;
+    const telegramNewestAt =
+      liveTelegram.newestAcceptedAt ??
+      state.telegramSource?.newestAcceptedAt ??
+      null;
+    const xNewestAt =
+      liveX.newestAcceptedAt ?? state.xSource?.newestAcceptedAt ?? null;
+    const unreviewedSources = {
+      telegram: sourceIsUnreviewed(
+        telegramNewestAt,
+        state.telegramSource?.analyzedNewestAt,
+      ),
+      x: sourceIsUnreviewed(xNewestAt, state.xSource?.analyzedNewestAt),
+    };
+    const pendingAnalysis =
+      state.pendingAnalysis && typeof state.pendingAnalysis === "object"
+        ? state.pendingAnalysis
+        : null;
+    const reasoner =
+      state.reasoner && typeof state.reasoner === "object"
+        ? state.reasoner
+        : null;
+    const reasonerBlocked =
+      reasoner?.material === true &&
+      ["rate_limited", "degraded", "error", "unavailable"].includes(
+        reasoner.status,
+      );
+    const reviewPending =
+      Boolean(pendingAnalysis) ||
+      unreviewedSources.telegram ||
+      unreviewedSources.x;
+    const dataReady =
+      !stale &&
+      state.status !== "error" &&
+      !reviewPending &&
+      !reasonerBlocked;
+    const dataStatus = stale
+      ? "stale"
+      : state.status === "error"
+        ? "error"
+        : reviewPending && reasonerBlocked
+          ? "blocked"
+          : reviewPending
+            ? "review_pending"
+            : reasonerBlocked
+              ? "blocked"
+              : "ready";
     return {
       ok: !stale && state.status !== "error",
       status: stale ? "stale" : state.status,
+      dataReady,
+      dataStatus,
+      reviewPending,
+      reasonerBlocked,
+      unreviewedSources,
       checkedAt: state.checkedAt ?? null,
       lastSuccessfulAt: state.lastSuccessfulAt ?? null,
       forecastGeneratedAt: state.forecastGeneratedAt ?? null,
@@ -258,10 +321,7 @@ async function currentHealth() {
         liveTelegram.status ?? state.telegramSource?.status ?? "unknown",
       telegramSourceLastSuccessAt:
         liveTelegram.lastSuccessAt ?? state.telegramSource?.lastSuccessAt ?? null,
-      telegramSourceNewestAt:
-        liveTelegram.newestAcceptedAt ??
-        state.telegramSource?.newestAcceptedAt ??
-        null,
+      telegramSourceNewestAt: telegramNewestAt,
       telegramSourceLastAnalyzedAt:
         state.telegramSource?.lastAnalyzedAt ?? null,
       telegramSourceAnalyzedNewestAt:
@@ -279,17 +339,10 @@ async function currentHealth() {
       xSourceStatus: liveX.status ?? state.xSource?.status ?? "unknown",
       xSourceLastSuccessAt:
         liveX.lastSuccessAt ?? state.xSource?.lastSuccessAt ?? null,
-      xSourceNewestAt:
-        liveX.newestAcceptedAt ?? state.xSource?.newestAcceptedAt ?? null,
+      xSourceNewestAt: xNewestAt,
       xSourceBudget: liveX.budget ?? state.xSource?.budget ?? null,
-      reasoner:
-        state.reasoner && typeof state.reasoner === "object"
-          ? state.reasoner
-          : null,
-      pendingAnalysis:
-        state.pendingAnalysis && typeof state.pendingAnalysis === "object"
-          ? state.pendingAnalysis
-          : null,
+      reasoner,
+      pendingAnalysis,
       lastAnalysis:
         state.lastAnalysis && typeof state.lastAnalysis === "object"
           ? state.lastAnalysis
@@ -310,6 +363,11 @@ async function currentHealth() {
     return {
       ok: false,
       status: "starting",
+      dataReady: false,
+      dataStatus: "starting",
+      reviewPending: false,
+      reasonerBlocked: false,
+      unreviewedSources: { telegram: false, x: false },
       checkedAt: null,
       lastSuccessfulAt: null,
       forecastGeneratedAt: null,
@@ -424,6 +482,11 @@ const server = createServer(async (request, response) => {
       .end(
         JSON.stringify({
           status: health.status,
+          dataReady: health.dataReady,
+          dataStatus: health.dataStatus,
+          reviewPending: health.reviewPending,
+          reasonerBlocked: health.reasonerBlocked,
+          unreviewedSources: health.unreviewedSources,
           checkedAt: health.checkedAt,
           runId: health.runId,
           telegramSourceStatus: health.telegramSourceStatus,
@@ -437,6 +500,7 @@ const server = createServer(async (request, response) => {
           xSourceNewestAt: health.xSourceNewestAt,
           xSourceBudget: health.xSourceBudget,
           reasoner: health.reasoner,
+          pendingAnalysis: health.pendingAnalysis,
           activity: health.activity,
           astroItems: health.astroItems,
           liveEventCursor: health.liveEventCursor,
@@ -469,6 +533,11 @@ const server = createServer(async (request, response) => {
           forecast,
           checkedAt: health.checkedAt,
           status: health.status,
+          dataReady: health.dataReady,
+          dataStatus: health.dataStatus,
+          reviewPending: health.reviewPending,
+          reasonerBlocked: health.reasonerBlocked,
+          unreviewedSources: health.unreviewedSources,
           runId: health.runId,
           model: health.model,
           codexEntries: health.codexEntries,
@@ -491,6 +560,7 @@ const server = createServer(async (request, response) => {
           xSourceNewestAt: health.xSourceNewestAt,
           xSourceBudget: health.xSourceBudget,
           reasoner: health.reasoner,
+          pendingAnalysis: health.pendingAnalysis,
           ledger: health.ledger,
           activity: health.activity,
           astroItems: health.astroItems,
