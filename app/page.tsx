@@ -8,6 +8,7 @@ import NightSchool from "./night-school";
 import LearningPulse from "./learning-pulse";
 import PositionsView from "./positions-view";
 import ActivityCenter, { type AstroItem } from "./activity-center";
+import HermesChat from "./hermes-chat";
 
 type Evidence = {
   type: "astro" | "framework" | "inference";
@@ -778,6 +779,7 @@ export default function Home() {
       | "journal"
       | "positions"
       | "hermes"
+      | "chat"
       | "history"
       | "evidence"
       | "playbook"
@@ -1598,6 +1600,7 @@ export default function Home() {
       | "journal"
       | "positions"
       | "hermes"
+      | "chat"
       | "history"
       | "evidence"
       | "playbook",
@@ -1874,9 +1877,13 @@ export default function Home() {
               hermesFailure={forecast.hermes.failure}
               astroPosition={forecast.decision.position}
               astroConfirmed={forecast.thesis.astroConfirmed}
+              astroEntry={`${forecast.execution.entry.state} · ${forecast.execution.entry.level}`}
               astroTakeProfit={`${forecast.execution.takeProfit.state} · ${forecast.execution.takeProfit.level}`}
+              astroExit={`${forecast.execution.exit.state} · ${forecast.execution.exit.level}`}
               schoolMatch={forecast.hermes.learningNote}
               marketContext={forecast.thesis.regime}
+              reviewBlocked={systemStatus.reasonerBlocked}
+              reviewPending={systemStatus.reviewPending}
               hermesProjection={forecast.hermes.projection}
               hermesAudit={systemStatus.hermesAudit}
               hermesAnchorPrice={systemStatus.hermesAudit?.anchorPrice ?? null}
@@ -2001,11 +2008,14 @@ export default function Home() {
           <button className={activeView === "live" ? "active" : ""} onClick={() => showView("live")}>
             <span>03</span><strong>Live</strong><small>What Hermes is doing</small>
           </button>
+          <button className={activeView === "chat" ? "active" : ""} onClick={() => showView("chat")}>
+            <span>04</span><strong>Ask Hermes</strong><small>Talk to DeepSeek</small>
+          </button>
           <button
             className={["journal", "positions", "hermes", "history", "evidence", "playbook"].includes(activeView) ? "active" : ""}
             onClick={() => showView("journal")}
           >
-            <span>04</span><strong>History</strong><small>Past moves + school</small>
+            <span>05</span><strong>History</strong><small>Past moves + school</small>
           </button>
         </nav>
 
@@ -2113,6 +2123,7 @@ export default function Home() {
             <nav className="simple-actions" aria-label="Main actions">
               <button onClick={() => showView("chart")}><strong>Chart</strong><span>Levels and projection</span></button>
               <button onClick={() => showView("journal")}><strong>History</strong><span>Past moves and school</span></button>
+              <button onClick={() => showView("chat")}><strong>Ask Hermes</strong><span>Talk to DeepSeek</span></button>
             </nav>
 
             {notice && <p className="notice">{notice}</p>}
@@ -2152,9 +2163,13 @@ export default function Home() {
             hermesFailure={forecast.hermes.failure}
             astroPosition={forecast.decision.position}
             astroConfirmed={forecast.thesis.astroConfirmed}
+            astroEntry={`${forecast.execution.entry.state} · ${forecast.execution.entry.level}`}
             astroTakeProfit={`${forecast.execution.takeProfit.state} · ${forecast.execution.takeProfit.level}`}
+            astroExit={`${forecast.execution.exit.state} · ${forecast.execution.exit.level}`}
             schoolMatch={forecast.hermes.learningNote}
             marketContext={forecast.thesis.regime}
+            reviewBlocked={systemStatus.reasonerBlocked}
+            reviewPending={systemStatus.reviewPending}
             hermesProjection={forecast.hermes.projection}
             hermesAudit={systemStatus.hermesAudit}
             hermesAnchorPrice={systemStatus.hermesAudit?.anchorPrice ?? null}
@@ -2663,7 +2678,18 @@ export default function Home() {
               probability, but cannot create a confirmed trade.
             </p>
           </div>
+          <button className="hermes-chat-open" type="button" onClick={() => showView("chat")}>
+            Ask Hermes about this map →
+          </button>
         </section>
+      )}
+
+      {activeView === "chat" && (
+        <HermesChat
+          reviewBlocked={systemStatus.reasonerBlocked}
+          reviewPending={systemStatus.reviewPending}
+          signal={forecast.signal.state}
+        />
       )}
 
       {activeView === "history" && <AstroHistory />}

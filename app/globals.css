@@ -3207,6 +3207,302 @@ a {
   line-height: 1.6;
 }
 
+.hermes-chat-open {
+  margin-top: 24px;
+  padding: 13px 17px;
+  border: 1px solid rgba(122, 162, 255, 0.45);
+  background: rgba(122, 162, 255, 0.09);
+  color: #b7ccff;
+  font: 700 9px/1.2 "SFMono-Regular", Consolas, monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.hermes-chat-view {
+  min-height: 100vh;
+  padding: 80px 4.5vw 90px;
+  background: #090a0d;
+}
+
+.hermes-chat-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 42px;
+  align-items: end;
+  padding-bottom: 34px;
+  border-bottom: 1px solid var(--line);
+}
+
+.hermes-chat-head h1 {
+  margin: 16px 0 12px;
+  color: var(--paper);
+  font-size: clamp(44px, 6vw, 78px);
+  font-weight: 500;
+  letter-spacing: -0.065em;
+  line-height: 0.94;
+}
+
+.hermes-chat-head p {
+  max-width: 760px;
+  margin: 0;
+  color: #9fa6b1;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.hermes-chat-status {
+  padding: 18px;
+  border: 1px solid rgba(122, 162, 255, 0.25);
+  background: #0e1117;
+  box-shadow: inset 0 2px 0 #7aa2ff;
+}
+
+.hermes-chat-status span,
+.hermes-chat-status small,
+.hermes-chat-message > small,
+.hermes-chat-form label,
+.hermes-chat-facts small {
+  color: var(--muted);
+  font: 8px/1.4 "SFMono-Regular", Consolas, monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.hermes-chat-status span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #9ebaff;
+}
+
+.hermes-chat-status span i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.hermes-chat-status strong {
+  display: block;
+  margin: 16px 0 8px;
+  color: var(--paper);
+  font-size: 21px;
+  letter-spacing: -0.03em;
+}
+
+.hermes-chat-status small {
+  display: block;
+  color: #8e98a7;
+  line-height: 1.55;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.hermes-chat-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 24px 0 14px;
+}
+
+.hermes-chat-suggestions button {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  background: #0e1014;
+  color: #aab2bf;
+  font-size: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hermes-chat-suggestions button:hover,
+.hermes-chat-suggestions button:focus-visible {
+  border-color: rgba(122, 162, 255, 0.6);
+  color: var(--paper);
+}
+
+.hermes-chat-log {
+  display: grid;
+  gap: 12px;
+  max-width: 980px;
+  min-height: 280px;
+  max-height: 58vh;
+  overflow: auto;
+  padding: 10px 0 22px;
+}
+
+.hermes-chat-message {
+  max-width: 860px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  background: #0e1014;
+}
+
+.hermes-chat-message.user {
+  justify-self: end;
+  border-color: rgba(255, 176, 0, 0.24);
+  background: rgba(255, 176, 0, 0.045);
+}
+
+.hermes-chat-message > p {
+  margin: 8px 0 0;
+  color: #d8dde5;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.hermes-chat-message.working > p {
+  color: #9ebaff;
+}
+
+.hermes-chat-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.hermes-chat-facts article {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #0a0c0f;
+}
+
+.hermes-chat-facts article > strong {
+  display: block;
+  margin-top: 8px;
+  color: #c9d0db;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.hermes-chat-levels {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.hermes-chat-levels span {
+  padding: 8px 10px;
+  border: 1px solid rgba(82, 230, 167, 0.28);
+  color: #b8c3d0;
+  font-size: 11px;
+}
+
+.hermes-chat-levels b {
+  margin-right: 5px;
+  color: var(--green);
+  font: 8px "SFMono-Regular", Consolas, monospace;
+  letter-spacing: 0.08em;
+}
+
+.hermes-chat-error {
+  max-width: 980px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 107, 102, 0.35);
+  color: #ffaaa5;
+  font-size: 11px;
+}
+
+.hermes-chat-form {
+  max-width: 980px;
+  padding-top: 10px;
+}
+
+.hermes-chat-form label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.hermes-chat-form > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.hermes-chat-form input {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  outline: 0;
+  background: #0e1014;
+  color: var(--paper);
+  font-size: 13px;
+}
+
+.hermes-chat-form input:focus {
+  border-color: rgba(122, 162, 255, 0.65);
+}
+
+.hermes-chat-form button {
+  padding: 0 20px;
+  border: 0;
+  background: #7aa2ff;
+  color: #08101e;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.hermes-chat-form button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+@media (max-width: 720px) {
+  .hermes-chat-view {
+    padding: 36px 18px 70px;
+  }
+
+  .hermes-chat-head {
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+
+  .hermes-chat-head h1 {
+    font-size: 52px;
+  }
+
+  .hermes-chat-head p {
+    font-size: 12px;
+  }
+
+  .hermes-chat-suggestions {
+    display: grid;
+  }
+
+  .hermes-chat-suggestions button {
+    width: 100%;
+  }
+
+  .hermes-chat-log {
+    max-height: none;
+  }
+
+  .hermes-chat-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .hermes-chat-levels {
+    grid-column: auto;
+  }
+
+  .hermes-chat-form > div {
+    grid-template-columns: 1fr;
+  }
+
+  .hermes-chat-form button {
+    min-height: 48px;
+  }
+}
+
 .view-intro {
   border-bottom: 1px solid var(--line);
   padding-bottom: 45px;
@@ -12166,6 +12462,61 @@ body {
   color: #777b8d;
   font-size: 10px;
   line-height: 1.5;
+}
+
+.chart-review-stale {
+  position: absolute;
+  z-index: 4;
+  top: 14px;
+  left: 14px;
+  display: grid;
+  gap: 5px;
+  max-width: min(320px, calc(100% - 28px));
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 176, 0, 0.55);
+  border-left: 3px solid #ffb000;
+  background: rgba(24, 20, 10, 0.94);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.28);
+}
+
+.chart-review-stale small {
+  color: #ffb000;
+  font: 800 8px/1.2 "SFMono-Regular", Consolas, monospace;
+  letter-spacing: 0.1em;
+}
+
+.chart-review-stale strong {
+  color: #fff1ca;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.chart-review-stale span {
+  color: #c8b98e;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.chart-review-note {
+  display: grid;
+  gap: 5px;
+  margin-top: 12px;
+  padding: 13px 15px;
+  border: 1px solid rgba(255, 176, 0, 0.3);
+  border-left: 3px solid #ffb000;
+  border-radius: 10px;
+  background: #fffaf0;
+  color: #574614;
+}
+
+.chart-review-note strong {
+  font: 800 9px/1.2 "SFMono-Regular", Consolas, monospace;
+  letter-spacing: 0.08em;
+}
+
+.chart-review-note span {
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .chart-levels-details,

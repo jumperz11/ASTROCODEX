@@ -60,15 +60,18 @@ const history = {
 
 test("Telegram snapshot separates Astro and Hermes targets", () => {
   const snapshot = telegramSnapshot(forecast, history, { price: 62800 });
-  assert.match(snapshot.text, /WHAT ASTRO IS DOING/);
+  assert.match(snapshot.text, /ASTRO NOW/);
   assert.match(snapshot.text, /Astro still has a short open/);
-  assert.match(snapshot.text, /WHAT HERMES EXPECTS/);
+  assert.match(snapshot.text, /ASTRO IN: /);
+  assert.match(snapshot.text, /ASTRO TP: /);
+  assert.match(snapshot.text, /ASTRO SL \/ EXIT: /);
+  assert.match(snapshot.text, /HERMES NEXT/);
   assert.match(snapshot.text, /Hermes agrees: price may fall first, then bounce/);
   assert.match(snapshot.text, /Next price area: \$62,358/);
   assert.match(snapshot.text, /Then watch: \$64,600/);
   assert.match(snapshot.text, /Price now: \$62,800/);
-  assert.match(snapshot.text, /WHAT TO DO NOW/);
-  assert.match(snapshot.text, /WHAT ASTRO IS DOING\n.+\n\nWHAT HERMES EXPECTS/);
+  assert.match(snapshot.text, /YOUR NEXT CHECK/);
+  assert.match(snapshot.text, /ASTRO NOW\n.+\n\nASTRO IN:/);
   assert.doesNotMatch(snapshot.text, /CHECKPOINTS|AGREEMENT ·|TP STATE/);
   assert.match(snapshot.text, /No automatic trading/i);
 });
@@ -172,10 +175,27 @@ test("Telegram notifier explains a queued Astro review", () => {
     },
   );
   assert.match(snapshot.text, /ASTRO UPDATE SEEN/);
-  assert.match(snapshot.text, /deeper review is queued/i);
-  assert.match(snapshot.text, /last validated plan remains active/i);
+  assert.match(snapshot.text, /review is waiting/i);
+  assert.match(snapshot.text, /last validated plan/i);
+  assert.match(snapshot.text, /ASTRO IN:/);
   assert.match(
     snapshot.text,
     /https:\/\/x\.com\/astronomer_zero\/status\/2083999999999999999/,
   );
+});
+
+test("Telegram keeps one alert while a review remains queued", () => {
+  const first = telegramSnapshot(
+    forecast,
+    history,
+    { price: 62800 },
+    { entityRef: "x:1", reason: "provider full" },
+  );
+  const later = telegramSnapshot(
+    forecast,
+    history,
+    { price: 62700 },
+    { entityRef: "x:2", reason: "provider full" },
+  );
+  assert.equal(first.signature, later.signature);
 });

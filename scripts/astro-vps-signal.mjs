@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { answerHermesQuestion } from "./hermes-chat.mjs";
 import { buildSchoolAudit } from "./school-audit.mjs";
 import {
   defaultLedgerPath,
@@ -55,6 +56,19 @@ function authorized(request) {
     expectedBuffer.length === suppliedBuffer.length &&
     timingSafeEqual(expectedBuffer, suppliedBuffer)
   );
+}
+
+async function readRequestJson(request, maxBytes = 8_000) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request) {
+    size += Buffer.byteLength(chunk);
+    if (size > maxBytes) throw new Error("Request is too large.");
+    chunks.push(chunk);
+  }
+  if (!chunks.length) return {};
+  const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  return body && typeof body === "object" && !Array.isArray(body) ? body : {};
 }
 
 async function readJson(path) {
@@ -406,8 +420,9 @@ async function currentHealth() {
 const server = createServer(async (request, response) => {
   const url = new URL(request.url || "/", `http://${request.headers.host || host}`);
 
-  if (request.method !== "GET") {
-    response.writeHead(405, { Allow: "GET" }).end();
+  const isChatRequest = request.method === "POST" && url.pathname === "/chat";
+  if (request.method !== "GET" && !isChatRequest) {
+    response.writeHead(405, { Allow: "GET, POST" }).end();
     return;
   }
 
@@ -425,13 +440,45 @@ const server = createServer(async (request, response) => {
   if (
     url.pathname !== "/signal" &&
     url.pathname !== "/history" &&
-    url.pathname !== "/events"
+    url.pathname !== "/events" &&
+    url.pathname !== "/chat"
   ) {
     response.writeHead(404).end();
     return;
   }
   if (!authorized(request)) {
     response.writeHead(401).end();
+    return;
+  }
+
+  if (isChatRequest) {
+    try {
+      const body = await readRequestJson(request);
+      const result = await answerHermesQuestion({
+        question: body.question,
+        conversation: body.conversation,
+      });
+      const status = result.status === "ok" ? 200 : result.status === "invalid" ? 400 : 503;
+      response
+        .writeHead(status, {
+          "Content-Type": "application/json",
+          "Cache-Control": "private, no-store, max-age=0",
+        })
+        .end(JSON.stringify(result));
+    } catch (error) {
+      response
+        .writeHead(400, {
+          "Content-Type": "application/json",
+          "Cache-Control": "private, no-store, max-age=0",
+        })
+        .end(
+          JSON.stringify({
+            status: "invalid",
+            error:
+              error instanceof Error ? error.message : "Invalid chat request.",
+          }),
+        );
+    }
     return;
   }
 

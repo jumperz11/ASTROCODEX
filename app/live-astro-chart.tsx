@@ -333,9 +333,13 @@ export default function LiveAstroChart({
   hermesFailure,
   astroPosition,
   astroConfirmed,
+  astroEntry,
   astroTakeProfit,
+  astroExit,
   schoolMatch,
   marketContext,
+  reviewBlocked,
+  reviewPending,
   hermesProjection,
   hermesAudit,
   hermesAnchorPrice = null,
@@ -360,9 +364,13 @@ export default function LiveAstroChart({
   hermesFailure: string;
   astroPosition: string;
   astroConfirmed: string;
+  astroEntry: string;
   astroTakeProfit: string;
+  astroExit: string;
   schoolMatch: string;
   marketContext: string;
+  reviewBlocked: boolean;
+  reviewPending: boolean;
   hermesProjection?: HermesProjection;
   hermesAudit?: HermesAudit | null;
   hermesAnchorPrice?: number | null;
@@ -395,6 +403,7 @@ export default function LiveAstroChart({
     ["partial", "invalidated", "expired", "superseded"].includes(
       hermesAudit?.marketStatus ?? "",
     );
+  const reviewNeedsRefresh = reviewBlocked || reviewPending;
 
   const parsedLevels = useMemo(
     () =>
@@ -1186,8 +1195,17 @@ export default function LiveAstroChart({
           !hermesMapUnavailable &&
           hermesProjectionPlan && (
           <>
+            {reviewNeedsRefresh && (
+              <div className="chart-review-stale">
+                <small>NEW ASTRO SOURCE WAITING</small>
+                <strong>This is the last saved Hermes map</strong>
+                <span>It is not a fresh prediction until review completes.</span>
+              </div>
+            )}
             <div className="chart-hermes-hud">
-              <small>HERMES · PROBABILITY MAP</small>
+              <small>
+                HERMES · {reviewNeedsRefresh ? "LAST SAVED MAP" : "PROBABILITY MAP"}
+              </small>
               <strong>
                 {hermesProjectionPlan.currentIsDown ? "FINISH ↓" : "BUILD ↑"}
                 <i>→</i>
@@ -1231,6 +1249,16 @@ export default function LiveAstroChart({
           </div>
         )}
       </div>
+
+      {reviewNeedsRefresh && (
+        <div className="chart-review-note" role="status">
+          <strong>NEW ASTRO SOURCE · {freshnessLabel}</strong>
+          <span>
+            The source is visible in Updates. Astro IN / TP / SL below are the
+            last accepted public fields until Hermes finishes the review.
+          </span>
+        </div>
+      )}
 
       {overlayMode === "hermes" ? (
         <section className="chart-hermes-brief" aria-label="Hermes longer-horizon chart thesis">
@@ -1418,19 +1446,19 @@ export default function LiveAstroChart({
         </header>
         <div>
           <article>
-            <small>PUBLIC POSITION</small>
-            <strong>{astroPosition}</strong>
+            <small>ASTRO IN / POSITION</small>
+            <strong>{astroEntry}</strong>
             <p>{astroConfirmed}</p>
           </article>
           <article>
-            <small>PUBLIC TP / MANAGEMENT</small>
+            <small>ASTRO TP / MANAGEMENT</small>
             <strong>{astroTakeProfit}</strong>
             <p>No Hermes or market-only level is labeled as Astro.</p>
           </article>
           <article>
-            <small>WHAT CHANGES IT</small>
-            <strong>{riskText}</strong>
-            <p>If no exact price is public, the chart does not invent one.</p>
+            <small>ASTRO SL / EXIT</small>
+            <strong>{astroExit}</strong>
+            <p>{riskText || "If no exact price is public, the chart does not invent one."}</p>
           </article>
         </div>
       </section>

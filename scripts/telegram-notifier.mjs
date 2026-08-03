@@ -150,6 +150,12 @@ function plainWatchLine(forecast) {
   return "Wait for a direct Astro post with an entry and price levels.";
 }
 
+function executionLine(label, level = {}) {
+  const state = String(level?.state || "Not confirmed").trim();
+  const value = String(level?.level || "Not public").trim();
+  return `${label}: ${state} · ${value}`;
+}
+
 function agreementRead(forecast, prediction) {
   const astro = astroDirection(forecast);
   const hermes = hermesDirection(prediction);
@@ -205,7 +211,7 @@ export function telegramSnapshot(
     : [];
   const hitCount = checkpoints.filter((checkpoint) => checkpoint.hitAt).length;
   const signatureData = {
-    formatVersion: 2,
+    formatVersion: 3,
     forecastId: forecast?.generatedAt ?? null,
     signal: forecast?.signal?.state ?? null,
     evidence: evidence?.source ?? null,
@@ -217,7 +223,8 @@ export function telegramSnapshot(
       behaviorPrediction?.behaviorOutcome?.status ??
       prediction?.behaviorOutcome?.status ??
       null,
-    pendingEntityRef: pendingAnalysis?.entityRef ?? null,
+    // A queued review is one lifecycle state. Do not send one Telegram alert
+    // for every new source while the same review is still waiting for a model.
     pendingStatus: pendingAnalysis ? "queued" : null,
   };
   const signature = createHash("sha256")
@@ -231,24 +238,31 @@ export function telegramSnapshot(
     "",
     ...(pendingAnalysis
       ? [
-          "Hermes saw the new Astro source, but the deeper review is queued.",
-          "The last validated plan remains active. No new entry or exit was saved.",
+          "A new Astro source was seen. Hermes review is waiting.",
+          "The chart still shows the last validated plan; no new action was saved.",
           "",
-          `Reason: ${pendingAnalysis.reason || "model slot unavailable"}`,
+          executionLine("ASTRO IN", forecast?.execution?.entry),
+          executionLine("ASTRO TP", forecast?.execution?.takeProfit),
+          executionLine("ASTRO SL / EXIT", forecast?.execution?.exit),
+          "HERMES: PAUSED · waiting for review",
           `Price now: ${formatPrice(market?.price)}`,
         ]
       : [
-          "WHAT ASTRO IS DOING",
+          "ASTRO NOW",
           plainAstroPosition(forecast),
           "",
-          "WHAT HERMES EXPECTS",
+          executionLine("ASTRO IN", forecast?.execution?.entry),
+          executionLine("ASTRO TP", forecast?.execution?.takeProfit),
+          executionLine("ASTRO SL / EXIT", forecast?.execution?.exit),
+          "",
+          "HERMES NEXT",
           plainHermesPath(prediction, agreement),
           "",
           ...priceLines,
           "",
           `Price now: ${formatPrice(market?.price)}`,
           "",
-          "WHAT TO DO NOW",
+          "YOUR NEXT CHECK",
           plainWatchLine(forecast),
         ]),
     "",
