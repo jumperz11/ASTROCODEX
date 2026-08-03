@@ -1404,10 +1404,7 @@ export default function Home() {
   ]);
   const latestActivity = systemStatus.activity.at(-1) ?? null;
   const liveState = useMemo(() => {
-    if (
-      latestActivity?.kind === "analysis_deferred" ||
-      systemStatus.reasonerBlocked
-    ) {
+    if (systemStatus.reasonerBlocked) {
       return {
         label: "REVIEW BLOCKED",
         detail:
