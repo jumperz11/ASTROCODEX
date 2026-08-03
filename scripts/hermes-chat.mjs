@@ -117,6 +117,24 @@ export function normalizeChatAnswer(value) {
   };
 }
 
+export function markPendingChatAnswer(answer, pendingReview) {
+  if (!pendingReview || !answer) return answer;
+  return {
+    ...answer,
+    answer: `REVIEW PENDING — ${answer.answer}`.slice(0, 2_400),
+    astro: `Unapproved new-source read: ${answer.astro || "Not confirmed"}`.slice(
+      0,
+      800,
+    ),
+    hermes: `Preview only, not the saved plan: ${answer.hermes || "No saved prediction"}`.slice(
+      0,
+      800,
+    ),
+    confidence:
+      answer.confidence === null ? null : Math.min(answer.confidence, 50),
+  };
+}
+
 export function buildHermesChatPrompt({
   question,
   conversation = [],
@@ -269,10 +287,12 @@ export async function answerHermesQuestion({
       reason: "invalid_answer",
     };
   }
+  const pendingReview = Boolean(state?.pendingAnalysis);
+  const safeAnswer = markPendingChatAnswer(answer, pendingReview);
   return {
     status: "ok",
     provider: result.model ?? "deepseek-v4-flash",
-    answer,
+    answer: safeAnswer,
     context: {
       forecastGeneratedAt: state?.forecastGeneratedAt ?? forecast?.generatedAt ?? null,
       checkedAt: state?.checkedAt ?? null,

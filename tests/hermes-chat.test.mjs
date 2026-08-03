@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   buildHermesChatPrompt,
+  markPendingChatAnswer,
   normalizeChatAnswer,
 } from "../scripts/hermes-chat.mjs";
 
@@ -39,4 +40,20 @@ test("Hermes chat prompt says when the accepted plan is stale", () => {
   });
   assert.match(prompt, /saved plan is old\/pending/i);
   assert.match(prompt, /never place, recommend, or execute/i);
+});
+
+test("Hermes chat labels an unreviewed source as a preview", () => {
+  const answer = markPendingChatAnswer(
+    normalizeChatAnswer({
+      answer: "A new source may change the route.",
+      astro: "Astro may be short.",
+      hermes: "Price may fall.",
+      confidence: 90,
+    }),
+    true,
+  );
+  assert.match(answer.answer, /^REVIEW PENDING/);
+  assert.match(answer.astro, /Unapproved/);
+  assert.match(answer.hermes, /Preview only/);
+  assert.equal(answer.confidence, 50);
 });
